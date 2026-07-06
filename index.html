@@ -171,7 +171,11 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
   display:grid; place-items:center; font-size:17px; color:transparent; transition:.12s; flex:none;
 }
 .item.checked .chk{background:var(--accent); border-color:var(--accent); color:#06210F}
-.thumb{width:64px; height:64px; border-radius:9px; object-fit:cover; background:var(--raised); border:1px solid var(--border)}
+.thumb{width:64px; height:64px; border-radius:9px; object-fit:cover; background:var(--raised); border:1px solid var(--border); cursor:zoom-in}
+.lightbox{position:fixed; inset:0; z-index:200; background:rgba(4,6,10,.86); display:grid; place-items:center; padding:20px; cursor:zoom-out}
+.lightbox img{width:500px; height:500px; max-width:92vw; max-height:82vh; object-fit:contain; background:#0e1116; border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.lightbox .lbcap{position:absolute; bottom:22px; left:0; right:0; text-align:center; color:var(--muted); font-size:13px; pointer-events:none; padding:0 20px}
+.lightbox .lbclose{position:absolute; top:16px; right:20px; font-size:30px; color:var(--muted); line-height:1}
 .iname{font-weight:600; font-size:15px; line-height:1.25}
 .ivar{font-size:12.5px; color:var(--muted); margin-top:1px}
 .ichips{display:flex; gap:7px; margin-top:7px; flex-wrap:wrap}
@@ -386,6 +390,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   </section>
 </main>
 
+<div id="lightbox" class="lightbox hide"><span class="lbclose">✕</span><img id="lightboxImg" src="" alt=""><div class="lbcap" id="lightboxCap"></div></div>
 <div id="toasts"></div>
 
 <script>
@@ -571,40 +576,48 @@ async function loadInventory(buf, sourceMeta){
   toast('Inventory loaded','ok',2400);
 }
 
+function itemsChanged(a,b){ a=a||[]; b=b||[]; if(a.length!==b.length) return true; for(let i=0;i<b.length;i++){ const x=a[i]||{},y=b[i]; if(norm(x.name)!==norm(y.name)||norm(x.variation)!==norm(y.variation)||(+x.qty||1)!==(+y.qty||1)) return true; } return false; }
+
 async function addNewOrders(buf){
   let platforms; try{ platforms=parseOrders(buf); }catch(e){ toast(e.message,'err'); return; }
   const sheetPlatforms=new Set(Object.keys(platforms));
   const sheetKeys=new Set();
   for(const pk in platforms) for(const o of platforms[pk].orders) sheetKeys.add(safeKey(pk+'__'+o.trackingId));
   const cur={}; for(const pk in S.platforms) S.platforms[pk].orders.forEach(o=>cur[o._key]=o);
+  const now=Date.now();
+  const claimedFresh=o=>o.claim && (now-(o.claim.at||0))<STALE_MS;
 
-  const updates={}; let added=0;
+  const updates={}; let added=0, updated=0;
+  // adds + item-detail updates (by tracking number)
   for(const pk in platforms) for(const o of platforms[pk].orders){ const k=safeKey(pk+'__'+o.trackingId);
-    if(!(k in cur)){ updates['orders/'+k]={platform:pk,trackingId:o.trackingId,items:o.items,status:'pending',claim:null}; added++; } }
+    if(!(k in cur)){ updates['orders/'+k]={platform:pk,trackingId:o.trackingId,items:o.items,status:'pending',claim:null}; added++; }
+    else { const ex=cur[k];
+      if(ex.status==='pending' && !claimedFresh(ex) && itemsChanged(ex.items,o.items)){ updates['orders/'+k+'/items']=o.items; updated++; }
+    }
+  }
 
-  // removals: present in Firebase but gone from the sheet — only safe ones
-  const now=Date.now(); const removable=[]; let keptHandled=0;
+  // removals: gone from the sheet — now including packed / not-packed; only skip orders being packed right now
+  const removable=[]; let skippedActive=0;
   for(const k in cur){ const o=cur[k];
-    if(sheetKeys.has(k)) continue;                 // still in sheet
-    if(!sheetPlatforms.has(o.platform)) continue;  // platform not part of this refresh → leave alone
-    const claimed = o.claim && (now-(o.claim.at||0))<STALE_MS;
-    if(o.status==='pending' && !claimed) removable.push(k);  // untouched & free → safe to drop
-    else keptHandled++;                            // packed / not-packed / in-progress → keep
+    if(sheetKeys.has(k)) continue;
+    if(!sheetPlatforms.has(o.platform)) continue;   // platform not in this refresh → leave alone
+    if(claimedFresh(o)){ skippedActive++; continue; } // someone is packing it right now → don't yank
+    removable.push(k);
   }
 
   if(removable.length){
-    let msg='Sync with the sheet:\n• add '+added+' new\n• remove '+removable.length+' no longer in the sheet';
-    if(keptHandled) msg+='\n• keep '+keptHandled+' missing but already packed / in-progress';
-    msg+='\n\nRemove them? (Cancel = only add new)';
+    let msg='Sync with the sheet:\n• add '+added+' new\n• update '+updated+' order contents\n• remove '+removable.length+' no longer in the sheet (incl. packed / not-packed)';
+    if(skippedActive) msg+='\n• skip '+skippedActive+' being packed right now';
+    msg+='\n\nRemoving packed orders also drops them from the report. Continue? (Cancel = add & update only)';
     if(confirm(msg)){ for(const k of removable) updates['orders/'+k]=null; }
     else removable.length=0;
   }
 
-  if(Object.keys(updates).length===0){ toast(keptHandled?('No changes · '+keptHandled+' missing but kept'):'No changes','info',2800); return; }
+  if(Object.keys(updates).length===0){ toast(skippedActive?('No changes · '+skippedActive+' active skipped'):'No changes','info',2800); return; }
   await root.update(updates);
-  let t='Added '+added+', removed '+removable.length;
-  if(keptHandled) t+=' · '+keptHandled+' kept (packed/active)';
-  toast(t,'ok',3800);
+  let t='Added '+added+', updated '+updated+', removed '+removable.length;
+  if(skippedActive) t+=' · '+skippedActive+' active skipped';
+  toast(t,'ok',4000);
 }
 
 /* ============================================================
@@ -857,7 +870,7 @@ function renderOrderArea(){
     const qtyMark = multi ? '<span class="qtybadge">× '+q+'</span>' : '';
     html+='<div class="item '+cls+'">'+
       control+
-      '<img class="thumb" src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
+      '<img class="thumb" src="'+esc(img)+'" alt="'+esc(it.name)+(it.variation?' · '+esc(it.variation):'')+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
       '<div><div class="iname">'+esc(it.name)+qtyMark+'</div>'+(it.variation?'<div class="ivar">'+esc(it.variation)+'</div>':'')+
       '<div class="ichips"><span class="chip loc">📍 '+esc(loc)+'</span>'+(multi?'':'<span class="chip qty">qty <b>'+q+'</b></span>')+stockChip+
       (pk.status!=='ok'?'<span class="reasontag">⛔ '+reasonLabel(pk.status)+(pk.reason?': '+esc(pk.reason):'')+'</span>':'')+'</div></div>'+
@@ -1076,6 +1089,9 @@ $('#updInvBtn').onclick=async()=>{ if(!_invSource)return; $('#updInvBtn').disabl
 $('#wipeBtn').onclick=async()=>{ if(!confirm('Clear the ENTIRE shift for everyone? All packing progress will be deleted.'))return; if(!confirm('Are you sure? This cannot be undone.'))return; await root.remove(); toast('Shift cleared','ok'); location.reload(); };
 
 document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) $$('.menupop').forEach(p=>p.classList.add('hide')); });
+document.addEventListener('click',e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains('thumb')){ e.stopPropagation(); const lb=$('#lightbox'); $('#lightboxImg').src=t.src; $('#lightboxCap').textContent=t.alt||''; lb.classList.remove('hide'); } });
+$('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#lightbox').classList.add('hide'); });
 window.addEventListener('beforeunload',()=>{ releaseIfHolding(); });
 
 window.goPlatforms=goPlatforms; window.backToScan=backToScan;
