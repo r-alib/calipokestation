@@ -126,6 +126,8 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 .mode.label{color:var(--info); background:#15233a}
 .mode.items{color:var(--warn); background:#2a2113}
 .scanhead .who{font-size:12.5px; color:var(--muted); margin-left:auto}
+.kbdhint{margin-right:12px; color:var(--faint)}
+.kbdhint kbd{font-family:var(--mono); font-size:10.5px; background:var(--raised); border:1px solid var(--line); border-bottom-width:2px; border-radius:5px; padding:1px 5px; color:var(--muted); margin:0 1px}
 .scanhead .who b{color:var(--ink)}
 .scanrow{display:flex; align-items:center; gap:12px; padding:14px 16px}
 .scanrow input{
@@ -364,7 +366,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div class="scanwrap" id="scanwrap">
       <div class="scanhead">
         <span class="mode label" id="modeTag">Scan label</span>
-        <span class="who">mode: <b id="modeHint">tracking</b></span>
+        <span class="who"><span class="kbdhint" id="kbdHint"></span>mode: <b id="modeHint">tracking</b></span>
       </div>
       <div class="scanrow">
         <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan label barcode…">
@@ -827,7 +829,17 @@ function reasonLabel(s){ return {out_of_stock:'Out of stock',damaged:'Damaged',o
 
 function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) return esc(t); for(let i=0;i<t.length;i++){ if(clean(t.slice(i))===c) return esc(t.slice(0,i))+'<b style="color:var(--accent)">'+esc(t.slice(i))+'</b>'; } return esc(t); }
 
+function updateKbdHint(){
+  const el=$('#kbdHint'); if(!el) return;
+  let h='';
+  if(activePick) h='<kbd>Space</kbd> check all · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel';
+  else if(pendingChoice && pendingChoice.type==='confirm') h='<kbd>Enter</kbd> yes · <kbd>Esc</kbd> no';
+  else if(pendingChoice) h='<kbd>Esc</kbd> cancel';
+  el.innerHTML=h;
+}
+
 function renderOrderArea(){
+  updateKbdHint();
   const area=$('#orderArea'); if(!area)return;
   if(!activeOrder){
     if(pendingChoice){ renderPending(area); return; }
@@ -1069,7 +1081,32 @@ $('#invFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)rea
 $('#continueBtn').onclick=()=>goPlatforms();
 
 // scan
-$('#scan').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();handleScan($('#scan').value);} });
+function clickIf(sel, warn){ const b=$(sel); if(b && !b.disabled){ b.click(); return true; } if(warn) toast(warn,'warn',2200); return false; }
+
+$('#scan').addEventListener('keydown',e=>{
+  const empty = $('#scan').value.trim()==='';
+  if(e.key==='Enter'){
+    e.preventDefault();
+    if(!empty){ handleScan($('#scan').value); return; }        // scanner / typed input → send it
+    if(pendingChoice && pendingChoice.type==='confirm'){ clickIf('#orderArea [data-do-pick]'); return; }
+    if(activePick){ clickIf('#orderArea [data-confirm]','Scan all units, or mark items as can’t pack'); return; }
+    return;
+  }
+  if(e.key===' '||e.code==='Space'){
+    if(!empty) return;                                          // typing/scanning → leave the space alone
+    e.preventDefault();
+    if(activePick) clickIf('#orderArea [data-checkall]');
+    return;
+  }
+  if(e.key==='Escape'){
+    if(!$('#lightbox').classList.contains('hide')) return;      // lightbox open → let it close only
+    e.preventDefault();
+    if(pendingChoice){ clickIf('#orderArea [data-cancel-pick]'); return; }
+    if(activePick){ clickIf('#orderArea [data-cancel]'); return; }
+    if(!empty){ $('#scan').value=''; }
+    return;
+  }
+});
 $('#scanGo').onclick=()=>handleScan($('#scan').value);
 $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the current order first','warn',2600); return; } pendingChoice={type:'all'}; renderOrderArea(); };
 
@@ -1091,6 +1128,17 @@ $('#wipeBtn').onclick=async()=>{ if(!confirm('Clear the ENTIRE shift for everyon
 document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) $$('.menupop').forEach(p=>p.classList.add('hide')); });
 document.addEventListener('click',e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains('thumb')){ e.stopPropagation(); const lb=$('#lightbox'); $('#lightboxImg').src=t.src; $('#lightboxCap').textContent=t.alt||''; lb.classList.remove('hide'); } });
 $('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
+// if focus drifted off the scan box (e.g. after clicking a button), keep hotkeys working
+document.addEventListener('keydown',e=>{
+  if(curScreen!=='pack') return;
+  if(!$('#lightbox').classList.contains('hide')) return;
+  const t=e.target, tag=(t&&t.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;   // already handled by the field
+  if(e.key==='Enter'||e.key===' '||e.code==='Space'||e.key==='Escape'){
+    e.preventDefault(); const i=$('#scan');
+    if(i){ i.focus(); i.dispatchEvent(new KeyboardEvent('keydown',{key:e.key,code:e.code,bubbles:true})); }
+  }
+});
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#lightbox').classList.add('hide'); });
 window.addEventListener('beforeunload',()=>{ releaseIfHolding(); });
 
