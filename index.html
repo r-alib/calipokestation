@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Pack Station Live — Calipokehouse</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -386,6 +389,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   <button class="pill online" id="onlinePill" title="Who's online">🟢 <b id="onlineCount">0</b> online</button>
   <div class="pill" title="Shift started">🗓 <b id="shiftDate">—</b></div>
   <div class="pill">✅ <b id="totalDone">0</b>/<b id="totalAll">0</b></div>
+  <div class="pill" id="buildTag" title="App version — must match on every device" style="font-size:11px; color:var(--faint)">v—</div>
   <button class="iconbtn on" id="scanOnlyBtn" title="Scan-only mode — manual check disabled">📷</button>
   <button class="iconbtn on" id="soundBtn" title="Sound">🔊</button>
   <button class="iconbtn" id="homeBtn" title="Platforms">▤</button>
@@ -548,6 +552,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
+const BUILD = '2026-07-22 · cam-autoclose';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -633,7 +638,7 @@ function parseInventorySheet(arrayBuf){
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, defval:''});
   if(rows.length<2) throw new Error('Inventory sheet is empty.');
   const h=rows[0];
-  const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image')};
+  const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),qty:pickCol(h,'qty')};
   if(ci.name<0) throw new Error('Inventory needs an "item name" column.');
   const map={};
   for(let r=1;r<rows.length;r++){
@@ -644,7 +649,8 @@ function parseInventorySheet(arrayBuf){
       location:ci.location>=0?String(row[ci.location]??'').trim():'',
       stock:ci.stock>=0?(parseInt(row[ci.stock],10)||0):null,
       barcode:ci.barcode>=0?String(row[ci.barcode]??'').trim():'',
-      image:ci.image>=0?String(row[ci.image]??'').trim():''
+      image:ci.image>=0?String(row[ci.image]??'').trim():'',
+      packQty:ci.qty>=0?Math.max(1,(parseInt(row[ci.qty],10)||1)):1   // units per set (default 1)
     };
   }
   if(Object.keys(map).length===0) throw new Error('No inventory rows found.');
@@ -907,9 +913,9 @@ async function scanLabel(val){
     const o=matches[0]; const ct=clean(o.trackingId);
     if(o.status==='packed') return claimAndOpen(o._key);        // shows "already packed" + Pack again
     if(cv.length>=ct.length) return claimAndOpen(o._key);       // exact / long scan → claim now
-    pendingChoice={type:'confirm', key:o._key, code:cv}; beep('ok'); setMode('label'); renderOrderArea(); return; // short code → confirm
+    pendingChoice={type:'confirm', key:o._key, code:cv}; beep('ok'); setMode('label'); renderOrderArea(); closeCamIfOpen(); return; // short code → confirm
   }
-  pendingChoice={type:'select', keys:matches.map(o=>o._key), code:cv}; beep('ok'); setMode('label'); renderOrderArea();
+  pendingChoice={type:'select', keys:matches.map(o=>o._key), code:cv}; beep('ok'); setMode('label'); renderOrderArea(); closeCamIfOpen();
 }
 
 function findOtherPlatformMatch(cv){
@@ -922,7 +928,7 @@ function findOtherPlatformMatch(cv){
 async function claimAndOpen(key){
   pendingChoice=null;
   const order=findByKey(key); if(!order){ toast('Order unavailable','err'); renderOrderArea(); return; }
-  if(order.status==='packed'){ flash('err');beep('warn'); toast('Order '+order.trackingId+' already packed ('+(order.packedBy||'')+')','warn',3200); activeOrder={key:order._key,platform:curPlatformKey,trackingId:order.trackingId}; activePick=null; setMode('items'); renderOrderArea(); return; }
+  if(order.status==='packed'){ flash('err');beep('warn'); toast('Order '+order.trackingId+' already packed ('+(order.packedBy||'')+')','warn',3200); activeOrder={key:order._key,platform:curPlatformKey,trackingId:order.trackingId}; activePick=null; setMode('items'); renderOrderArea(); closeCamIfOpen(); return; }
 
   const cRef=root.child('orders/'+order._key+'/claim');
   let res;
@@ -934,9 +940,14 @@ async function claimAndOpen(key){
 
   claimRef=cRef; cRef.onDisconnect().set(null); startHeartbeat();
   activeOrder={key:order._key, platform:curPlatformKey, trackingId:order.trackingId};
-  activePick=order.items.map(it=>({count:0, qty:(it.qty||1), status:'ok', reason:''}));
+  activePick=order.items.map(it=>{
+    const iv=S.inventory[it.invKey]||{}; const pack=Math.max(1, iv.packQty||1); const ordered=it.qty||1;
+    // "qty" in the inventory table = units per set; one scan adds a whole set.
+    return {count:0, qty:ordered*pack, pack, ordered, status:'ok', reason:''};
+  });
   if(order.status==='unpacked'){ toast('This order was previously NOT packed — re-attempting','info',3000); }
   flash('ok');beep('ok'); setMode('items'); renderOrderArea();
+  closeCamIfOpen();                 // order opened → close the camera
 }
 
 function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(()=>{ if(claimRef) claimRef.child('at').set(Date.now()); }, HEARTBEAT_MS); }
@@ -1004,12 +1015,14 @@ function applyScannedProduct(order, ik, val){
 }
 
 function bumpItem(order, idx){
-  const pk=activePick[idx]; pk.count++; const q=pk.qty||1;
+  const pk=activePick[idx]; const q=pk.qty||1; const step=Math.max(1, pk.pack||1);
+  pk.count=Math.min(q, pk.count+step);              // one scan adds a whole set (packQty)
   const it=order.items[idx]; const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
   flash('ok');beep('ok');
   scanFx('ok', iv, q>1?('✓ '+pk.count+' / '+q):'✓ Picked');
   toast('✓ '+it.name+(q>1?' ('+pk.count+'/'+q+')':''), 'ok', 1400);
   renderOrderArea();
+  closeCamIfOpen();                 // successful pick → close the camera
 }
 
 /* pick the product with variation "Default" among all table products sharing this barcode
@@ -1041,6 +1054,7 @@ function openBarcodePick(order, ikeys, val){
     grid.appendChild(b);
   });
   $('#pick').classList.remove('hide');
+  closeCamIfOpen();                 // needs a variation choice → close the camera so it's visible
 }
 function chooseBarcodeProduct(order, ik, val){
   const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
@@ -1194,8 +1208,8 @@ function renderPending(area){
 
 function wireOrder(order){
   $$('#orderArea [data-toggle]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.toggle; const pk=activePick[i]; if(pk.status!=='ok')return; const q=pk.qty||1; pk.count = pk.count>=q?0:q; if(pk.count>0)beep('ok'); renderOrderArea(); });
-  $$('#orderArea [data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const pk=activePick[i]; const q=pk.qty||1; if(pk.status!=='ok'||pk.count>=q)return; pk.count++; beep('ok'); renderOrderArea(); });
-  $$('#orderArea [data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; const pk=activePick[i]; if(pk.status!=='ok'||pk.count<=0)return; pk.count--; renderOrderArea(); });
+  $$('#orderArea [data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const pk=activePick[i]; const q=pk.qty||1; const st=Math.max(1,pk.pack||1); if(pk.status!=='ok'||pk.count>=q)return; pk.count=Math.min(q, pk.count+st); beep('ok'); renderOrderArea(); });
+  $$('#orderArea [data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; const pk=activePick[i]; const st=Math.max(1,pk.pack||1); if(pk.status!=='ok'||pk.count<=0)return; pk.count=Math.max(0, pk.count-st); renderOrderArea(); });
   $$('#orderArea [data-menu]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const idx=b.dataset.menu; $$('#orderArea .menupop').forEach(p=>{if(p.dataset.pop!==idx)p.classList.add('hide');}); $('#orderArea [data-pop="'+idx+'"]').classList.toggle('hide'); });
   $$('#orderArea [data-reason]').forEach(b=>b.onclick=()=>{ const [reason,idx]=b.dataset.reason.split(','); let note=''; if(reason==='other'){note=prompt('Reason:','');if(note===null)return;} activePick[+idx].status=reason; activePick[+idx].reason=note||''; activePick[+idx].count=0; beep('warn'); renderOrderArea(); });
   $$('#orderArea [data-restore]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.restore; activePick[i].status='ok'; activePick[i].reason=''; renderOrderArea(); });
@@ -1249,9 +1263,9 @@ function pickingResolve(raw){
       return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=3 && ct.endsWith(cv)); });
   if(matches.length===0){ flash('err');beep('err'); toast('No order matching '+val+' on any platform','err',3200); return; }
   if(matches.length===1){ showPickingOrder(matches[0], cv); return; }
-  pkChoice={list:matches, code:cv}; beep('ok'); renderPicking();
+  pkChoice={list:matches, code:cv}; beep('ok'); renderPicking(); closeCamIfOpen();
 }
-function showPickingOrder(x, code){ pkOrder={platform:x.platform, key:x.order._key, code:code||''}; pkChecked=new Set(); pkChoice=null; flash('ok');beep('ok'); renderPicking(); pkFocus(); }
+function showPickingOrder(x, code){ pkOrder={platform:x.platform, key:x.order._key, code:code||''}; pkChecked=new Set(); pkChoice=null; flash('ok');beep('ok'); renderPicking(); pkFocus(); closeCamIfOpen(); }
 
 function renderPicking(){
   const area=$('#pkArea'); if(!area) return;
@@ -1555,6 +1569,9 @@ async function closeCam(){
   if(camScanner){ try{ await camScanner.stop(); }catch(e){} try{ camScanner.clear(); }catch(e){} camScanner=null; }
   const inp=activeScanInput(); if(inp) setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 60);  // keep the scanner working
 }
+/* auto-close the camera after a SUCCESSFUL scan, so an open camera means "scan didn't work".
+   Small delay lets the success flash/feedback show first. */
+function closeCamIfOpen(){ if($('#cam') && !$('#cam').classList.contains('hide')) setTimeout(()=>closeCam(), 150); }
 $('#camBtn').onclick=openCam;
 $('#camClose').onclick=closeCam;
 $('#pickCancel').onclick=closeItemPick;
@@ -1571,6 +1588,8 @@ $('#pkScan').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefau
   const saved=(()=>{try{return localStorage.getItem('ps_name');}catch(e){return null;}})();
   if(saved) $('#nameInput').value=saved;
   applyLogo(); applyScanOnly();
+  const bt=$('#buildTag'); if(bt) bt.textContent='v'+BUILD;
+  const gsub=$('.gatesub'); if(gsub) gsub.textContent='Calipokehouse · shared packing · v'+BUILD;
   if(!configReady()) showSetupNote();
 })();
 </script>
