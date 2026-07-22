@@ -871,6 +871,7 @@ function openPlatform(key){ curPlatformKey=key; activeOrder=null; activePick=nul
 function renderPackHeader(){ const p=S.platforms[curPlatformKey]; if(!p)return; const st=platformStats(p); $('#pDone').textContent=st.done; $('#pAll').textContent=st.all; }
 function setMode(m){ const tag=$('#modeTag'),hint=$('#modeHint'),inp=$('#scan'); if(m==='label'){tag.textContent='Scan label';tag.className='mode label';hint.textContent='tracking';inp.placeholder='Scan label, or type last 4 digits…';}else{tag.textContent='Scan items';tag.className='mode items';hint.textContent='item';inp.placeholder='Scan item barcode (or check manually)…';} }
 function focusScan(){ const i=$('#scan'); if(i){i.value='';i.focus();} }
+function activeScanInput(){ if(curScreen==='pack') return $('#scan'); if(curScreen==='picking') return $('#pkScan'); return null; }
 
 function findInPlatform(pk,tid){ const p=S.platforms[pk]; if(!p)return null; const t=norm(tid),c=clean(tid); return p.orders.find(o=>norm(o.trackingId)===t)||p.orders.find(o=>clean(o.trackingId)===c)||null; }
 function findAnyPlatform(tid){ const t=norm(tid),c=clean(tid); for(const k in S.platforms){ const o=S.platforms[k].orders.find(o=>norm(o.trackingId)===t)||S.platforms[k].orders.find(o=>clean(o.trackingId)===c); if(o)return {platform:k,order:o}; } return null; }
@@ -1404,16 +1405,26 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) $$('.menup
 document.addEventListener('click',e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains('thumb')){ e.stopPropagation(); const lb=$('#lightbox'); $('#lightboxImg').src=t.src; $('#lightboxCap').textContent=t.alt||''; lb.classList.remove('hide'); } });
 $('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
 // if focus drifted off the scan box (e.g. after clicking a button), keep hotkeys working
+/* Keyboard-wedge scanners type into whatever is focused. If focus drifted off the
+   scan box (after closing the camera, tapping a button, etc.) the characters would be
+   lost and only Enter reached the app. Route ALL stray input back into the scan box so
+   nothing is dropped, on both the pack and picking screens. */
 document.addEventListener('keydown',e=>{
-  if(curScreen!=='pack') return;
+  if(curScreen!=='pack' && curScreen!=='picking') return;
   if(!$('#lightbox').classList.contains('hide')) return;
   if($('#cam') && !$('#cam').classList.contains('hide')) return;      // camera modal owns input
   if($('#pick') && !$('#pick').classList.contains('hide')) return;    // picker modal open
+  const inp=activeScanInput(); if(!inp) return;
   const t=e.target, tag=(t&&t.tagName)||'';
-  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;   // already handled by the field
-  if(e.key==='Enter'||e.key===' '||e.code==='Space'||e.key==='Escape'){
-    e.preventDefault(); const i=$('#scan');
-    if(i){ i.focus(); i.dispatchEvent(new KeyboardEvent('keydown',{key:e.key,code:e.code,bubbles:true})); }
+  if(t===inp) return;                                          // already typing in the scan box
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;  // some other field is focused
+  if(e.ctrlKey||e.metaKey||e.altKey) return;                  // let shortcuts through
+  if(e.key && e.key.length===1){                              // printable char → buffer it into the box
+    e.preventDefault(); inp.focus(); inp.value += e.key; return;
+  }
+  if(e.key==='Enter'||e.key==='Escape'||e.key===' '||e.code==='Space'){
+    e.preventDefault(); inp.focus();
+    inp.dispatchEvent(new KeyboardEvent('keydown',{key:e.key,code:e.code,bubbles:true}));
   }
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('#lightbox').classList.add('hide');
@@ -1501,6 +1512,7 @@ function onCamDecode(text){
 async function closeCam(){
   const el=$('#cam'); el.classList.add('hide'); const t=$('#camTorch'); if(t) t.classList.add('hide');
   if(camScanner){ try{ await camScanner.stop(); }catch(e){} try{ camScanner.clear(); }catch(e){} camScanner=null; }
+  const inp=activeScanInput(); if(inp) setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 60);  // keep the scanner working
 }
 $('#camBtn').onclick=openCam;
 $('#camClose').onclick=closeCam;
