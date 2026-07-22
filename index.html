@@ -552,7 +552,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · cam-autoclose';   // bump when you change this file; visible in the header
+const BUILD = '2026-07-22 · setqty-fix';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -942,8 +942,10 @@ async function claimAndOpen(key){
   activeOrder={key:order._key, platform:curPlatformKey, trackingId:order.trackingId};
   activePick=order.items.map(it=>{
     const iv=S.inventory[it.invKey]||{}; const pack=Math.max(1, iv.packQty||1); const ordered=it.qty||1;
-    // "qty" in the inventory table = units per set; one scan adds a whole set.
-    return {count:0, qty:ordered*pack, pack, ordered, status:'ok', reason:''};
+    // The order quantity already accounts for the set size, so the target is the order qty.
+    // "qty" in the inventory table = units per set = how many one scan adds (so one scan of a
+    // "3 pc" line fills 3/3), but it does NOT multiply the required amount.
+    return {count:0, qty:ordered, pack, ordered, status:'ok', reason:''};
   });
   if(order.status==='unpacked'){ toast('This order was previously NOT packed — re-attempting','info',3000); }
   flash('ok');beep('ok'); setMode('items'); renderOrderArea();
