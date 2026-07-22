@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Pack Station Live — Calipokehouse</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -281,6 +282,83 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .setupnote code{font-family:var(--mono); color:var(--ink); background:var(--bg); padding:1px 5px; border-radius:5px}
 .srcrow{display:flex; gap:10px; flex-wrap:wrap}
 .srchead{display:flex; align-items:center; gap:9px; margin-bottom:11px}
+
+/* ---------- company logo slot ---------- */
+.brandlogo{height:30px; width:auto; max-width:160px; object-fit:contain; display:block; mix-blend-mode:screen}
+.brandlogo.xl{height:110px; max-width:80vw; margin:0 auto}
+.gatebrand{display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:14px}
+.gatetitle{font-family:var(--disp); font-weight:700; font-size:24px; letter-spacing:-.01em; margin-top:4px}
+.gatesub{font-size:12px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase}
+.dot.big{width:16px; height:16px; border-radius:5px}
+
+/* ---------- camera scanner ---------- */
+.cammodal{position:fixed; inset:0; z-index:210; background:#05070b; display:flex; flex-direction:column}
+.camhead{display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel)}
+.camhead .camtitle{font-size:14px; color:var(--muted)} .camhead .camtitle b{color:var(--ink)}
+.camhead #camMode{font-family:var(--mono); color:var(--info); text-transform:uppercase; font-size:12px}
+.camstage{position:relative; flex:1; display:grid; place-items:center; overflow:hidden; background:#000}
+#camView{width:100%; height:100%}
+#camView video{width:100%!important; height:100%!important; object-fit:cover!important}
+.camframe{position:absolute; inset:0; pointer-events:none;
+  box-shadow:inset 0 0 0 3px rgba(33,192,99,.55), inset 0 0 0 9999px rgba(0,0,0,.28);
+  -webkit-mask:linear-gradient(#000,#000) no-repeat; }
+.camframe::after{content:""; position:absolute; left:8%; right:8%; top:50%; height:2px; background:var(--accent); box-shadow:0 0 14px var(--accent); animation:camscan 2.2s ease-in-out infinite}
+@keyframes camscan{0%,100%{transform:translateY(-70px)}50%{transform:translateY(70px)}}
+.camhint{padding:14px 16px; text-align:center; color:var(--muted); font-size:14px; background:var(--panel); border-top:1px solid var(--border)}
+
+/* ---------- duplicate-barcode picker ---------- */
+.pickmodal{position:fixed; inset:0; z-index:215; background:rgba(4,6,10,.82); display:grid; place-items:center; padding:18px}
+.pickbox{width:min(460px,96vw); max-height:86vh; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:18px}
+.pickhead{font-family:var(--disp); font-weight:600; font-size:17px; margin-bottom:14px; color:var(--warn)}
+.pickgrid{display:flex; flex-direction:column; gap:10px}
+.pickitem{display:flex; gap:13px; align-items:center; text-align:left; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:11px 13px; color:var(--ink); transition:.12s}
+.pickitem:hover{border-color:var(--accent); background:#11211a}
+.pickitem img{width:60px; height:60px; border-radius:9px; object-fit:cover; background:var(--raised); border:1px solid var(--border); flex:none}
+.pickname{font-weight:600; font-size:15px} .pickvar{font-size:12.5px; color:var(--muted); margin-top:1px}
+.pickchips{display:flex; gap:7px; margin-top:7px; flex-wrap:wrap}
+
+/* ---------- scan feedback card ---------- */
+.scanfx{position:fixed; left:50%; bottom:84px; transform:translateX(-50%); z-index:95;
+  display:flex; align-items:center; gap:13px; width:min(440px,92vw);
+  padding:13px 16px; border-radius:14px; background:var(--panel2); border:1.5px solid var(--border);
+  box-shadow:0 18px 46px -16px #000; animation:tin .18s}
+.scanfx img{width:56px; height:56px; border-radius:10px; object-fit:cover; background:var(--raised); border:1px solid var(--border); flex:none}
+.scanfx .fxname{font-weight:600; font-size:15.5px; line-height:1.2}
+.scanfx .fxvar{font-size:12.5px; color:var(--muted); margin-top:2px}
+.scanfx .fxstat{font-family:var(--mono); font-weight:700; font-size:13px; margin-top:4px}
+.scanfx.ok{border-color:#1d4530} .scanfx.ok .fxstat{color:var(--ok)}
+.scanfx.err{border-color:#4a2128} .scanfx.err .fxstat{color:var(--err)}
+.scanfx.warn{border-color:#473a1c} .scanfx.warn .fxstat{color:var(--warn)}
+
+/* ---------- picking mode ---------- */
+.pklist{display:flex; flex-direction:column; gap:14px; margin-top:16px}
+.pkitem{display:grid; grid-template-columns:120px 1fr auto; gap:16px; align-items:center;
+  background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:16px; transition:.15s}
+.pkitem.taken{border-color:var(--accent); background:#0f1c16; opacity:.72}
+.pkitem.taken .pkname{text-decoration:line-through; text-decoration-color:var(--faint)}
+.pkimg{width:120px; height:120px; border-radius:12px; object-fit:cover; background:var(--raised); border:1px solid var(--border); cursor:zoom-in}
+.pkname{font-family:var(--disp); font-weight:600; font-size:20px; line-height:1.2}
+.pkvar{font-size:14px; color:var(--muted); margin-top:3px}
+.pkmeta{display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap}
+.loc-big{display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); font-weight:700; font-size:22px;
+  color:var(--info); background:#15233a; border:1px solid #23395c; border-radius:11px; padding:7px 14px; letter-spacing:.02em}
+.qty-big{font-family:var(--mono); font-weight:700; font-size:17px; color:var(--warn); background:#2b2412; border:1px solid #5a4a1c; border-radius:10px; padding:6px 13px}
+.pkstock{font-family:var(--mono); font-size:13.5px; color:var(--muted); border:1px solid var(--border); border-radius:9px; padding:5px 10px}
+.pkstock.low{color:var(--warn); border-color:#473a1c} .pkstock.zero{color:var(--err); border-color:#4a2128}
+.pkchk{width:56px; height:56px; border-radius:14px; border:2.5px solid var(--line); background:var(--raised);
+  display:grid; place-items:center; font-size:30px; color:transparent; transition:.12s; flex:none}
+.pkitem.taken .pkchk{background:var(--accent); border-color:var(--accent); color:#06210F}
+@media (max-width:560px){
+  .pkitem{grid-template-columns:84px 1fr auto; gap:12px; padding:13px}
+  .pkimg{width:84px; height:84px}
+  .pkname{font-size:17px} .loc-big{font-size:18px; padding:6px 11px}
+  .pkchk{width:48px; height:48px; font-size:26px}
+}
+
+/* scan-only: dim non-interactive manual controls */
+.item.scanlock .chk{opacity:.45}
+.item.scanlock .counter .step{display:none}
+.item.scanlock .counter .cnt{min-width:64px}
 </style>
 </head>
 <body>
@@ -288,7 +366,12 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 <!-- ============ NAME GATE ============ -->
 <div class="namegate" id="namegate">
   <div class="box">
-    <div class="brand" style="justify-content:center; margin-bottom:6px"><span class="dot"></span><div>Pack Station Live<small>Calipokehouse · shared packing</small></div></div>
+    <div class="gatebrand">
+      <img class="brandlogo xl hide" id="logoGate" alt="logo">
+      <span class="dot big" id="dotGate"></span>
+      <div class="gatetitle">Pack Station Live</div>
+      <div class="gatesub">Calipokehouse · shared packing</div>
+    </div>
     <h1 id="gateTitle">Enter your name to join the shift</h1>
     <p class="sub" id="gateSub">Your name is visible to teammates and shows up in the report. Type <b>admin</b> for the manager view.</p>
     <input id="nameInput" class="tinput" autocomplete="off" placeholder="e.g. Joe" maxlength="24">
@@ -298,11 +381,12 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 </div>
 
 <header class="hide" id="appHeader">
-  <div class="brand"><span class="dot"></span><div>Pack Station Live<small id="meName">—</small></div></div>
+  <div class="brand"><img class="brandlogo hide" id="logoHeader" alt="logo"><span class="dot" id="dotHeader"></span><div>Pack Station Live<small id="meName">—</small></div></div>
   <div class="spacer"></div>
   <button class="pill online" id="onlinePill" title="Who's online">🟢 <b id="onlineCount">0</b> online</button>
   <div class="pill" title="Shift started">🗓 <b id="shiftDate">—</b></div>
   <div class="pill">✅ <b id="totalDone">0</b>/<b id="totalAll">0</b></div>
+  <button class="iconbtn on" id="scanOnlyBtn" title="Scan-only mode — manual check disabled">📷</button>
   <button class="iconbtn on" id="soundBtn" title="Sound">🔊</button>
   <button class="iconbtn" id="homeBtn" title="Platforms">▤</button>
 </header>
@@ -344,7 +428,10 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   <!-- ============ PLATFORMS ============ -->
   <section id="screen-platforms" class="hide">
     <div class="eyebrow">Choose platform</div>
-    <h1 style="margin-bottom:16px">Pick a platform to pack</h1>
+    <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
+    <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
+      <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
+    </div>
     <div class="pgrid" id="pgrid"></div>
     <div id="adminActions" style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap">
       <button class="btn primary" id="finishBtn">📋 Shift report</button>
@@ -370,11 +457,34 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
       </div>
       <div class="scanrow">
         <input id="scan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan label barcode…">
+        <button class="btn primary" id="camBtn" title="Scan with phone camera">📷 Camera</button>
         <button class="btn" id="scanGo">Enter</button>
         <button class="btn ghost" id="showAllBtn">▤ Show all</button>
       </div>
     </div>
     <div id="orderArea"></div>
+  </section>
+
+  <!-- ============ PICKING MODE (read-only gather) ============ -->
+  <section id="screen-picking" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
+      <button class="btn ghost" id="pkBack">← Platforms</button>
+      <h1 style="margin:0">🧺 Picking</h1>
+      <div class="spacer"></div>
+      <div class="pill">Collected: <b id="pkDone">0</b>/<b id="pkAll">0</b></div>
+    </div>
+    <div class="scanwrap">
+      <div class="scanhead">
+        <span class="mode label">Find order</span>
+        <span class="who">searches <b>all platforms</b></span>
+      </div>
+      <div class="scanrow">
+        <input id="pkScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan label, or type last 4 digits…">
+        <button class="btn primary" id="pkCam" title="Scan with phone camera">📷 Camera</button>
+        <button class="btn" id="pkGo">Enter</button>
+      </div>
+    </div>
+    <div id="pkArea"></div>
   </section>
 
   <!-- ============ REPORT ============ -->
@@ -393,6 +503,31 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 </main>
 
 <div id="lightbox" class="lightbox hide"><span class="lbclose">✕</span><img id="lightboxImg" src="" alt=""><div class="lbcap" id="lightboxCap"></div></div>
+
+<!-- ============ CAMERA SCANNER ============ -->
+<div id="cam" class="cammodal hide">
+  <div class="camhead">
+    <span class="camtitle">📷 <b>Camera scan</b> · <span id="camMode">label</span></span>
+    <div class="spacer"></div>
+    <button class="iconbtn hide" id="camTorch" title="Torch">🔦</button>
+    <button class="btn ghost" id="camClose">✕ Close</button>
+  </div>
+  <div class="camstage"><div id="camView"></div><div class="camframe"></div></div>
+  <div class="camhint" id="camHint">Point the camera at a barcode</div>
+</div>
+
+<!-- ============ DUPLICATE-BARCODE PICKER ============ -->
+<div id="pick" class="pickmodal hide">
+  <div class="pickbox">
+    <div class="pickhead">Same barcode — pick the right product</div>
+    <div class="pickgrid" id="pickGrid"></div>
+    <button class="btn ghost" id="pickCancel" style="width:100%; margin-top:12px">Cancel</button>
+  </div>
+</div>
+
+<!-- ============ SCAN FEEDBACK CARD ============ -->
+<div id="scanFx" class="scanfx hide"></div>
+
 <div id="toasts"></div>
 
 <script>
@@ -450,7 +585,16 @@ let curScreen='seed', curPlatformKey=null;
 let activeOrder=null, activePick=null, claimRef=null, hbTimer=null;
 let pendingChoice=null; // manual last-4 confirm/select state
 let soundOn=true;
+let scanOnly=true;                 // strict picking: only camera/scanner counts, manual check disabled
 let IS_ADMIN=false;
+let camScanner=null; const camLast={code:'', t:0};
+let pkOrder=null;    // picking mode: {platform, key, code} of the looked-up order
+let pkChecked=null;  // picking mode: local Set of "taken" item indices (never written anywhere)
+let pkChoice=null;   // picking mode: {list:[{platform,order}], code} ambiguity list
+
+/* >>> COMPANY LOGO — paste an image URL (https… or data:…) to show it in the header
+       and on the login screen. Leave empty to keep the default green mark. <<< */
+let LOGO_URL = "https://i.postimg.cc/VkfXDqWf/images.jpg";
 let _ordSource=null, _invSource=null;
 const _proxy={ord:null, inv:null};
 
@@ -525,7 +669,8 @@ function connect(){
 
   root.child('inventory').on('value', snap=>{
     S.inventory={}; S.barcodeIdx={};
-    snap.forEach(c=>{ const v=c.val(); if(!v||!v.ikey) return; S.inventory[v.ikey]=v; if(v.barcode) S.barcodeIdx[norm(v.barcode)]=v.ikey; });
+    snap.forEach(c=>{ const v=c.val(); if(!v||!v.ikey) return; S.inventory[v.ikey]=v;
+      if(v.barcode){ const bk=norm(v.barcode); (S.barcodeIdx[bk]=S.barcodeIdx[bk]||[]); if(!S.barcodeIdx[bk].includes(v.ikey)) S.barcodeIdx[bk].push(v.ikey); } });
     renderCurrent();
   });
   root.child('orders').on('value', snap=>{
@@ -536,6 +681,9 @@ function connect(){
   });
 
   root.child('meta').on('value', snap=>{ const m=snap.val(); S.startedAt=(m&&m.seededAt)||null; S.date=S.startedAt?fmtDate(S.startedAt):''; if(curScreen==='platforms'||curScreen==='report') renderCurrent(); });
+
+  // shared staff scan-only flag (admin-controlled). Default ON when unset.
+  root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
   root.child('meta').once('value').then(snap=>{ const has=snap.exists(); if(IS_ADMIN){ if(has) goPlatforms(); else show('seed'); } else { goPlatforms(); } });
 }
@@ -561,21 +709,18 @@ async function seedOrders(buf, sourceMeta){
 
 async function loadInventory(buf, sourceMeta){
   let map; try{ map=parseInventorySheet(buf); }catch(e){ gstatus('inv',e.message,'err'); return; }
-  // authoritative current inventory (avoid clobbering live stock mid-day)
+  // Inventory is authoritative from the table — no recount, no live decrement.
+  // Every sync overwrites the record (including stock) straight from the sheet, so
+  // the table is the single source of truth and changes propagate to everyone live.
   const curSnap = (await root.child('inventory').once('value')).val() || {};
-  const existing={}; for(const k in curSnap){ const v=curSnap[k]; if(v&&v.ikey) existing[v.ikey]=v; }
-  const updates={}; let added=0, updated=0;
-  for(const ik in map){
-    const rec=map[ik]; const base='inventory/'+safeKey(ik);
-    if(existing[ik]){ // keep live stock, refresh metadata only
-      updates[base+'/name']=rec.name; updates[base+'/variation']=rec.variation;
-      updates[base+'/location']=rec.location; updates[base+'/barcode']=rec.barcode; updates[base+'/image']=rec.image;
-      updates[base+'/ikey']=ik; updated++;
-    }else{ updates[base]=rec; added++; }
-  }
+  const sheetKeys = new Set(Object.keys(map).map(ik=>safeKey(ik)));
+  const updates={}; let synced=0, removed=0;
+  for(const ik in map){ updates['inventory/'+safeKey(ik)]=map[ik]; synced++; }
+  // drop items no longer in the table so stock reflects the sheet exactly
+  for(const k in curSnap){ if(!sheetKeys.has(k)){ updates['inventory/'+k]=null; removed++; } }
   await root.update(updates);
-  gstatus('inv','✓ Inventory: '+added+' new, '+updated+' updated (existing stock kept).','ok');
-  toast('Inventory loaded','ok',2400);
+  gstatus('inv','✓ Inventory synced from table: '+synced+' items'+(removed?', '+removed+' removed':'')+' (stock taken directly from the sheet).','ok');
+  toast('Inventory synced from table','ok',2400);
 }
 
 function itemsChanged(a,b){ a=a||[]; b=b||[]; if(a.length!==b.length) return true; for(let i=0;i<b.length;i++){ const x=a[i]||{},y=b[i]; if(norm(x.name)!==norm(y.name)||norm(x.variation)!==norm(y.variation)||(+x.qty||1)!==(+y.qty||1)) return true; } return false; }
@@ -670,8 +815,10 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['seed','platforms','pack','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['seed','platforms','pack','picking','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
+  if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
+  closeItemPick();
   window.scrollTo({top:0});
 }
 function goPlatforms(){ show('platforms'); renderPlatforms(); }
@@ -799,30 +946,89 @@ async function repackOrder(key, wasPacked){
   const o=findByKey(key); if(!o){ toast('Order unavailable','err'); return; }
   if(wasPacked && !confirm('Reopen this packed order? Its stock will be returned and it must be packed again.')) return;
   try{
-    if(wasPacked){ // it was fully packed → give the stock back before re-packing
-      for(const it of (o.items||[])){ const iv=S.inventory[it.invKey]; if(iv && iv.stock!=null){ await root.child('inventory/'+safeKey(it.invKey)+'/stock').transaction(s=>(s==null?null:s+(it.qty||1))); } }
-    }
+    // Stock is authoritative from the table (no recount) — reopening does not touch stock.
     await root.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null});
   }catch(e){ toast('Could not reopen the order','err'); return; }
   const local=findByKey(key); if(local) local.status='pending';   // optimistic so claim proceeds
-  toast('Order '+o.trackingId+' reopened'+(wasPacked?' — stock returned':''),'info',2600);
+  toast('Order '+o.trackingId+' reopened','info',2600);
   activeOrder=null; activePick=null; pendingChoice=null;
   claimAndOpen(key);
 }
 
 function scanItem(val){
   const order=findByKey(activeOrder.key); if(!order || !activePick){ setMode('label'); return; }
-  const bkey=S.barcodeIdx[norm(val)];
+  const bkeys=S.barcodeIdx[norm(val)]||[];              // one barcode can map to several products
   const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
-  let idx=-1;
-  if(bkey) idx=order.items.findIndex((it,i)=>it.invKey===bkey && room(i));
-  if(idx<0){ const t=norm(val); idx=order.items.findIndex((it,i)=>room(i) && (norm(it.name)===t||norm(it.name).includes(t))); }
-  if(idx>=0){ const pk=activePick[idx]; pk.count++; const q=pk.qty||1; flash('ok');beep('ok'); toast('✓ '+order.items[idx].name+(q>1?' ('+pk.count+'/'+q+')':''), 'ok', 1400); renderOrderArea(); return; }
-  if(bkey){ const inOrder=order.items.findIndex(it=>it.invKey===bkey);
-    if(inOrder>=0 && activePick[inOrder].status!=='ok'){ toast('Item is marked as “can’t pack”','warn',2400);beep('warn'); }
-    else if(inOrder>=0){ toast('All '+(activePick[inOrder].qty||1)+' unit(s) already scanned','warn',2200);beep('warn'); }
-    else { flash('err');beep('err'); const iv=S.inventory[bkey]; toast('Item “'+(iv?iv.name:val)+'” is not in this order','err',3000); }
-  } else { flash('err');beep('err'); toast('Unknown item barcode: '+val,'err',2800); }
+
+  // 1) barcode match(es) inside this order
+  if(bkeys.length){
+    const withRoom=[]; order.items.forEach((it,i)=>{ if(bkeys.includes(it.invKey) && room(i)) withRoom.push(i); });
+    if(withRoom.length===1) return bumpItem(order, withRoom[0]);
+    if(withRoom.length>1){ openItemPick(order, withRoom, val); return; } // same barcode → choose product
+    // barcode is in the order but nothing left to pick
+    const inOrder=[]; order.items.forEach((it,i)=>{ if(bkeys.includes(it.invKey)) inOrder.push(i); });
+    if(inOrder.length){
+      const blocked=inOrder.filter(i=>activePick[i].status!=='ok');
+      const iv=S.inventory[order.items[inOrder[0]].invKey];
+      if(blocked.length===inOrder.length){ flash('err');beep('warn'); scanFx('warn', iv, '⛔ Marked “can’t pack”'); toast('Item is marked as “can’t pack”','warn',2400); }
+      else { flash('err');beep('warn'); scanFx('warn', iv, '✓ All units already scanned'); toast('All unit(s) already scanned','warn',2200); }
+      return;
+    }
+    // barcode known in the system but not part of this order → show WHAT was scanned
+    flash('err');beep('err'); const iv=S.inventory[bkeys[0]];
+    scanFx('err', iv, '✕ Not in this order'); toast('“'+(iv?iv.name:val)+'” is not in this order','err',3200); return;
+  }
+
+  // 2) fallback: match by item name (manual/typed)
+  const t=norm(val); const idx=order.items.findIndex((it,i)=>room(i) && (norm(it.name)===t||norm(it.name).includes(t)));
+  if(idx>=0) return bumpItem(order, idx);
+
+  // 3) totally unknown barcode
+  flash('err');beep('err'); scanFx('err', null, '✕ Unknown barcode', val); toast('Unknown item barcode: '+val,'err',2800);
+}
+
+function bumpItem(order, idx){
+  const pk=activePick[idx]; pk.count++; const q=pk.qty||1;
+  const it=order.items[idx]; const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
+  flash('ok');beep('ok');
+  scanFx('ok', iv, q>1?('✓ '+pk.count+' / '+q):'✓ Picked');
+  toast('✓ '+it.name+(q>1?' ('+pk.count+'/'+q+')':''), 'ok', 1400);
+  renderOrderArea();
+}
+
+/* one barcode shared by several products in this order — let the packer pick */
+function openItemPick(order, idxs, val){
+  beep('warn');
+  const grid=$('#pickGrid'); if(!grid){ if(idxs.length) bumpItem(order, idxs[0]); return; }
+  grid.innerHTML='';
+  idxs.forEach(i=>{
+    const it=order.items[i]; const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER;
+    const pk=activePick[i]; const q=pk.qty||1; const loc=iv.location||'—';
+    const b=document.createElement('button'); b.className='pickitem';
+    b.innerHTML='<img src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
+      '<div class="pickmeta"><div class="pickname">'+esc(it.name)+'</div>'+
+      (it.variation?'<div class="pickvar">'+esc(it.variation)+'</div>':'')+
+      '<div class="pickchips"><span class="chip loc">📍 '+esc(loc)+'</span><span class="chip qty">'+pk.count+' / '+q+'</span></div></div>';
+    b.onclick=()=>{ closeItemPick(); bumpItem(order, i); };
+    grid.appendChild(b);
+  });
+  $('#pick').classList.remove('hide');
+}
+function closeItemPick(){ const p=$('#pick'); if(p) p.classList.add('hide'); }
+
+/* transient visual feedback with the scanned product image/name/variation */
+function scanFx(kind, item, statusText, raw){
+  const el=$('#scanFx'); if(!el) return;
+  const img=(item&&item.image)?item.image:PLACEHOLDER;
+  const name=item?item.name:(raw?('Unknown: '+raw):'Unknown item');
+  const varr=item&&item.variation?item.variation:'';
+  el.className='scanfx '+kind;
+  el.innerHTML='<img src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
+    '<div class="fxtext"><div class="fxname">'+esc(name)+'</div>'+
+    (varr?'<div class="fxvar">'+esc(varr)+'</div>':'')+
+    (statusText?'<div class="fxstat">'+esc(statusText)+'</div>':'')+'</div>';
+  el.classList.remove('hide');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hide'), kind==='ok'?1400:2800);
 }
 
 function reasonLabel(s){ return {out_of_stock:'Out of stock',damaged:'Damaged',other:'Other'}[s]||s; }
@@ -832,7 +1038,7 @@ function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) retu
 function updateKbdHint(){
   const el=$('#kbdHint'); if(!el) return;
   let h='';
-  if(activePick) h='<kbd>Space</kbd> check all · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel';
+  if(activePick) h=(effScanOnly()?'':'<kbd>Space</kbd> check all · ')+'<kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel';
   else if(pendingChoice && pendingChoice.type==='confirm') h='<kbd>Enter</kbd> yes · <kbd>Esc</kbd> no';
   else if(pendingChoice) h='<kbd>Esc</kbd> cancel';
   el.innerHTML=h;
@@ -840,6 +1046,7 @@ function updateKbdHint(){
 
 function renderOrderArea(){
   updateKbdHint();
+  if($('#cam') && !$('#cam').classList.contains('hide')) updateCamHint();
   const area=$('#orderArea'); if(!area)return;
   if(!activeOrder){
     if(pendingChoice){ renderPending(area); return; }
@@ -871,14 +1078,15 @@ function renderOrderArea(){
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—'; const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
-    const cls = pk.status!=='ok' ? 'unpack' : ((full?'checked':'')+(multi?' multi':''));
+    const so=effScanOnly();
+    const cls = (pk.status!=='ok' ? 'unpack' : ((full?'checked':'')+(multi?' multi':'')))+(so&&pk.status==='ok'?' scanlock':'');
     let control;
     if(pk.status!=='ok') control='<button class="chk" disabled>✓</button>';
     else if(multi) control='<div class="counter'+(full?' full':'')+'">'+
-        '<button class="step" data-dec="'+idx+'" '+(pk.count<=0?'disabled':'')+'>−</button>'+
+        (so?'':'<button class="step" data-dec="'+idx+'" '+(pk.count<=0?'disabled':'')+'>−</button>')+
         '<span class="cnt"><b>'+pk.count+'</b>/'+q+'</span>'+
-        '<button class="step" data-inc="'+idx+'" '+(full?'disabled':'')+'>+</button></div>';
-    else control='<button class="chk" data-toggle="'+idx+'">✓</button>';
+        (so?'':'<button class="step" data-inc="'+idx+'" '+(full?'disabled':'')+'>+</button>')+'</div>';
+    else control='<button class="chk"'+(so?' disabled':' data-toggle="'+idx+'"')+'>✓</button>';
     const qtyMark = multi ? '<span class="qtybadge">× '+q+'</span>' : '';
     html+='<div class="item '+cls+'">'+
       control+
@@ -897,7 +1105,7 @@ function renderOrderArea(){
   const anyBlock=activePick.some(p=>p.status!=='ok');
   const unitsLeft=activePick.reduce((s,p)=>s+(p.status==='ok'?Math.max(0,(p.qty||1)-p.count):0),0);
   const confirmLabel = anyBlock ? '✓ Confirm — mark NOT packed' : '✓ Confirm pick';
-  html+='<div class="orderfoot"><button class="btn ghost" data-checkall>Check all</button><button class="btn ghost" data-cancel>Cancel</button><div class="spacer"></div><button class="btn primary lg'+(anyBlock?' danger':'')+'" data-confirm '+(allResolved?'':'disabled')+'>'+confirmLabel+'</button></div>';
+  html+='<div class="orderfoot">'+(effScanOnly()?'':'<button class="btn ghost" data-checkall>Check all</button>')+'<button class="btn ghost" data-cancel>Cancel</button><div class="spacer"></div><button class="btn primary lg'+(anyBlock?' danger':'')+'" data-confirm '+(allResolved?'':'disabled')+'>'+confirmLabel+'</button></div>';
   if(anyBlock) html+='<div class="progress-mini" style="color:var(--err)"><span>⛔ One or more items can’t be packed — the entire order will be marked NOT packed.</span></div>';
   else if(!allResolved) html+='<div class="progress-mini"><span><b class="mono">'+unitsLeft+'</b> unit(s) left to scan</span></div>';
   html+='</div>';
@@ -961,12 +1169,7 @@ async function confirmOrder(order){
   const isBlocked = blockers.length>0;
   const blockReason = isBlocked ? ('Cannot pack: '+blockers.join('; ')) : '';
   try{
-    if(!isBlocked){ // only a fully packable order decrements stock
-      for(let i=0;i<order.items.length;i++){
-        const iv=S.inventory[order.items[i].invKey];
-        if(iv && iv.stock!=null){ await root.child('inventory/'+safeKey(order.items[i].invKey)+'/stock').transaction(s=> (s==null?null:s-(order.items[i].qty||1))); }
-      }
-    }
+    // Stock is authoritative from the table (no recount) — packing does not decrement stock.
     const items=order.items.map((it,i)=>{
       const p=activePick[i];
       if(p.status!=='ok') return {...it, packed:false, status:p.status, reason:p.reason||'', count:0};
@@ -984,6 +1187,77 @@ async function confirmOrder(order){
   focusScan();
 }
 function backToScan(){ activeOrder=null; activePick=null; pendingChoice=null; setMode('label'); renderOrderArea(); focusScan(); }
+
+/* ============================================================
+   PICKING MODE  (read-only gather — no claim, no writes)
+   ============================================================ */
+function enterPicking(){ pkOrder=null; pkChecked=null; pkChoice=null; show('picking'); renderPicking(); pkFocus(); }
+function pkFocus(){ const i=$('#pkScan'); if(i) i.focus(); }
+function pkSubmit(){ const i=$('#pkScan'); if(!i) return; const v=i.value; pickingResolve(v); i.value=''; i.focus(); }
+function allOrdersFlat(){ const all=[]; for(const k in S.platforms) for(const o of (S.platforms[k].orders||[])) all.push({platform:k, order:o}); return all; }
+
+function pickingResolve(raw){
+  const val=(raw||'').trim(); if(!val) return;
+  pkChoice=null;
+  const cv=clean(val);
+  if(cv.length<2){ flash('err');beep('err'); toast('Type at least the last 3-4 digits','err',3000); return; }
+  const all=allOrdersFlat();
+  const exact=all.filter(x=>clean(x.order.trackingId)===cv);
+  let matches = exact.length ? exact : all.filter(x=>{ const ct=clean(x.order.trackingId); if(!ct) return false;
+      return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=3 && ct.endsWith(cv)); });
+  if(matches.length===0){ flash('err');beep('err'); toast('No order matching '+val+' on any platform','err',3200); return; }
+  if(matches.length===1){ showPickingOrder(matches[0], cv); return; }
+  pkChoice={list:matches, code:cv}; beep('ok'); renderPicking();
+}
+function showPickingOrder(x, code){ pkOrder={platform:x.platform, key:x.order._key, code:code||''}; pkChecked=new Set(); pkChoice=null; flash('ok');beep('ok'); renderPicking(); pkFocus(); }
+
+function renderPicking(){
+  const area=$('#pkArea'); if(!area) return;
+  if($('#cam') && !$('#cam').classList.contains('hide')) updateCamHint();
+
+  // ambiguity → choice list (cross-platform)
+  if(pkChoice){
+    let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pkChoice.list.length+' orders match “'+esc(pkChoice.code)+'” — choose one</div><div class="choices scroll">';
+    pkChoice.list.forEach((x,i)=>{ const o=x.order;
+      h+='<button class="choice" data-pk-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId,pkChoice.code)+'</span><span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(o.items||[]).length+' item(s) · '+orderSummary(o)+'</span></button>'; });
+    h+='</div><div class="orderfoot"><button class="btn ghost" id="pkChoiceCancel">Cancel</button></div></div>';
+    area.innerHTML=h;
+    $$('#pkArea [data-pk-pick]').forEach(b=>b.onclick=()=>{ showPickingOrder(pkChoice.list[+b.dataset.pkPick], pkChoice.code); });
+    const c=$('#pkChoiceCancel'); if(c) c.onclick=()=>{ pkChoice=null; renderPicking(); pkFocus(); };
+    $('#pkDone').textContent='0'; $('#pkAll').textContent='0';
+    return;
+  }
+
+  if(!pkOrder){
+    area.innerHTML='<div class="empty">Scan a label, type the last 4 digits, or use <b>📷 Camera</b> to look up any order across <b>all platforms</b>.</div>';
+    $('#pkDone').textContent='0'; $('#pkAll').textContent='0'; return;
+  }
+  const order=findByKey(pkOrder.key);
+  if(!order){ area.innerHTML='<div class="empty">This order is no longer available.<br><button class="btn" id="pkNew2" style="margin-top:12px">← New label</button></div>'; const n=$('#pkNew2'); if(n) n.onclick=()=>{ pkOrder=null; renderPicking(); pkFocus(); }; return; }
+
+  const items=order.items||[]; const total=items.length; let taken=0;
+  let h='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label · '+esc(pkOrder.platform)+'</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+orderStatusTag(order)+'<div class="spacer"></div><div class="pill">Items: <b>'+total+'</b></div></div><div class="pklist">';
+  items.forEach((it,idx)=>{
+    const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—';
+    const q=it.qty||1; const stock=(iv.stock==null)?null:iv.stock;
+    const isTaken=pkChecked && pkChecked.has(idx); if(isTaken) taken++;
+    let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="pkstock '+cls+'">stock '+stock+'</span>'; }
+    h+='<div class="pkitem'+(isTaken?' taken':'')+'">'+
+      '<img class="thumb pkimg" src="'+esc(img)+'" alt="'+esc(it.name)+(it.variation?' · '+esc(it.variation):'')+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
+      '<div><div class="pkname">'+esc(it.name)+'</div>'+(it.variation?'<div class="pkvar">'+esc(it.variation)+'</div>':'')+
+      '<div class="pkmeta"><span class="loc-big">📍 '+esc(loc)+'</span><span class="qty-big">× '+q+'</span>'+stockChip+'</div></div>'+
+      '<button class="pkchk" data-pk-chk="'+idx+'" title="Local tick — does not affect packing">✓</button>'+
+      '</div>';
+  });
+  h+='</div><div class="orderfoot"><button class="btn ghost" id="pkNew">← New label</button><div class="spacer"></div>'+
+     '<span class="sub" style="align-self:center; font-size:12.5px">ticks are local only — packing is done in Pack mode</span>'+
+     '<button class="btn ghost" id="pkClear">Reset ticks</button></div></div>';
+  area.innerHTML=h;
+  $$('#pkArea [data-pk-chk]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.pkChk; if(pkChecked.has(i)) pkChecked.delete(i); else { pkChecked.add(i); beep('ok'); } renderPicking(); pkFocus(); });
+  const nb=$('#pkNew'); if(nb) nb.onclick=()=>{ pkOrder=null; pkChecked=null; renderPicking(); pkFocus(); };
+  const cb=$('#pkClear'); if(cb) cb.onclick=()=>{ pkChecked=new Set(); renderPicking(); pkFocus(); };
+  $('#pkDone').textContent=taken; $('#pkAll').textContent=total;
+}
 
 /* ============================================================
    REPORT
@@ -1050,6 +1324,7 @@ function applyRole(){
   ['finishBtn','loadDataBtn','pullOrdersBtn','updInvBtn','wipeBtn'].forEach(id=>{ const el=$('#'+id); if(el) el.classList.toggle('hide', !a); });
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !a);
   $('#meName').textContent = MY_NAME + (a?' · admin':'');
+  applyScanOnly();
 }
 function enter(){
   const v=$('#nameInput').value.trim();
@@ -1132,6 +1407,8 @@ $('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
 document.addEventListener('keydown',e=>{
   if(curScreen!=='pack') return;
   if(!$('#lightbox').classList.contains('hide')) return;
+  if($('#cam') && !$('#cam').classList.contains('hide')) return;      // camera modal owns input
+  if($('#pick') && !$('#pick').classList.contains('hide')) return;    // picker modal open
   const t=e.target, tag=(t&&t.tagName)||'';
   if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;   // already handled by the field
   if(e.key==='Enter'||e.key===' '||e.code==='Space'||e.key==='Escape'){
@@ -1139,15 +1416,108 @@ document.addEventListener('keydown',e=>{
     if(i){ i.focus(); i.dispatchEvent(new KeyboardEvent('keydown',{key:e.key,code:e.code,bubbles:true})); }
   }
 });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#lightbox').classList.add('hide'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ $('#lightbox').classList.add('hide');
+  if($('#pick') && !$('#pick').classList.contains('hide')){ closeItemPick(); return; }
+  if($('#cam') && !$('#cam').classList.contains('hide')) closeCam(); } });
 window.addEventListener('beforeunload',()=>{ releaseIfHolding(); });
 
 window.goPlatforms=goPlatforms; window.backToScan=backToScan;
+
+/* ============================================================
+   COMPANY LOGO
+   ============================================================ */
+function applyLogo(){
+  const url=(LOGO_URL||'').trim();
+  [['logoHeader','dotHeader'],['logoGate','dotGate']].forEach(([logoId,dotId])=>{
+    const img=$('#'+logoId), dot=$('#'+dotId); if(!img) return;
+    if(url){ img.src=url; img.classList.remove('hide'); if(dot) dot.classList.add('hide');
+      img.onerror=()=>{ img.classList.add('hide'); if(dot) dot.classList.remove('hide'); }; }
+    else { img.classList.add('hide'); if(dot) dot.classList.remove('hide'); }
+  });
+}
+
+/* ============================================================
+   SCAN-ONLY MODE
+   ============================================================ */
+/* effective rule: the admin sets a SHARED scan-only flag that governs staff.
+   The admin is never restricted by it and can always pack manually. */
+function effScanOnly(){ return scanOnly && !IS_ADMIN; }
+function applyScanOnly(){
+  const b=$('#scanOnlyBtn');
+  if(b){
+    b.classList.toggle('hide', !IS_ADMIN);            // only the admin sees the toggle
+    b.classList.toggle('on', scanOnly);
+    b.textContent = scanOnly?'📷':'✋';
+    b.title = 'Staff scan-only: '+(scanOnly?'ON — staff must scan (you are exempt)':'OFF — staff may check manually');
+  }
+  if(curScreen==='pack') renderOrderArea();
+}
+function toggleScanOnly(){
+  if(!IS_ADMIN) return;                                // only admin can change it
+  const nv=!scanOnly; scanOnly=nv;                     // optimistic; the shared value confirms via listener
+  if(root){ try{ root.child('settings/scanOnly').set(nv); }catch(e){} }
+  applyScanOnly();
+  toast(nv?'Staff scan-only ON (you stay exempt)':'Staff manual check enabled','info',2400);
+}
+$('#scanOnlyBtn').onclick=toggleScanOnly;
+
+/* ============================================================
+   PHONE CAMERA SCANNER  (html5-qrcode)
+   ============================================================ */
+function updateCamHint(){
+  const m=$('#camMode'), h=$('#camHint'); if(!m||!h) return;
+  if(curScreen==='picking'){ m.textContent='find'; h.textContent='Scan a label to look up the order (all platforms)'; return; }
+  if(activePick){ m.textContent='items'; const order=findByKey(activeOrder.key);
+    h.textContent = order ? ('Order '+order.trackingId+' · scan each item') : 'Scan items'; }
+  else { m.textContent='label'; h.textContent='Scan a shipping label / tracking barcode'; }
+}
+async function openCam(){
+  if(!window.Html5Qrcode){ toast('Camera library not loaded (check your connection)','err',3500); return; }
+  const el=$('#cam'); el.classList.remove('hide'); updateCamHint();
+  const fmts = window.Html5QrcodeSupportedFormats ? [
+    Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.CODE_93,
+    Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.CODABAR ] : undefined;
+  try{
+    camScanner = new Html5Qrcode('camView', { formatsToSupport: fmts, verbose:false });
+    await camScanner.start({ facingMode:'environment' }, { fps:12, qrbox:undefined, aspectRatio:1.6 }, onCamDecode, ()=>{});
+    // torch button if supported
+    setTimeout(()=>{ try{ const caps=camScanner.getRunningTrackCapabilities&&camScanner.getRunningTrackCapabilities();
+      if(caps && 'torch' in caps){ const t=$('#camTorch'); t.classList.remove('hide'); let on=false;
+        t.onclick=async()=>{ on=!on; try{ await camScanner.applyVideoConstraints({advanced:[{torch:on}]}); t.classList.toggle('on',on);}catch(e){} }; } }catch(e){} }, 700);
+  }catch(e){ toast('Cannot open camera: '+(e&&e.message||e),'err',4000); el.classList.add('hide'); camScanner=null; }
+}
+function onCamDecode(text){
+  if($('#pick') && !$('#pick').classList.contains('hide')) return;   // waiting for product choice
+  const now=Date.now();
+  if(text===camLast.code && now-camLast.t<1400) return;   // debounce repeated frames
+  camLast.code=text; camLast.t=now;
+  if(curScreen==='picking') pickingResolve(text);
+  else handleScan(text);
+  updateCamHint();
+}
+async function closeCam(){
+  const el=$('#cam'); el.classList.add('hide'); const t=$('#camTorch'); if(t) t.classList.add('hide');
+  if(camScanner){ try{ await camScanner.stop(); }catch(e){} try{ camScanner.clear(); }catch(e){} camScanner=null; }
+}
+$('#camBtn').onclick=openCam;
+$('#camClose').onclick=closeCam;
+$('#pickCancel').onclick=closeItemPick;
+
+/* picking mode wiring */
+$('#pickingBtn').onclick=enterPicking;
+$('#pkBack').onclick=goPlatforms;
+$('#pkGo').onclick=pkSubmit;
+$('#pkCam').onclick=openCam;
+$('#pkScan').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); pkSubmit(); } });
 
 /* ---------- boot ---------- */
 (function boot(){
   const saved=(()=>{try{return localStorage.getItem('ps_name');}catch(e){return null;}})();
   if(saved) $('#nameInput').value=saved;
+  applyLogo(); applyScanOnly();
   if(!configReady()) showSetupNote();
 })();
 </script>
