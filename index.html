@@ -957,35 +957,50 @@ async function repackOrder(key, wasPacked){
 }
 
 function scanItem(val){
+  if($('#pick') && !$('#pick').classList.contains('hide')) return;   // resolve the product chooser first
   const order=findByKey(activeOrder.key); if(!order || !activePick){ setMode('label'); return; }
-  const bkeys=S.barcodeIdx[norm(val)]||[];              // one barcode can map to several products
-  const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
+  const bkeys=S.barcodeIdx[norm(val)]||[];   // products in the INVENTORY TABLE sharing this barcode
 
-  // 1) barcode match(es) inside this order
-  if(bkeys.length){
-    const withRoom=[]; order.items.forEach((it,i)=>{ if(bkeys.includes(it.invKey) && room(i)) withRoom.push(i); });
-    if(withRoom.length===1) return bumpItem(order, withRoom[0]);
-    if(withRoom.length>1){ openItemPick(order, withRoom, val); return; } // same barcode → choose product
-    // barcode is in the order but nothing left to pick
-    const inOrder=[]; order.items.forEach((it,i)=>{ if(bkeys.includes(it.invKey)) inOrder.push(i); });
-    if(inOrder.length){
-      const blocked=inOrder.filter(i=>activePick[i].status!=='ok');
-      const iv=S.inventory[order.items[inOrder[0]].invKey];
-      if(blocked.length===inOrder.length){ flash('err');beep('warn'); scanFx('warn', iv, '⛔ Marked “can’t pack”'); toast('Item is marked as “can’t pack”','warn',2400); }
-      else { flash('err');beep('warn'); scanFx('warn', iv, '✓ All units already scanned'); toast('All unit(s) already scanned','warn',2200); }
-      return;
-    }
-    // barcode known in the system but not part of this order → show WHAT was scanned
-    flash('err');beep('err'); const iv=S.inventory[bkeys[0]];
-    scanFx('err', iv, '✕ Not in this order'); toast('“'+(iv?iv.name:val)+'” is not in this order','err',3200); return;
+  if(bkeys.length>1){
+    // several products in the table carry this barcode → the employee must pick which one.
+    // Only open the chooser if at least one of them belongs to this order; otherwise it's
+    // simply not in the order and we report it (using the Default-variation product).
+    const anyInOrder = bkeys.some(ik=>order.items.some(it=>it.invKey===ik));
+    if(anyInOrder){ openBarcodePick(order, bkeys, val); return; }
+    flash('err');beep('err'); const disp=wrongScanDisplay(val, bkeys);
+    scanFx('err', disp, '✕ Not in this order');
+    toast('“'+(disp?disp.name+(disp.variation?' · '+disp.variation:''):val)+'” is not in this order','err',3200);
+    return;
   }
+  if(bkeys.length===1){ return applyScannedProduct(order, bkeys[0], val); }
 
-  // 2) fallback: match by item name (manual/typed)
+  // no barcode match → fallback: match by item name (manual/typed)
+  const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
   const t=norm(val); const idx=order.items.findIndex((it,i)=>room(i) && (norm(it.name)===t||norm(it.name).includes(t)));
   if(idx>=0) return bumpItem(order, idx);
 
-  // 3) totally unknown barcode
+  // totally unknown barcode
   flash('err');beep('err'); scanFx('err', null, '✕ Unknown barcode', val); toast('Unknown item barcode: '+val,'err',2800);
+}
+
+/* apply a single, unambiguous inventory product (scanned or chosen) to the order */
+function applyScannedProduct(order, ik, val){
+  const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
+  const idxRoom=order.items.findIndex((it,i)=>it.invKey===ik && room(i));
+  if(idxRoom>=0){ bumpItem(order, idxRoom); return true; }
+  const iv=S.inventory[ik]||{};
+  const idxAny=order.items.findIndex(it=>it.invKey===ik);
+  if(idxAny>=0){ // in the order but nothing left to pick
+    flash('err');beep('warn');
+    if(activePick[idxAny].status!=='ok'){ scanFx('warn', iv, '⛔ Marked “can’t pack”'); toast('Item is marked as “can’t pack”','warn',2400); }
+    else { scanFx('warn', iv, '✓ All units already scanned'); toast('All unit(s) already scanned','warn',2200); }
+    return false;
+  }
+  // known in the table but not part of this order → show WHAT was scanned
+  flash('err');beep('err');
+  scanFx('err', iv, '✕ Not in this order');
+  toast('“'+(iv.name||val)+(iv.variation?' · '+iv.variation:'')+'” is not in this order','err',3200);
+  return false;
 }
 
 function bumpItem(order, idx){
@@ -997,23 +1012,49 @@ function bumpItem(order, idx){
   renderOrderArea();
 }
 
-/* one barcode shared by several products in this order — let the packer pick */
-function openItemPick(order, idxs, val){
+/* pick the product with variation "Default" among all table products sharing this barcode
+   (used for the wrong-scan message when the barcode is ambiguous) */
+function wrongScanDisplay(val, ikeys){
+  ikeys = ikeys || S.barcodeIdx[norm(val)] || [];
+  let first=null;
+  for(const ik of ikeys){ const iv=S.inventory[ik]; if(!iv) continue; if(!first) first=iv; if(norm(iv.variation)==='default') return iv; }
+  return first;
+}
+
+/* one barcode shared by several TABLE products → let the employee choose the right one.
+   The chooser lists every product carrying this barcode (image · name · variation).
+   Choosing a product that is in the order checks it; choosing one that isn't warns and
+   keeps the chooser open so the employee can choose again. */
+function openBarcodePick(order, ikeys, val){
   beep('warn');
-  const grid=$('#pickGrid'); if(!grid){ if(idxs.length) bumpItem(order, idxs[0]); return; }
+  const grid=$('#pickGrid'); if(!grid){ return; }
   grid.innerHTML='';
-  idxs.forEach(i=>{
-    const it=order.items[i]; const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER;
-    const pk=activePick[i]; const q=pk.qty||1; const loc=iv.location||'—';
+  ikeys.forEach(ik=>{
+    const iv=S.inventory[ik]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—';
+    const inOrder=order.items.some(it=>it.invKey===ik);
     const b=document.createElement('button'); b.className='pickitem';
     b.innerHTML='<img src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
-      '<div class="pickmeta"><div class="pickname">'+esc(it.name)+'</div>'+
-      (it.variation?'<div class="pickvar">'+esc(it.variation)+'</div>':'')+
-      '<div class="pickchips"><span class="chip loc">📍 '+esc(loc)+'</span><span class="chip qty">'+pk.count+' / '+q+'</span></div></div>';
-    b.onclick=()=>{ closeItemPick(); bumpItem(order, i); };
+      '<div class="pickmeta"><div class="pickname">'+esc(iv.name||ik)+'</div>'+
+      (iv.variation?'<div class="pickvar">'+esc(iv.variation)+'</div>':'')+
+      '<div class="pickchips"><span class="chip loc">📍 '+esc(loc)+'</span>'+(inOrder?'<span class="chip" style="color:var(--accent)">in this order</span>':'')+'</div></div>';
+    b.onclick=()=>chooseBarcodeProduct(order, ik, val);
     grid.appendChild(b);
   });
   $('#pick').classList.remove('hide');
+}
+function chooseBarcodeProduct(order, ik, val){
+  const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
+  const idxRoom=order.items.findIndex((it,i)=>it.invKey===ik && room(i));
+  const iv=S.inventory[ik]||{};
+  if(idxRoom>=0){ closeItemPick(); bumpItem(order, idxRoom); return; }
+  const idxAny=order.items.findIndex(it=>it.invKey===ik);
+  if(idxAny>=0){ // chosen product is in the order but nothing left to pick
+    beep('warn'); toast(activePick[idxAny].status!=='ok' ? 'Item is marked as “can’t pack”' : 'All unit(s) already scanned','warn',2400);
+    return; // keep the chooser open
+  }
+  // chosen product is NOT in the order → wrong product, choose again
+  beep('err'); flash('err');
+  toast('Wrong product: “'+(iv.name||'')+(iv.variation?' · '+iv.variation:'')+'” is not in this order — choose again','err',3400);
 }
 function closeItemPick(){ const p=$('#pick'); if(p) p.classList.add('hide'); }
 
