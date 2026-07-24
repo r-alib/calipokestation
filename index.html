@@ -435,10 +435,10 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
     <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
       <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
+      <button class="btn lg" id="finishBtn">📋 Shift report</button>
     </div>
     <div class="pgrid" id="pgrid"></div>
     <div id="adminActions" style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap">
-      <button class="btn primary" id="finishBtn">📋 Shift report</button>
       <button class="btn ghost" id="loadDataBtn">⚙ Load data</button>
       <button class="btn hide" id="pullOrdersBtn">🔄 Sync orders</button>
       <button class="btn hide" id="updInvBtn">🔄 Update inventory</button>
@@ -552,7 +552,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · cam-labels';   // bump when you change this file; visible in the header
+const BUILD = '2026-07-22 · report-all+multi-step';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1137,13 +1137,20 @@ function renderOrderArea(){
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
     const so=effScanOnly();
-    const cls = (pk.status!=='ok' ? 'unpack' : ((full?'checked':'')+(multi?' multi':'')))+(so&&pk.status==='ok'?' scanlock':'');
+    // scan-only locks manual input for SINGLE items; multi-qty items still show ±
+    // (but ± only becomes usable after at least one scan — see incDisabled below)
+    const cls = (pk.status!=='ok' ? 'unpack' : ((full?'checked':'')+(multi?' multi':'')))+((so&&pk.status==='ok'&&!multi)?' scanlock':'');
     let control;
     if(pk.status!=='ok') control='<button class="chk" disabled>✓</button>';
-    else if(multi) control='<div class="counter'+(full?' full':'')+'">'+
-        (so?'':'<button class="step" data-dec="'+idx+'" '+(pk.count<=0?'disabled':'')+'>−</button>')+
+    else if(multi){
+      // in scan-only, require the first unit to be SCANNED before ± can add more
+      const incDisabled = full || (so && pk.count<1);
+      const decDisabled = pk.count<=0;
+      control='<div class="counter'+(full?' full':'')+'">'+
+        '<button class="step" data-dec="'+idx+'" '+(decDisabled?'disabled':'')+'>−</button>'+
         '<span class="cnt"><b>'+pk.count+'</b>/'+q+'</span>'+
-        (so?'':'<button class="step" data-inc="'+idx+'" '+(full?'disabled':'')+'>+</button>')+'</div>';
+        '<button class="step" data-inc="'+idx+'" '+(incDisabled?'disabled':'')+'>+</button></div>';
+    }
     else control='<button class="chk"'+(so?' disabled':' data-toggle="'+idx+'"')+'>✓</button>';
     const qtyMark = multi ? '<span class="qtybadge">× '+q+'</span>' : '';
     html+='<div class="item '+cls+'">'+
@@ -1210,7 +1217,7 @@ function renderPending(area){
 
 function wireOrder(order){
   $$('#orderArea [data-toggle]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.toggle; const pk=activePick[i]; if(pk.status!=='ok')return; const q=pk.qty||1; pk.count = pk.count>=q?0:q; if(pk.count>0)beep('ok'); renderOrderArea(); });
-  $$('#orderArea [data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const pk=activePick[i]; const q=pk.qty||1; const st=Math.max(1,pk.pack||1); if(pk.status!=='ok'||pk.count>=q)return; pk.count=Math.min(q, pk.count+st); beep('ok'); renderOrderArea(); });
+  $$('#orderArea [data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; const pk=activePick[i]; const q=pk.qty||1; const st=Math.max(1,pk.pack||1); if(pk.status!=='ok'||pk.count>=q)return; if(effScanOnly()&&pk.count<1){ toast('Scan the item at least once first','warn',2200); return; } pk.count=Math.min(q, pk.count+st); beep('ok'); renderOrderArea(); });
   $$('#orderArea [data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; const pk=activePick[i]; const st=Math.max(1,pk.pack||1); if(pk.status!=='ok'||pk.count<=0)return; pk.count=Math.max(0, pk.count-st); renderOrderArea(); });
   $$('#orderArea [data-menu]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const idx=b.dataset.menu; $$('#orderArea .menupop').forEach(p=>{if(p.dataset.pop!==idx)p.classList.add('hide');}); $('#orderArea [data-pop="'+idx+'"]').classList.toggle('hide'); });
   $$('#orderArea [data-reason]').forEach(b=>b.onclick=()=>{ const [reason,idx]=b.dataset.reason.split(','); let note=''; if(reason==='other'){note=prompt('Reason:','');if(note===null)return;} activePick[+idx].status=reason; activePick[+idx].reason=note||''; activePick[+idx].count=0; beep('warn'); renderOrderArea(); });
@@ -1379,7 +1386,7 @@ function showSetupNote(){
 }
 function applyRole(){
   const a=IS_ADMIN;
-  ['finishBtn','loadDataBtn','pullOrdersBtn','updInvBtn','wipeBtn'].forEach(id=>{ const el=$('#'+id); if(el) el.classList.toggle('hide', !a); });
+  ['loadDataBtn','pullOrdersBtn','updInvBtn','wipeBtn'].forEach(id=>{ const el=$('#'+id); if(el) el.classList.toggle('hide', !a); });
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !a);
   $('#meName').textContent = MY_NAME + (a?' · admin':'');
   applyScanOnly();
