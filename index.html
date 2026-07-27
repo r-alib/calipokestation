@@ -358,6 +358,26 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   .pkchk{width:48px; height:48px; font-size:26px}
 }
 
+/* damaged chip (next to stock) */
+.chip.stock.dmg{color:var(--err); border-color:#4a2128}
+.chip.stock.dmg.low{color:var(--warn); border-color:#473a1c}
+.pkstock.dmg{color:var(--err); border-color:#4a2128}
+.pkstock.dmg.low{color:var(--warn); border-color:#473a1c}
+
+/* ---------- product guidebook ---------- */
+.guidefilters{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+.guidefilters select{flex:1; min-width:150px; background:var(--bg); border:1.5px solid var(--line); border-radius:11px; color:var(--ink); font-family:var(--body); font-size:14px; padding:11px 12px; outline:none; transition:.15s}
+.guidefilters select:focus{border-color:var(--accent)}
+.guidechips{display:flex; gap:8px; flex-wrap:wrap; margin-top:12px}
+.guidechips:empty{display:none}
+.fchip{display:inline-flex; align-items:center; gap:7px; background:var(--panel2); border:1px solid var(--line); color:var(--ink); border-radius:99px; padding:6px 13px; font-size:13px; font-weight:500}
+.fchip:hover{border-color:var(--err); color:var(--err)}
+.gtags{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px}
+.gtag{font-size:11.5px; padding:3px 9px; border-radius:7px; border:1px solid var(--border); color:var(--muted); background:var(--raised)}
+.gtag.type{color:var(--info); border-color:#23395c}
+.gtag.brand{color:var(--accent); border-color:#1d4530}
+.gtag.series{color:var(--warn); border-color:#473a1c}
+
 /* scan-only: dim non-interactive manual controls */
 .item.scanlock .chk{opacity:.45}
 .item.scanlock .counter .step{display:none}
@@ -435,6 +455,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
     <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
       <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
+      <button class="btn lg" id="guideBtn">📖 Product Guidebook</button>
       <button class="btn lg" id="finishBtn">📋 Shift report</button>
     </div>
     <div class="pgrid" id="pgrid"></div>
@@ -489,6 +510,26 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
       </div>
     </div>
     <div id="pkArea"></div>
+  </section>
+
+  <!-- ============ PRODUCT GUIDEBOOK (read-only reference) ============ -->
+  <section id="screen-guide" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
+      <button class="btn ghost" id="guideBack">← Platforms</button>
+      <h1 style="margin:0">📖 Product Guidebook</h1>
+      <div class="spacer"></div>
+      <div class="pill" id="guideCount">—</div>
+    </div>
+    <div class="card">
+      <div class="srcrow"><input id="guideName" class="tinput" autocomplete="off" spellcheck="false" placeholder="Search by product name…" style="min-width:240px"></div>
+      <div class="guidefilters">
+        <select id="guideType"></select>
+        <select id="guideBrand"></select>
+        <select id="guideSeries"></select>
+      </div>
+      <div class="guidechips" id="guideChips"></div>
+    </div>
+    <div id="guideResults"></div>
   </section>
 
   <!-- ============ REPORT ============ -->
@@ -552,7 +593,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · report-all+multi-step';   // bump when you change this file; visible in the header
+const BUILD = '2026-07-22 · damaged+guidebook';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -574,7 +615,11 @@ const COL = {
   location:['location','loc','bin','shelf','row','aisle'],
   stock:['stock','soh','quantity on hand','qoh','on hand','available','inventory'],
   barcode:['barcode','sku','upc','ean'],
-  image:['image','img','photo','picture','url']
+  image:['image','img','photo','picture','url'],
+  damaged:['damaged','damage','broken','defective','not usable','unusable'],
+  type:['type','category','kind'],
+  brand:['brand','make','manufacturer'],
+  series:['series','collection','line']
 };
 function pickCol(h,kind){const hs=h.map(norm);for(const w of COL[kind]){const i=hs.indexOf(w);if(i>=0)return i;}for(let i=0;i<hs.length;i++)if(COL[kind].some(w=>hs[i].includes(w)))return i;return -1;}
 const INVENTORY_NAMES = ['inventory','stock','catalog'];
@@ -638,7 +683,8 @@ function parseInventorySheet(arrayBuf){
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, defval:''});
   if(rows.length<2) throw new Error('Inventory sheet is empty.');
   const h=rows[0];
-  const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),qty:pickCol(h,'qty')};
+  const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),qty:pickCol(h,'qty'),
+    damaged:pickCol(h,'damaged'),type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series')};
   if(ci.name<0) throw new Error('Inventory needs an "item name" column.');
   const map={};
   for(let r=1;r<rows.length;r++){
@@ -650,7 +696,11 @@ function parseInventorySheet(arrayBuf){
       stock:ci.stock>=0?(parseInt(row[ci.stock],10)||0):null,
       barcode:ci.barcode>=0?String(row[ci.barcode]??'').trim():'',
       image:ci.image>=0?String(row[ci.image]??'').trim():'',
-      packQty:ci.qty>=0?Math.max(1,(parseInt(row[ci.qty],10)||1)):1   // units per set (default 1)
+      packQty:ci.qty>=0?Math.max(1,(parseInt(row[ci.qty],10)||1)):1,   // units per set (default 1)
+      damaged:ci.damaged>=0?(parseInt(row[ci.damaged],10)||0):null,     // not-usable units
+      type:ci.type>=0?String(row[ci.type]??'').trim():'',
+      brand:ci.brand>=0?String(row[ci.brand]??'').trim():'',
+      series:ci.series>=0?String(row[ci.series]??'').trim():''
     };
   }
   if(Object.keys(map).length===0) throw new Error('No inventory rows found.');
@@ -821,7 +871,7 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['seed','platforms','pack','picking','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['seed','platforms','pack','picking','guide','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
@@ -833,6 +883,8 @@ function renderCurrent(){
   const g=globalStats(); $('#totalDone').textContent=g.done; $('#totalAll').textContent=g.all;
   if(curScreen==='platforms') renderPlatforms();
   else if(curScreen==='pack'){ renderPackHeader(); renderOrderArea(); }
+  else if(curScreen==='picking') renderPicking();
+  else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
   else if(curScreen==='report') renderReport();
 }
 
@@ -1136,6 +1188,8 @@ function renderOrderArea(){
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—'; const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
+    const dmg=(iv.damaged==null)?null:iv.damaged;
+    if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="chip stock dmg '+dcls+'">✖ dmg <b>'+dmg+'</b></span>'; }
     const so=effScanOnly();
     // scan-only locks manual input for SINGLE items; multi-qty items still show ±
     // (but ± only becomes usable after at least one scan — see incDisabled below)
@@ -1307,6 +1361,8 @@ function renderPicking(){
     const q=it.qty||1; const stock=(iv.stock==null)?null:iv.stock;
     const isTaken=pkChecked && pkChecked.has(idx); if(isTaken) taken++;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="pkstock '+cls+'">stock '+stock+'</span>'; }
+    const dmg=(iv.damaged==null)?null:iv.damaged;
+    if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="pkstock dmg '+dcls+'">✖ damaged '+dmg+'</span>'; }
     h+='<div class="pkitem'+(isTaken?' taken':'')+'">'+
       '<img class="thumb pkimg" src="'+esc(img)+'" alt="'+esc(it.name)+(it.variation?' · '+esc(it.variation):'')+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
       '<div><div class="pkname">'+esc(it.name)+'</div>'+(it.variation?'<div class="pkvar">'+esc(it.variation)+'</div>':'')+
@@ -1322,6 +1378,61 @@ function renderPicking(){
   const nb=$('#pkNew'); if(nb) nb.onclick=()=>{ pkOrder=null; pkChecked=null; renderPicking(); pkFocus(); };
   const cb=$('#pkClear'); if(cb) cb.onclick=()=>{ pkChecked=new Set(); renderPicking(); pkFocus(); };
   $('#pkDone').textContent=taken; $('#pkAll').textContent=total;
+}
+
+/* ============================================================
+   PRODUCT GUIDEBOOK  (read-only reference / search)
+   ============================================================ */
+let guideF={type:'',brand:'',series:'',name:''};
+function enterGuide(){ show('guide'); buildGuideFilters(); renderGuide(); const i=$('#guideName'); if(i) i.focus(); }
+function distinctVals(field){ const s=new Set(); for(const k in S.inventory){ const v=(S.inventory[k][field]||'').trim(); if(v) s.add(v); } return [...s].sort((a,b)=>String(a).localeCompare(String(b))); }
+function guideLabel(field){ return {type:'Type',brand:'Brand',series:'Series'}[field]||field; }
+function buildGuideFilters(){
+  [['guideType','type'],['guideBrand','brand'],['guideSeries','series']].forEach(([id,field])=>{
+    const sel=$('#'+id); if(!sel) return; const cur=guideF[field]; const vals=distinctVals(field);
+    sel.innerHTML='<option value="">'+guideLabel(field)+' — all</option>'+vals.map(v=>'<option value="'+esc(v)+'"'+(norm(v)===norm(cur)?' selected':'')+'>'+esc(v)+'</option>').join('');
+  });
+}
+function renderGuideChips(){
+  const el=$('#guideChips'); if(!el) return; let h='';
+  ['type','brand','series'].forEach(f=>{ if(guideF[f]) h+='<button class="fchip" data-fclear="'+f+'">'+guideLabel(f)+': '+esc(guideF[f])+' ✕</button>'; });
+  if(guideF.name) h+='<button class="fchip" data-fclear="name">Name: '+esc(guideF.name)+' ✕</button>';
+  el.innerHTML=h;
+  $$('#guideChips [data-fclear]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fclear; guideF[f]=''; if(f==='name'){ const i=$('#guideName'); if(i) i.value=''; } buildGuideFilters(); renderGuide(); });
+}
+function renderGuide(){
+  const area=$('#guideResults'); if(!area) return;
+  renderGuideChips();
+  if(Object.keys(S.inventory).length===0){ area.innerHTML='<div class="empty">Inventory is not loaded yet.</div>'; $('#guideCount').textContent='—'; return; }
+  const nameQ=norm(guideF.name);
+  const list=[];
+  for(const k in S.inventory){ const v=S.inventory[k];
+    if(guideF.type && norm(v.type)!==norm(guideF.type)) continue;
+    if(guideF.brand && norm(v.brand)!==norm(guideF.brand)) continue;
+    if(guideF.series && norm(v.series)!==norm(guideF.series)) continue;
+    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ))) continue;
+    list.push(v);
+  }
+  list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')) || String(a.variation||'').localeCompare(String(b.variation||'')));
+  $('#guideCount').textContent=list.length+' item'+(list.length===1?'':'s');
+  if(!list.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
+  let h='<div class="pklist" style="margin-top:14px">';
+  for(const v of list){
+    const img=v.image||PLACEHOLDER; const loc=v.location||'—';
+    const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
+    let chips=''; if(stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
+    if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';
+    let tags='';
+    if(v.type) tags+='<span class="gtag type">'+esc(v.type)+'</span>';
+    if(v.brand) tags+='<span class="gtag brand">'+esc(v.brand)+'</span>';
+    if(v.series) tags+='<span class="gtag series">'+esc(v.series)+'</span>';
+    h+='<div class="pkitem"><img class="thumb pkimg" src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'" alt="'+esc(v.name)+'">'+
+       '<div><div class="pkname">'+esc(v.name)+'</div>'+(v.variation?'<div class="pkvar">'+esc(v.variation)+'</div>':'')+
+       '<div class="pkmeta"><span class="loc-big">📍 '+esc(loc)+'</span>'+chips+'</div>'+
+       (tags?'<div class="gtags">'+tags+'</div>':'')+'</div></div>';
+  }
+  h+='</div>';
+  area.innerHTML=h;
 }
 
 /* ============================================================
@@ -1595,6 +1706,14 @@ $('#pkBack').onclick=goPlatforms;
 $('#pkGo').onclick=pkSubmit;
 $('#pkCam').onclick=openCam;
 $('#pkScan').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); pkSubmit(); } });
+
+/* product guidebook wiring */
+$('#guideBtn').onclick=enterGuide;
+$('#guideBack').onclick=goPlatforms;
+$('#guideName').addEventListener('input',e=>{ guideF.name=e.target.value; renderGuide(); });
+$('#guideType').addEventListener('change',e=>{ guideF.type=e.target.value; renderGuide(); });
+$('#guideBrand').addEventListener('change',e=>{ guideF.brand=e.target.value; renderGuide(); });
+$('#guideSeries').addEventListener('change',e=>{ guideF.series=e.target.value; renderGuide(); });
 
 /* ---------- boot ---------- */
 (function boot(){
