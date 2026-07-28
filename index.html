@@ -593,7 +593,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · damaged+guidebook';   // bump when you change this file; visible in the header
+const BUILD = '2026-07-22 · multi-barcode';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -602,6 +602,8 @@ const $$ = s => [...document.querySelectorAll(s)];
 const norm = v => (v==null?'':String(v)).trim().toLowerCase().replace(/\s+/g,' ');
 const clean = v => (v==null?'':String(v)).toLowerCase().replace(/[^a-z0-9]/g,'');
 const keyOf = (n,va)=>norm(n)+'||'+norm(va);
+// a product's barcode cell may list several codes (per batch): "code1, code2, code3"
+const barcodesOf = s => (s==null?'':String(s)).split(/[,;\n]+/).map(x=>norm(x)).filter(Boolean);
 const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const safeKey = k => encodeURIComponent(String(k)).replace(/\./g,'%2E');
 const PLACEHOLDER = 'data:image/svg+xml;utf8,'+encodeURIComponent(
@@ -726,7 +728,8 @@ function connect(){
   root.child('inventory').on('value', snap=>{
     S.inventory={}; S.barcodeIdx={};
     snap.forEach(c=>{ const v=c.val(); if(!v||!v.ikey) return; S.inventory[v.ikey]=v;
-      if(v.barcode){ const bk=norm(v.barcode); (S.barcodeIdx[bk]=S.barcodeIdx[bk]||[]); if(!S.barcodeIdx[bk].includes(v.ikey)) S.barcodeIdx[bk].push(v.ikey); } });
+      // one product may carry several barcodes (different batches), listed "code1, code2, code3"
+      for(const bk of barcodesOf(v.barcode)){ (S.barcodeIdx[bk]=S.barcodeIdx[bk]||[]); if(!S.barcodeIdx[bk].includes(v.ikey)) S.barcodeIdx[bk].push(v.ikey); } });
     renderCurrent();
   });
   root.child('orders').on('value', snap=>{
