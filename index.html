@@ -238,7 +238,13 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 .stat{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:16px}
 .stat .n{font-family:var(--mono); font-weight:700; font-size:30px; letter-spacing:-.02em}
 .stat .l{font-size:12.5px; color:var(--muted); margin-top:3px}
-.stat.ok .n{color:var(--ok)} .stat.err .n{color:var(--err)}
+.stat.ok .n{color:var(--ok)} .stat.err .n{color:var(--err)} .stat.warn .n{color:var(--warn)}
+/* report viewer file chips */
+.rvfiles{display:flex; flex-direction:column; gap:8px; margin-top:12px}
+.rvfile{display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:9px 13px; font-size:13.5px}
+.rvfile .rvname{font-weight:600} .rvfile .rvmeta{color:var(--muted); font-size:12px}
+.rvfile .rvx{margin-left:auto; background:none; border:none; color:var(--muted); font-size:16px; padding:2px 6px; border-radius:6px}
+.rvfile .rvx:hover{color:var(--err); background:#1f1417}
 table{width:100%; border-collapse:collapse; font-size:14px}
 th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border)}
 th{font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
@@ -460,6 +466,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     </div>
     <div class="pgrid" id="pgrid"></div>
     <div id="adminActions" style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap">
+      <button class="btn" id="readReportBtn">📂 Read past reports</button>
       <button class="btn ghost" id="loadDataBtn">⚙ Load data</button>
       <button class="btn hide" id="pullOrdersBtn">🔄 Sync orders</button>
       <button class="btn hide" id="updInvBtn">🔄 Update inventory</button>
@@ -532,6 +539,24 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div id="guideResults"></div>
   </section>
 
+  <!-- ============ REPORT VIEWER (read-only, load past CSV reports) ============ -->
+  <section id="screen-reportview" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
+      <button class="btn ghost" id="rvBack">← Platforms</button>
+      <h1 style="margin:0">📂 Report viewer</h1>
+      <div class="spacer"></div>
+      <button class="btn" id="rvExport">⬇ Export merged CSV</button>
+    </div>
+    <div class="card">
+      <div class="srchead"><span class="mode label">Read-only</span><span class="sub" style="font-size:13px">load one or more exported CSV reports · nothing is written back</span></div>
+      <label class="btn ghost">＋ Load report CSV(s)<input id="rvFile" type="file" accept=".csv,.txt" multiple class="hide"></label>
+      <div class="rvfiles" id="rvFiles"></div>
+    </div>
+    <h1 id="rvTitle" style="margin-top:20px">No reports loaded</h1>
+    <div class="statgrid" id="rvStats"></div>
+    <div id="rvBody"></div>
+  </section>
+
   <!-- ============ REPORT ============ -->
   <section id="screen-report" class="hide">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap">
@@ -593,7 +618,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · multi-barcode';   // bump when you change this file; visible in the header
+const BUILD = '2026-07-22 · partial+report-viewer+time';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -874,7 +899,7 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['seed','platforms','pack','picking','guide','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['seed','platforms','pack','picking','guide','reportview','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
@@ -895,9 +920,10 @@ function renderCurrent(){
    PLATFORMS
    ============================================================ */
 function platformStats(p){ const all=p.orders.length; const done=p.orders.filter(o=>o.status==='packed').length;
-  const now=Date.now(); const locked=p.orders.filter(o=>o.claim && now-(o.claim.at||0)<STALE_MS && o.status!=='packed').length;
+  const partial=p.orders.filter(o=>o.status==='partial').length;
+  const now=Date.now(); const locked=p.orders.filter(o=>o.claim && now-(o.claim.at||0)<STALE_MS && o.status!=='packed' && o.status!=='partial' && o.status!=='unpacked').length;
   const blocked=p.orders.filter(o=>o.status==='unpacked').length;
-  return {all,done,locked,blocked,complete:all>0&&done===all}; }
+  return {all,done,partial,locked,blocked,complete:all>0&&done===all}; }
 function globalStats(){ let all=0,done=0; for(const k in S.platforms){const s=platformStats(S.platforms[k]); all+=s.all; done+=s.done;} return {all,done}; }
 function renderPlatforms(){
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !IS_ADMIN);
@@ -915,7 +941,7 @@ function renderPlatforms(){
     const p=S.platforms[key]; const st=platformStats(p); const pct=st.all?Math.round(st.done/st.all*100):0;
     const el=document.createElement('button');
     el.className='platform'+(st.complete?' done':'')+(st.locked&&!st.complete?' locked':'');
-    const badge = st.complete ? '' : (st.locked ? '<div class="lockbadge">🔒 '+st.locked+' in progress</div>' : (st.blocked ? '<div class="lockbadge" style="color:var(--err)">⛔ '+st.blocked+' not packed</div>' : ''));
+    const badge = st.complete ? '' : (st.locked ? '<div class="lockbadge">🔒 '+st.locked+' in progress</div>' : ((st.blocked||st.partial) ? '<div class="lockbadge" style="color:var(--warn)">'+(st.partial?'◑ '+st.partial+' partial ':'')+(st.blocked?'⛔ '+st.blocked+' not packed':'')+'</div>' : ''));
     el.innerHTML=badge+
       '<div class="pname">'+esc(p.name)+'</div>'+
       '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
@@ -1011,9 +1037,9 @@ function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(()=>{ if(claimRe
 function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer); hbTimer=null;} }
 function releaseIfHolding(){ if(claimRef){ try{claimRef.onDisconnect().cancel(); claimRef.set(null);}catch(e){} claimRef=null; } stopHeartbeat(); activeOrder=null; activePick=null; }
 
-async function repackOrder(key, wasPacked){
+async function repackOrder(key, wasDone){
   const o=findByKey(key); if(!o){ toast('Order unavailable','err'); return; }
-  if(wasPacked && !confirm('Reopen this packed order? Its stock will be returned and it must be packed again.')) return;
+  if(wasDone && !confirm('Reopen this order and pack it again? Its previous result (including packed time) will be cleared.')) return;
   try{
     // Stock is authoritative from the table (no recount) — reopening does not touch stock.
     await root.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null});
@@ -1174,14 +1200,16 @@ function renderOrderArea(){
 
   if(readonly){
     const packed = order.status==='packed';
+    const partial = order.status==='partial';
+    const done = packed||partial;
     area.innerHTML='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+
-      (packed?'<span class="statustag st-packed">packed</span>':'<span class="statustag st-blocked">not packed</span>')+'</div>'+
-      '<p class="sub" style="margin-top:10px">'+(packed?'Packed by: ':'Last handled by: ')+'<b>'+esc(order.packedBy||'—')+'</b></p>'+
-      (!packed&&order.blockReason?'<p class="reasontag" style="margin-top:6px">⛔ '+esc(order.blockReason)+'</p>':'')+
+      orderStatusTag(order)+'</div>'+
+      '<p class="sub" style="margin-top:10px">'+(done?'Packed by: ':'Last handled by: ')+'<b>'+esc(order.packedBy||'—')+'</b>'+(order.packedAt?' · <span class="mono">'+esc(fmtTime(order.packedAt))+'</span>':'')+'</p>'+
+      (order.blockReason?'<p class="reasontag" style="margin-top:6px">⛔ '+esc(order.blockReason)+'</p>':'')+
       '<div class="orderfoot"><button class="btn ghost" onclick="backToScan()">← Scan next</button><div class="spacer"></div>'+
-      (packed?'<button class="btn" id="repackBtn">↺ Pack again</button>':'<button class="btn primary" id="repackBtn">Pack this order →</button>')+
+      (done?'<button class="btn" id="repackBtn">↺ Pack again</button>':'<button class="btn primary" id="repackBtn">Pack this order →</button>')+
       '</div></div>';
-    const rb=$('#repackBtn'); if(rb) rb.onclick=()=>repackOrder(order._key, packed);
+    const rb=$('#repackBtn'); if(rb) rb.onclick=()=>repackOrder(order._key, done);
     return;
   }
 
@@ -1225,10 +1253,12 @@ function renderOrderArea(){
   html+='</div>';
   const allResolved=activePick.every(p=>p.status!=='ok'||p.count>=(p.qty||1));
   const anyBlock=activePick.some(p=>p.status!=='ok');
+  const allBlock=activePick.every(p=>p.status!=='ok');
   const unitsLeft=activePick.reduce((s,p)=>s+(p.status==='ok'?Math.max(0,(p.qty||1)-p.count):0),0);
-  const confirmLabel = anyBlock ? '✓ Confirm — mark NOT packed' : '✓ Confirm pick';
-  html+='<div class="orderfoot">'+(effScanOnly()?'':'<button class="btn ghost" data-checkall>Check all</button>')+'<button class="btn ghost" data-cancel>Cancel</button><div class="spacer"></div><button class="btn primary lg'+(anyBlock?' danger':'')+'" data-confirm '+(allResolved?'':'disabled')+'>'+confirmLabel+'</button></div>';
-  if(anyBlock) html+='<div class="progress-mini" style="color:var(--err)"><span>⛔ One or more items can’t be packed — the entire order will be marked NOT packed.</span></div>';
+  const confirmLabel = allBlock ? '✓ Confirm — mark NOT packed' : (anyBlock ? '✓ Confirm PARTIAL pack' : '✓ Confirm pick');
+  html+='<div class="orderfoot">'+(effScanOnly()?'':'<button class="btn ghost" data-checkall>Check all</button>')+'<button class="btn ghost" data-cancel>Cancel</button><div class="spacer"></div><button class="btn primary lg'+(allBlock?' danger':'')+'" data-confirm '+(allResolved?'':'disabled')+'>'+confirmLabel+'</button></div>';
+  if(allBlock) html+='<div class="progress-mini" style="color:var(--err)"><span>⛔ No items can be packed — the order will be marked NOT packed.</span></div>';
+  else if(anyBlock) html+='<div class="progress-mini" style="color:var(--warn)"><span>◑ Some items can’t be packed — the order will be packed <b>partially</b> (you’ll confirm).</span></div>';
   else if(!allResolved) html+='<div class="progress-mini"><span><b class="mono">'+unitsLeft+'</b> unit(s) left to scan</span></div>';
   html+='</div>';
   area.innerHTML=html;
@@ -1237,11 +1267,12 @@ function renderOrderArea(){
 
 function orderStatusTag(o){
   if(o.status==='packed') return '<span class="statustag st-packed">packed</span>';
+  if(o.status==='partial') return '<span class="statustag st-partial">partial</span>';
   if(o.status==='unpacked') return '<span class="statustag st-blocked">not packed</span>';
   const now=Date.now(); if(o.claim && now-(o.claim.at||0)<STALE_MS) return '<span class="statustag st-pending">in progress</span>';
   return '<span class="statustag st-todo">to pack</span>';
 }
-function orderSortRank(o){ if(o.status==='packed')return 3; if(o.status==='unpacked')return 1; const now=Date.now(); if(o.claim&&now-(o.claim.at||0)<STALE_MS)return 2; return 0; }
+function orderSortRank(o){ if(o.status==='packed')return 4; if(o.status==='partial')return 3; if(o.status==='unpacked')return 1; const now=Date.now(); if(o.claim&&now-(o.claim.at||0)<STALE_MS)return 2; return 0; }
 
 function renderPending(area){
   if(pendingChoice.type==='confirm'){
@@ -1286,26 +1317,38 @@ function wireOrder(order){
 
 async function confirmOrder(order){
   if(!activePick.every(p=>p.status!=='ok'||p.count>=(p.qty||1))){ toast('Scan all units, or mark items as can’t pack','warn'); return; }
+  const blockedIdx=[]; order.items.forEach((it,i)=>{ if(activePick[i].status!=='ok') blockedIdx.push(i); });
+  const nBlocked=blockedIdx.length, nItems=order.items.length;
+  const allBlocked = nBlocked===nItems;              // nothing can be packed → NOT packed
+  const isPartial  = nBlocked>0 && nBlocked<nItems;  // some packed, some not → PARTIAL
+
+  // partial packing needs an explicit confirmation
+  if(isPartial){
+    const names=blockedIdx.map(i=>order.items[i].name+(order.items[i].variation?' · '+order.items[i].variation:'')).join(', ');
+    if(!confirm('This order will be packed PARTIALLY.\n\n• Packed: '+(nItems-nBlocked)+' item(s)\n• Can’t pack: '+nBlocked+' item(s) — '+names+'\n\nConfirm partial pack? (Cancel = keep scanning)')) return;
+  }
   const conf=$('#orderArea [data-confirm]'); if(conf){conf.disabled=true; conf.textContent='Saving…';}
-  const blockers=[]; order.items.forEach((it,i)=>{ if(activePick[i].status!=='ok') blockers.push(it.name+' ('+reasonLabel(activePick[i].status)+(activePick[i].reason?': '+activePick[i].reason:'')+')'); });
-  const isBlocked = blockers.length>0;
-  const blockReason = isBlocked ? ('Cannot pack: '+blockers.join('; ')) : '';
+  const blockers=blockedIdx.map(i=>order.items[i].name+' ('+reasonLabel(activePick[i].status)+(activePick[i].reason?': '+activePick[i].reason:'')+')');
+  const blockReason = blockers.length ? (isPartial?'Partial — cannot pack: ':'Cannot pack: ')+blockers.join('; ') : '';
+  const status = allBlocked ? 'unpacked' : (isPartial ? 'partial' : 'packed');
   try{
     // Stock is authoritative from the table (no recount) — packing does not decrement stock.
     const items=order.items.map((it,i)=>{
       const p=activePick[i];
       if(p.status!=='ok') return {...it, packed:false, status:p.status, reason:p.reason||'', count:0};
-      if(isBlocked)         return {...it, packed:false, status:'blocked', reason:blockReason, count:p.count};
-      return {...it, packed:true, status:'ok', reason:'', count:p.count};
+      return {...it, packed:true, status:'ok', reason:'', count:p.count};   // picked (packed even in a partial order)
     });
     if(claimRef) claimRef.onDisconnect().cancel();
-    await root.child('orders/'+order._key).update({items, status:isBlocked?'unpacked':'packed', blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, claim:null});
+    await root.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, claim:null});
   }catch(e){ toast('Save failed, try again','err'); if(conf){conf.disabled=false; conf.textContent='✓ Confirm pick';} return; }
   claimRef=null; stopHeartbeat();
-  flash(isBlocked?'err':'ok'); beep(isBlocked?'warn':'ok');
-  toast(isBlocked?('Order '+order.trackingId+' marked NOT packed'):('Order '+order.trackingId+' packed'), isBlocked?'warn':'ok', 2600);
+  const good = status==='packed';
+  flash(good?'ok':(allBlocked?'err':'ok')); beep(good?'ok':'warn');
+  toast(status==='packed' ? ('Order '+order.trackingId+' packed')
+      : status==='partial' ? ('Order '+order.trackingId+' packed PARTIALLY ('+(nItems-nBlocked)+'/'+nItems+')')
+      : ('Order '+order.trackingId+' marked NOT packed'), good?'ok':'warn', 2800);
   activeOrder=null; activePick=null; setMode('label'); renderOrderArea(); renderPackHeader();
-  if(!isBlocked && platformStats(S.platforms[curPlatformKey]).complete) toast('🎉 Platform “'+curPlatformKey+'” complete','ok',4000);
+  if(good && platformStats(S.platforms[curPlatformKey]).complete) toast('🎉 Platform “'+curPlatformKey+'” complete','ok',4000);
   focusScan();
 }
 function backToScan(){ activeOrder=null; activePick=null; pendingChoice=null; setMode('label'); renderOrderArea(); focusScan(); }
@@ -1441,52 +1484,162 @@ function renderGuide(){
 /* ============================================================
    REPORT
    ============================================================ */
-function buildReport(){
-  let ordersPacked=0,ordersNotPacked=0,unitsPacked=0,unitsNotPacked=0;
-  const perPlatform={}, packedItems={}, byPacker={}; const unpackArr=[];
-  for(const k in S.platforms){ const p=S.platforms[k]; perPlatform[k]={ordersAll:p.orders.length,ordersPacked:0,ordersNotPacked:0,unitsPacked:0}; packedItems[k]={};
-    for(const o of p.orders){
-      if(o.status==='packed'){ ordersPacked++; perPlatform[k].ordersPacked++; if(o.packedBy)byPacker[o.packedBy]=(byPacker[o.packedBy]||0)+1;
-        for(const it of (o.items||[])){ const q=it.qty||1; unitsPacked+=q; perPlatform[k].unitsPacked+=q; const kk=it.invKey; if(!packedItems[k][kk])packedItems[k][kk]={name:it.name,variation:it.variation,qty:0}; packedItems[k][kk].qty+=q; }
-      } else if(o.status==='unpacked'){ ordersNotPacked++; perPlatform[k].ordersNotPacked++;
-        for(const it of (o.items||[])){ const q=it.qty||1; unitsNotPacked+=q;
-          const cause = it.status && it.status!=='ok' && it.status!=='blocked';
-          const reason = (it.status==='blocked') ? (it.reason||'blocked by another item') : (it.status&&it.status!=='ok' ? reasonLabel(it.status)+(it.reason?': '+it.reason:'') : '—');
-          unpackArr.push({platform:k,trackingId:o.trackingId,name:it.name,variation:it.variation,qty:q,reason,cause,by:o.packedBy||''});
-        }
+function fmtTime(ts){ if(ts==null||ts==='') return ''; if(typeof ts!=='number') return String(ts); try{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return ''; } }
+
+/* normalized order list from the live shift */
+function currentOrderList(){
+  const arr=[];
+  for(const k in S.platforms) for(const o of (S.platforms[k].orders||[])){
+    arr.push({platform:k, trackingId:o.trackingId, status:o.status, packedBy:o.packedBy||'', packedAt:(o.packedAt||null), source:'',
+      items:(o.items||[]).map(it=>({ name:it.name, variation:it.variation, qty:it.qty||1,
+        packed:(o.status==='packed') ? (it.packed!==false) : (it.packed===true),
+        status:it.status||'ok', reason:it.reason||'', invKey:it.invKey||keyOf(it.name,it.variation) }))});
+  }
+  return arr;
+}
+
+/* build report stats from a normalized order list (works for live shift AND loaded CSV) */
+function buildReportFromOrders(orders){
+  let ordersPacked=0, ordersPartial=0, ordersNotPacked=0, unitsPacked=0, unitsNotPacked=0;
+  const perPlatform={}, packedItems={}, byPacker={}; const unpackArr=[]; const packedOrders=[];
+  for(const o of orders){
+    const k=o.platform||'—';
+    if(!perPlatform[k]){ perPlatform[k]={ordersAll:0,ordersPacked:0,ordersPartial:0,ordersNotPacked:0,unitsPacked:0}; packedItems[k]={}; }
+    const st=o.status;
+    if(st!=='packed' && st!=='partial' && st!=='unpacked') continue;  // skip pending
+    perPlatform[k].ordersAll++;
+    if(st==='packed'||st==='partial'){
+      if(st==='packed'){ ordersPacked++; perPlatform[k].ordersPacked++; } else { ordersPartial++; perPlatform[k].ordersPartial++; }
+      if(o.packedBy) byPacker[o.packedBy]=(byPacker[o.packedBy]||0)+1;
+      packedOrders.push(o);
+      for(const it of (o.items||[])){ const q=it.qty||1;
+        if(it.packed){ unitsPacked+=q; perPlatform[k].unitsPacked+=q; const kk=it.invKey||keyOf(it.name,it.variation);
+          if(!packedItems[k][kk])packedItems[k][kk]={name:it.name,variation:it.variation,qty:0}; packedItems[k][kk].qty+=q; }
+        else { unitsNotPacked+=q; unpackArr.push({platform:k,trackingId:o.trackingId,name:it.name,variation:it.variation,qty:q,reason:it.reason||'—',by:o.packedBy||'',partial:true}); }
+      }
+    } else { // unpacked (fully)
+      ordersNotPacked++; perPlatform[k].ordersNotPacked++;
+      for(const it of (o.items||[])){ const q=it.qty||1; unitsNotPacked+=q;
+        const reason = it.reason || (it.status&&it.status!=='ok' ? reasonLabel(it.status) : '—');
+        unpackArr.push({platform:k,trackingId:o.trackingId,name:it.name,variation:it.variation,qty:q,reason,by:o.packedBy||'',partial:false});
       }
     }
   }
-  return {ordersPacked,ordersNotPacked,unitsPacked,unitsNotPacked,perPlatform,packedItems,unpackArr,byPacker};
+  return {ordersPacked,ordersPartial,ordersNotPacked,unitsPacked,unitsNotPacked,perPlatform,packedItems,unpackArr,byPacker,packedOrders};
+}
+
+function reportStatsHTML(r){
+  return stat(r.ordersPacked,'Orders packed','ok')
+    + stat(r.ordersPartial||0,'Orders partial',(r.ordersPartial?'warn':''))
+    + stat(r.ordersNotPacked,'Orders NOT packed',r.ordersNotPacked?'err':'')
+    + stat(r.unitsPacked,'Units packed','ok')
+    + stat(r.unitsNotPacked,'Units not packed',r.unitsNotPacked?'err':'');
+}
+function reportBodyHTML(r, opts){
+  opts=opts||{}; let b='';
+  b+='<div class="tabsec"><h2>By platform</h2><table><thead><tr><th>Platform</th><th class="num">Packed</th><th class="num">Partial</th><th class="num">Units</th><th class="num">Not packed</th></tr></thead><tbody>';
+  for(const k in r.perPlatform){ const p=r.perPlatform[k]; b+='<tr><td>'+esc(k)+'</td><td class="num">'+p.ordersPacked+' / '+p.ordersAll+'</td><td class="num">'+(p.ordersPartial||'—')+'</td><td class="num">'+p.unitsPacked+'</td><td class="num">'+(p.ordersNotPacked||'—')+'</td></tr>'; }
+  b+='</tbody></table></div>';
+  if(Object.keys(r.byPacker).length){ b+='<div class="tabsec"><h2>By packer</h2><table><thead><tr><th>Packer</th><th class="num">Orders handled</th></tr></thead><tbody>'; for(const who in r.byPacker) b+='<tr><td>'+esc(who)+'</td><td class="num">'+r.byPacker[who]+'</td></tr>'; b+='</tbody></table></div>'; }
+  if(r.packedOrders && r.packedOrders.length){
+    b+='<div class="tabsec"><h2>Packed orders</h2><table><thead><tr><th>Platform</th><th>Label</th><th>Status</th><th>Packer</th><th>Packed at</th>'+(opts.showSource?'<th>Source</th>':'')+'</tr></thead><tbody>';
+    for(const o of r.packedOrders){ const t=fmtTime(o.packedAt);
+      b+='<tr><td>'+esc(o.platform)+'</td><td class="mono">'+esc(o.trackingId)+'</td><td>'+(o.status==='partial'?'<span class="statustag st-partial">partial</span>':'<span class="statustag st-packed">packed</span>')+'</td><td>'+esc(o.packedBy||'—')+'</td><td class="mono">'+esc(t||'—')+'</td>'+(opts.showSource?'<td>'+esc(o.source||'—')+'</td>':'')+'</tr>'; }
+    b+='</tbody></table></div>';
+  }
+  for(const k in r.packedItems){ const items=Object.values(r.packedItems[k]).sort((a,b)=>b.qty-a.qty); if(!items.length)continue; b+='<div class="tabsec"><h2>Packed items — '+esc(k)+'</h2><table><thead><tr><th>Item</th><th>Variation</th><th class="num">Qty</th></tr></thead><tbody>'; for(const it of items) b+='<tr><td>'+esc(it.name)+'</td><td>'+esc(it.variation||'—')+'</td><td class="num">'+it.qty+'</td></tr>'; b+='</tbody></table></div>'; }
+  if(r.unpackArr.length){ b+='<div class="tabsec"><h2 style="color:var(--err)">Not-packed items</h2><table><thead><tr><th>Platform</th><th>Label</th><th>From</th><th>Item</th><th class="num">Qty</th><th>Reason</th><th>Packer</th></tr></thead><tbody>'; for(const u of r.unpackArr) b+='<tr><td>'+esc(u.platform)+'</td><td class="mono">'+esc(u.trackingId)+'</td><td>'+(u.partial?'<span class="statustag st-partial">partial</span>':'<span class="statustag st-blocked">not packed</span>')+'</td><td>⛔ '+esc(u.name)+(u.variation?' · '+esc(u.variation):'')+'</td><td class="num">'+u.qty+'</td><td>'+esc(u.reason)+'</td><td>'+esc(u.by||'—')+'</td></tr>'; b+='</tbody></table></div>'; }
+  return b;
 }
 function stat(n,l,cls){ return '<div class="stat '+(cls||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function renderReport(){
-  const r=buildReport();
+  const r=buildReportFromOrders(currentOrderList());
   $('#reportTitle').innerHTML='Shift summary'+(S.date?' <span class="sub" style="font-size:15px">· since '+esc(S.date)+'</span>':'');
-  $('#reportStats').innerHTML=stat(r.ordersPacked,'Orders packed','ok')+stat(r.ordersNotPacked,'Orders NOT packed',r.ordersNotPacked?'err':'')+stat(r.unitsPacked,'Units packed','ok')+stat(r.unitsNotPacked,'Units not packed',r.unitsNotPacked?'err':'');
-  let b='';
-  b+='<div class="tabsec"><h2>By platform</h2><table><thead><tr><th>Platform</th><th class="num">Packed</th><th class="num">Units</th><th class="num">Not packed</th></tr></thead><tbody>';
-  for(const k in r.perPlatform){ const p=r.perPlatform[k]; b+='<tr><td>'+esc(k)+'</td><td class="num">'+p.ordersPacked+' / '+p.ordersAll+'</td><td class="num">'+p.unitsPacked+'</td><td class="num">'+(p.ordersNotPacked||'—')+'</td></tr>'; }
-  b+='</tbody></table></div>';
-  if(Object.keys(r.byPacker).length){ b+='<div class="tabsec"><h2>By packer</h2><table><thead><tr><th>Packer</th><th class="num">Orders packed</th></tr></thead><tbody>'; for(const who in r.byPacker) b+='<tr><td>'+esc(who)+'</td><td class="num">'+r.byPacker[who]+'</td></tr>'; b+='</tbody></table></div>'; }
-  for(const k in r.packedItems){ const items=Object.values(r.packedItems[k]).sort((a,b)=>b.qty-a.qty); if(!items.length)continue; b+='<div class="tabsec"><h2>Packed — '+esc(k)+'</h2><table><thead><tr><th>Item</th><th>Variation</th><th class="num">Qty</th></tr></thead><tbody>'; for(const it of items) b+='<tr><td>'+esc(it.name)+'</td><td>'+esc(it.variation||'—')+'</td><td class="num">'+it.qty+'</td></tr>'; b+='</tbody></table></div>'; }
-  if(r.unpackArr.length){ b+='<div class="tabsec"><h2 style="color:var(--err)">Not packed (full orders)</h2><table><thead><tr><th>Platform</th><th>Label</th><th>Item</th><th class="num">Qty</th><th>Reason</th><th>Packer</th></tr></thead><tbody>'; for(const u of r.unpackArr) b+='<tr><td>'+esc(u.platform)+'</td><td class="mono">'+esc(u.trackingId)+'</td><td>'+(u.cause?'⛔ ':'↳ ')+esc(u.name)+(u.variation?' · '+esc(u.variation):'')+'</td><td class="num">'+u.qty+'</td><td>'+esc(u.reason)+'</td><td>'+esc(u.by||'—')+'</td></tr>'; b+='</tbody></table></div>'; }
-  $('#reportBody').innerHTML=b;
+  $('#reportStats').innerHTML=reportStatsHTML(r);
+  $('#reportBody').innerHTML=reportBodyHTML(r,{});
 }
-function exportCSV(){
-  const rows=[['Platform','Label','Item','Variation','Qty','Order status','Item status','Reason','Packer']];
-  for(const k in S.platforms) for(const o of S.platforms[k].orders) for(const it of (o.items||[])){
-    const ostatus = o.status==='packed'?'packed':(o.status==='unpacked'?'NOT packed':'pending');
-    let istatus='pending', reason='';
-    if(o.status!=='pending'){
-      if(it.status && it.status!=='ok' && it.status!=='blocked'){ istatus='cannot pack'; reason=reasonLabel(it.status)+(it.reason?': '+it.reason:''); }
-      else if(it.status==='blocked'){ istatus='blocked'; reason=it.reason||''; }
-      else istatus = o.status==='packed'?'packed':'ok';
+/* canonical CSV schema \u2014 used for export AND re-import */
+const CSV_HEADERS=['Platform','Label','Item','Variation','Qty','Order status','Item status','Reason','Packer','Packed at','Shift date'];
+function orderStatusText(st){ return st==='packed'?'packed':(st==='partial'?'partial':(st==='unpacked'?'NOT packed':'pending')); }
+function ordersToCSVRows(orders, shiftDateDefault){
+  const rows=[CSV_HEADERS.slice()];
+  for(const o of orders){
+    const ost=orderStatusText(o.status); const packedAt=fmtTime(o.packedAt); const sdate=o.shiftDate||shiftDateDefault||'';
+    for(const it of (o.items||[])){
+      let istatus, reason=it.reason||'';
+      if(o.status==='pending'){ istatus='pending'; }
+      else if(it.packed){ istatus='packed'; reason=''; }
+      else { istatus='cannot pack'; }
+      rows.push([o.platform,o.trackingId,it.name,it.variation,it.qty,ost,istatus,reason,o.packedBy||'',packedAt,sdate]);
     }
-    rows.push([k,o.trackingId,it.name,it.variation,it.qty,ostatus,istatus,reason,o.packedBy||'']);
   }
-  const csv=rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\r\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='pack_report_'+TODAY+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+  return rows;
+}
+function rowsToCSV(rows){ return rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\r\n'); }
+function downloadCSV(rows, filename){ const blob=new Blob(['\ufeff'+rowsToCSV(rows)],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
+function exportCSV(){ downloadCSV(ordersToCSVRows(currentOrderList(), S.date||TODAY), 'pack_report_'+(S.date||TODAY)+'.csv'); }
+
+/* ---------- report viewer: parse past CSV reports (read-only) ---------- */
+let loadedReports=[];   // [{name, orders:[...], dates:[...]}]
+function parseCSV(text){
+  const rows=[]; let row=[], field='', i=0, inq=false; text=String(text||'').replace(/^\ufeff/,'');
+  while(i<text.length){ const c=text[i];
+    if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inq=false;i++;continue; } field+=c;i++;continue; }
+    if(c==='"'){ inq=true;i++;continue; }
+    if(c===','){ row.push(field);field='';i++;continue; }
+    if(c==='\r'){ i++;continue; }
+    if(c==='\n'){ row.push(field);rows.push(row);row=[];field='';i++;continue; }
+    field+=c;i++;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+function findCol(h, names){ for(const n of names){ const i=h.indexOf(n); if(i>=0) return i; } for(let i=0;i<h.length;i++) for(const n of names) if(h[i].indexOf(n)>=0) return i; return -1; }
+function orderStatusFromText(t){ t=norm(t); if(t==='packed')return'packed'; if(t.indexOf('partial')>=0)return'partial'; if(t.indexOf('not packed')>=0||t==='unpacked'||t==='notpacked')return'unpacked'; return 'pending'; }
+function itemPackedFromText(itemStatus, orderStatus){ const s=norm(itemStatus); if(s==='packed')return true; if(s==='cannot pack'||s==='cant pack'||s==='blocked'||s==='not packed')return false; if(s==='ok')return orderStatus==='packed'||orderStatus==='partial'; return orderStatus==='packed'; }
+function ordersFromCSV(rows, sourceName){
+  if(!rows || rows.length<2) return [];
+  const h=rows[0].map(x=>norm(x));
+  const ci={ plat:findCol(h,['platform']), label:findCol(h,['label','tracking']), item:findCol(h,['item','name']), variation:findCol(h,['variation','variant']),
+    qty:findCol(h,['qty','quantity']), ostatus:findCol(h,['order status']), istatus:findCol(h,['item status']), reason:findCol(h,['reason']),
+    packer:findCol(h,['packer']), packedAt:findCol(h,['packed at','packed_at','packed time']), sdate:findCol(h,['shift date','report date','date']) };
+  const groups={};
+  for(let r=1;r<rows.length;r++){ const row=rows[r]; if(!row||row.every(x=>String(x).trim()===''))continue;
+    const get=idx=>idx>=0?String(row[idx]==null?'':row[idx]).trim():'';
+    const plat=get(ci.plat)||'\u2014'; const label=get(ci.label); const gk=plat+' '+label;
+    if(!groups[gk]) groups[gk]={platform:plat,trackingId:label,status:orderStatusFromText(get(ci.ostatus)),
+      packedBy:get(ci.packer), packedAt:get(ci.packedAt), shiftDate:get(ci.sdate), source:sourceName, items:[]};
+    const g=groups[gk];
+    const packed=itemPackedFromText(get(ci.istatus), g.status);
+    g.items.push({ name:get(ci.item), variation:get(ci.variation), qty:parseInt(get(ci.qty),10)||1,
+      packed, status:packed?'ok':'cant_pack', reason:get(ci.reason), invKey:keyOf(get(ci.item),get(ci.variation)) });
+  }
+  return Object.values(groups);
+}
+function renderReportView(){
+  const fl=$('#rvFiles');
+  if(fl){ fl.innerHTML=loadedReports.map((r,i)=>'<div class="rvfile"><span class="rvname">'+esc(r.name)+'</span><span class="rvmeta">'+r.orders.length+' orders'+(r.dates&&r.dates.length?' \u00b7 '+esc(r.dates.join(', ')):'')+'</span><button class="rvx" data-rvx="'+i+'" title="Remove">\u2715</button></div>').join('');
+    $$('#rvFiles [data-rvx]').forEach(btn=>btn.onclick=()=>{ loadedReports.splice(+btn.dataset.rvx,1); renderReportView(); }); }
+  const all=loadedReports.flatMap(r=>r.orders);
+  const rvExport=$('#rvExport'); if(rvExport) rvExport.disabled=all.length===0;
+  if(!loadedReports.length){ $('#rvTitle').textContent='No reports loaded'; $('#rvStats').innerHTML=''; $('#rvBody').innerHTML='<div class="empty">Load one or more exported CSV reports to view them here. Nothing is written back \u2014 this is read-only.</div>'; return; }
+  const r=buildReportFromOrders(all);
+  $('#rvTitle').innerHTML='Combined report <span class="sub" style="font-size:15px">\u00b7 '+loadedReports.length+' file'+(loadedReports.length===1?'':'s')+' \u00b7 '+all.length+' orders</span>';
+  $('#rvStats').innerHTML=reportStatsHTML(r);
+  $('#rvBody').innerHTML=reportBodyHTML(r,{showSource:true});
+}
+function loadReportFile(file){
+  const fr=new FileReader();
+  fr.onload=()=>{ try{ const rows=parseCSV(fr.result); const orders=ordersFromCSV(rows, file.name);
+      if(!orders.length){ toast('No rows found in '+file.name,'warn',3000); return; }
+      const dates=[...new Set(orders.map(o=>o.shiftDate).filter(Boolean))];
+      loadedReports.push({name:file.name, orders, dates}); renderReportView(); toast('Loaded '+file.name+' ('+orders.length+' orders)','ok',2400);
+    }catch(e){ toast('Could not read '+file.name,'err',3200); } };
+  fr.readAsText(file);
+}
+function exportMergedCSV(){
+  const all=loadedReports.flatMap(r=>r.orders); if(!all.length){ toast('Load reports first','warn'); return; }
+  downloadCSV(ordersToCSVRows(all,''), 'merged_report.csv'); toast('Merged report exported','ok',2200);
 }
 
 /* ============================================================
@@ -1569,6 +1722,10 @@ $('#backBtn').onclick=()=>goPlatforms();
 $('#homeBtn').onclick=()=>goPlatforms();
 $('#finishBtn').onclick=()=>{ show('report'); renderReport(); };
 $('#loadDataBtn').onclick=()=>show('seed');
+$('#readReportBtn').onclick=()=>{ show('reportview'); renderReportView(); };
+$('#rvBack').onclick=()=>goPlatforms();
+$('#rvFile').addEventListener('change',e=>{ [...e.target.files].forEach(loadReportFile); e.target.value=''; });
+$('#rvExport').onclick=exportMergedCSV;
 $('#reportBack').onclick=()=>goPlatforms();
 $('#csvBtn').onclick=exportCSV;
 $('#printBtn').onclick=()=>window.print();
