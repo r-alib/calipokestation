@@ -2,59 +2,1609 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>BARCODE LABELS — CALIPOKE STATION</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
 <style>
 :root{
   --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
-  --border:#262D38; --line:#2C3543; --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
-  --accent:#21C063; --r:14px;
-  --disp:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --accent-d:#18742F;
+  --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+
+  --accent-soft:rgba(33,192,99,.13);
+  --accent-ring:rgba(33,192,99,.26);
+  --ok-soft:rgba(33,192,99,.13);
+  --warn-soft:rgba(242,177,76,.13);
+  --err-soft:rgba(240,82,77,.13);
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 10px 30px rgba(0,0,0,.35);
+  color-scheme:dark;
 }
-*{box-sizing:border-box} html,body{margin:0;height:100%}
-body{background:var(--bg); color:var(--ink); font-family:var(--body); display:grid; place-items:center; padding:24px}
-.box{width:min(560px,94vw); text-align:center}
-.logo{height:96px; width:auto; max-width:70vw; object-fit:contain; margin:0 auto 6px; display:block; mix-blend-mode:screen}
-.dot{width:16px;height:16px;border-radius:5px;background:var(--accent);box-shadow:0 0 14px var(--accent);display:inline-block}
-.station{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; color:var(--muted); margin:10px 0 26px}
-.icon{width:92px;height:92px;border-radius:26px;background:var(--panel); border:1px solid var(--border);
-  display:grid; place-items:center; font-size:44px; margin:0 auto 20px}
-h1{font-family:var(--disp); font-weight:700; font-size:29px; letter-spacing:.03em; margin:0 0 8px}
-.desc{color:var(--muted); font-size:15px; margin:0 0 26px}
-.tag{display:inline-block; font-family:var(--disp); font-weight:700; font-size:12px; letter-spacing:.18em;
-  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:8px 20px}
-.note{margin-top:30px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r);
-  padding:15px 18px; font-size:13px; color:var(--muted); text-align:left; line-height:1.55}
-.note b{color:var(--ink)}
-.note code{font-family:ui-monospace,Menlo,monospace; color:var(--ink); background:var(--bg); padding:1px 6px; border-radius:5px}
-.back{display:inline-block; margin-top:22px; color:var(--muted); font-size:13.5px; text-decoration:none;
-  border:1px solid var(--line); border-radius:11px; padding:11px 18px}
-.back:hover{color:var(--ink); border-color:var(--faint)}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft);color:var(--ink)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:content-box;border:3px solid transparent}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 22px 64px}
+
+/* ---------- CALIPOKE STATION chrome (matches index.html) ---------- */
+.stationbar{
+  position:sticky;top:0;z-index:40;
+  display:flex;align-items:center;gap:14px;
+  padding:10px 16px;background:rgba(14,17,22,.92);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
+}
+.stationbar .brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;letter-spacing:-.01em;font-size:15px}
+.stationbar .brand small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.stationbar .sdot{width:11px;height:11px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);margin:0;flex:0 0 auto}
+.stationbar .brandlogo{height:30px;width:auto;max-width:150px;object-fit:contain;display:block;mix-blend-mode:screen}
+.stationbar .spacer{flex:1}
+.stationbar .pill{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 11px;
+  background:var(--panel);border:1px solid var(--border);border-radius:999px;
+  font-size:12.5px;color:var(--muted);
+}
+.stationbar .pill b{color:var(--ink);font-family:var(--mono);font-weight:700}
+@media (max-width:720px){ .stationbar .pill{display:none} }
+
+/* ---------- name gate ---------- */
+.namegate{position:fixed;inset:0;z-index:120;background:var(--bg);display:grid;place-items:center;padding:20px}
+.namegate .gbox{width:min(420px,94vw);text-align:center}
+.namegate .glogo{height:104px;width:auto;max-width:78vw;object-fit:contain;margin:0 auto 6px;display:block;mix-blend-mode:screen}
+.namegate .gdot{width:16px;height:16px;border-radius:5px;background:var(--accent);box-shadow:0 0 14px var(--accent);display:inline-block;margin:0}
+.namegate .gtitle{font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:.02em;margin-top:8px}
+.namegate .gsub{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
+.namegate h2{font-family:var(--disp);font-size:19px;font-weight:600;margin:22px 0 6px}
+.namegate p{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+.namegate input{width:100%;text-align:center;font-size:17px;margin-bottom:12px}
+.namegate .print-btn{margin-top:0}
+
+/* ---------- company catalog picker ---------- */
+.catrow{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:8px 11px;cursor:pointer;font:inherit;color:inherit;transition:.12s;
+}
+.catrow:hover{border-color:var(--accent);background:var(--accent-soft)}
+.catrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.catrow .cinfo{flex:1 1 auto;min-width:0}
+.catrow .cnm{display:block;font-size:13.5px;font-weight:600;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catrow .ccd{display:block;font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catrow .ctag{
+  flex:0 0 auto;font-family:var(--disp);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:999px;padding:3px 8px;border:1px solid var(--border);color:var(--faint);
+}
+.catrow .ctag.new{color:var(--info);border-color:rgba(76,154,242,.4)}
+.catrow .ctag.pending{color:var(--warn);border-color:rgba(242,177,76,.4)}
+
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
+  flex-wrap:wrap;padding-bottom:18px;margin-bottom:20px;border-bottom:1px solid var(--border);
+}
+h1{font-family:var(--disp);font-size:25px;font-weight:700;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13.5px;margin:4px 0 0}
+.stock{
+  display:flex;align-items:center;gap:9px;
+  font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.03em;
+  color:var(--ink);background:var(--panel2);
+  border:1px solid var(--border);border-radius:999px;padding:6px 14px 6px 10px;
+}
+.stock .swatch{
+  width:22px;height:12px;border-radius:2px;background:#fff;
+  box-shadow:0 0 0 2px var(--raised);
+}
+
+/* ---------- grid ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+
+.card{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);box-shadow:var(--shadow);padding:20px;
+}
+.card + .card{margin-top:18px}
+
+.eyebrow{
+  font-family:var(--disp);
+  font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 15px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.eyebrow .count{font-family:var(--mono);letter-spacing:.04em;font-weight:500;color:var(--muted)}
+
+/* ---------- fields ---------- */
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.field:last-child{margin-bottom:0}
+label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.hint{font-size:11.5px;color:var(--faint);font-weight:400}
+input[type=text],input[type=number],input[type=search],textarea,select{
+  width:100%;
+  font-family:var(--mono);
+  font-size:16px;font-weight:500;letter-spacing:.01em;
+  color:var(--ink);background:var(--panel2);
+  border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 13px;
+  transition:border-color .12s, box-shadow .12s;
+}
+input:focus-visible,textarea:focus-visible,select:focus-visible{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring);
+}
+input.small{font-size:14.5px;padding:9px 11px}
+input.invalid{border-color:var(--err);box-shadow:0 0 0 3px var(--err-soft)}
+::placeholder{color:var(--faint)}
+textarea{font-size:13px;line-height:1.55;resize:vertical;min-height:120px;white-space:pre;overflow-x:auto}
+
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.qty-wrap{width:104px;flex:0 0 auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  font-family:var(--mono);font-size:12.5px;font-weight:500;
+  color:var(--muted);background:var(--panel2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:8px 12px;cursor:pointer;transition:.12s;
+}
+.chip:hover{color:var(--ink);border-color:var(--line)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.seg{
+  display:flex;background:var(--panel2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:3px;gap:3px;width:max-content;max-width:100%;
+}
+.seg button{
+  font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--muted);
+  background:none;border:0;border-radius:6px;padding:7px 13px;cursor:pointer;transition:.12s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.seg.mode{margin-bottom:20px}
+.seg.mode button{font-family:var(--disp);font-size:13.5px;padding:9px 17px;letter-spacing:.005em}
+
+.check{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink);cursor:pointer;user-select:none}
+.check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0}
+
+.err{
+  display:none;font-size:12.5px;color:var(--err);
+  background:var(--err-soft);border-radius:var(--r-sm);padding:9px 12px;margin-top:2px;
+}
+.err.on{display:block}
+
+/* ---------- buttons ---------- */
+.print-btn{
+  width:100%;margin-top:20px;
+  font-family:var(--disp);font-size:15.5px;font-weight:700;letter-spacing:.01em;
+  color:#08170D;background:var(--accent);
+  border:0;border-radius:var(--r-sm);padding:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;transition:.12s;
+}
+.print-btn:hover:not(:disabled){filter:brightness(1.09)}
+.print-btn:active:not(:disabled){background:var(--accent-d);color:#DFF6E7}
+.print-btn:disabled{opacity:.3;cursor:not-allowed}
+.print-btn:focus-visible{outline:3px solid var(--accent-ring);outline-offset:2px}
+.print-btn .n{font-family:var(--mono);font-weight:500;opacity:.72;font-size:13.5px}
+.print-note{font-size:11.5px;color:var(--muted);text-align:center;margin:9px 0 0}
+
+.btn{
+  font-family:var(--body);font-size:13px;font-weight:600;
+  color:var(--ink);background:var(--panel2);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:9px 15px;cursor:pointer;transition:.12s;white-space:nowrap;
+}
+.btn:hover:not(:disabled){border-color:var(--line);background:var(--raised)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.btn.primary:hover:not(:disabled){background:rgba(33,192,99,.2)}
+
+.linkbtn{
+  font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);
+  background:none;border:0;padding:4px 2px;cursor:pointer;text-decoration:underline;
+  text-underline-offset:3px;text-decoration-color:var(--line);
+}
+.linkbtn:hover{color:var(--accent);text-decoration-color:var(--accent)}
+.linkbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- preview ---------- */
+.stage{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--r);
+  padding:26px 22px;display:flex;flex-direction:column;align-items:center;gap:15px;overflow-x:auto;
+}
+.liner{
+  padding:9px;border-radius:var(--r-sm);
+  background:var(--raised);border:1px solid var(--line);
+  box-shadow:var(--shadow);flex:0 0 auto;
+}
+.label{
+  width:2.25in;height:1.25in;background:#fff;color:#000;border-radius:3px;
+  padding:.09in;display:flex;flex-direction:column;overflow:hidden;
+}
+.label .top{
+  font-family:var(--body);font-size:.115in;font-weight:700;line-height:1.2;
+  letter-spacing:.005em;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.03in;
+}
+.label .bars{flex:1 1 auto;min-height:0;display:flex;align-items:center}
+.label .bars svg{display:block;width:100%;height:100%}
+.label .hr{
+  font-family:var(--mono);font-size:.125in;font-weight:600;
+  line-height:1.15;letter-spacing:.05em;text-align:center;margin-top:.035in;
+  white-space:nowrap;overflow:hidden;
+}
+.label.empty{align-items:center;justify-content:center}
+.label .placeholder{font-family:var(--mono);font-size:11px;color:#8A94A3;letter-spacing:.06em;text-align:center;padding:0 10px}
+
+.rownav{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.rownav .pos{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.navbtn{
+  width:28px;height:28px;display:grid;place-items:center;font-size:15px;line-height:1;
+  background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--ink);cursor:pointer;
+}
+.navbtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.navbtn:disabled{opacity:.3;cursor:not-allowed}
+.navbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- spec readout ---------- */
+.specs{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;
+  width:100%;margin-top:4px;
+}
+.spec{background:var(--panel);padding:11px 13px}
+.spec.wide{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.spec.wide dt{margin:0}
+.spec.wide .pill{margin-top:0;white-space:nowrap}
+.spec dt{
+  font-family:var(--disp);
+  font-size:9.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin:0 0 4px;
+}
+.spec dd{margin:0;font-family:var(--mono);font-size:14px;font-weight:500;font-variant-numeric:tabular-nums}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--body);font-size:11.5px;font-weight:600;
+  border-radius:999px;padding:3px 10px;margin-top:7px;
+}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--ok);background:var(--ok-soft)}
+.pill.warn{color:var(--warn);background:var(--warn-soft)}
+.pill.bad{color:var(--err);background:var(--err-soft)}
+.scale-note{font-size:11.5px;color:var(--faint);text-align:center;margin:0}
+
+/* ---------- batch ---------- */
+.parseline{
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);
+  margin:9px 0 0;display:flex;gap:12px;flex-wrap:wrap;align-items:center;
+}
+.mapgrid{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.mapcol{
+  flex:1 1 150px;min-width:132px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);padding:9px 10px;
+}
+.mapcol .h{
+  font-family:var(--disp);
+  font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+  margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mapcol .sample{
+  font-family:var(--mono);font-size:11px;color:var(--faint);
+  margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mapcol select{font-family:var(--body);font-size:12.5px;font-weight:600;padding:6px 8px;background:var(--panel);border-radius:7px}
+
+.tablewrap{border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.scrollbox{max-height:420px;overflow:auto}
+table.rows{width:100%;border-collapse:collapse;font-size:13px}
+table.rows th{
+  font-family:var(--disp);
+  font-size:9.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);
+  text-align:left;padding:10px 12px;background:var(--panel2);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1;white-space:nowrap;
+}
+table.rows td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+table.rows tr:last-child td{border-bottom:0}
+table.rows tbody tr{cursor:pointer;transition:background .12s}
+table.rows tbody tr:hover{background:var(--panel2)}
+table.rows tbody tr.sel{background:var(--accent-soft)}
+table.rows tbody tr.bad td.code{color:var(--err)}
+td.num,th.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;width:1%;white-space:nowrap}
+td.code{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px}
+.dot.ok{background:var(--ok)}
+.dot.warn{background:var(--warn)}
+.dot.bad{background:var(--err)}
+.summary{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 13px}
+.summary b{color:var(--ink);font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---------- saved codes ---------- */
+.saveform{display:flex;gap:8px;align-items:stretch;margin-bottom:14px}
+.saveform input{flex:1 1 auto;font-size:14px;padding:9px 12px}
+.slist{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto}
+.sitem{
+  display:flex;align-items:center;gap:8px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 9px 8px 12px;
+  transition:border-color .12s, background .12s;
+}
+.sitem:hover{border-color:var(--line)}
+.sitem.active{border-color:var(--accent);background:var(--accent-soft)}
+.sitem .main{flex:1 1 auto;min-width:0;text-align:left;background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer}
+.sitem .main:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.sitem .nm{font-size:13.5px;font-weight:600;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sitem .cd{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{
+  flex:0 0 auto;width:30px;height:30px;display:grid;place-items:center;
+  background:none;border:1px solid transparent;border-radius:8px;color:var(--faint);cursor:pointer;transition:.12s;
+}
+.iconbtn:hover{color:var(--ink);border-color:var(--border);background:var(--raised)}
+.iconbtn.danger:hover{color:var(--err);border-color:var(--err)}
+.iconbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.iconbtn svg{width:15px;height:15px;display:block}
+.empty-note{font-size:12.5px;color:var(--faint);margin:0}
+.undo{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:12.5px;color:var(--ink);background:var(--warn-soft);
+  border:1px solid rgba(242,177,76,.3);
+  border-radius:var(--r-sm);padding:9px 12px;margin-top:13px;
+}
+.undo .name{font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cardfoot{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:15px;padding-top:13px;border-top:1px solid var(--border)}
+.cardfoot .note{font-size:11.5px;color:var(--faint);margin-left:auto}
+
+.tips{font-size:12.5px;color:var(--muted);line-height:1.65;margin:0;padding-left:18px}
+.tips li{margin-bottom:6px}
+.tips strong{color:var(--ink);font-weight:600}
+.tips kbd{
+  font-family:var(--mono);font-size:11px;
+  background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;
+  border-radius:5px;padding:1px 5px;color:var(--ink);
+}
+
+/* ---------- print ---------- */
+#printArea{display:none}
+@media print{
+  @page{size:2.25in 1.25in;margin:0}
+  html,body{background:#fff!important;color:#000!important;margin:0!important;padding:0!important}
+  .wrap,.stationbar,.namegate{display:none!important}
+  #printArea{display:block!important}
+  .plabel{
+    width:2.25in;height:1.25in;padding:.09in;background:#fff;color:#000;
+    display:flex;flex-direction:column;overflow:hidden;
+    page-break-after:always;break-after:page;
+    page-break-inside:avoid;break-inside:avoid;
+  }
+  .plabel:last-child{page-break-after:auto;break-after:auto}
+  .plabel .top{
+    font-family:'Inter',system-ui,sans-serif;font-size:.115in;font-weight:700;line-height:1.2;
+    text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.03in;
+  }
+  .plabel .bars{flex:1 1 auto;min-height:0;display:flex;align-items:center}
+  .plabel .bars svg{display:block;width:100%;height:100%}
+  .plabel .hr{
+    font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:.125in;font-weight:600;
+    line-height:1.15;letter-spacing:.05em;text-align:center;margin-top:.035in;
+    white-space:nowrap;overflow:hidden;
+  }
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-  <div class="box">
-    <img class="logo" src="https://i.postimg.cc/VkfXDqWf/images.jpg" alt="" onerror="this.style.display='none';document.getElementById('d').style.display='inline-block'">
-    <span class="dot" id="d" style="display:none"></span>
-    <div class="station">CALIPOKE STATION</div>
-    <div class="icon">🏷️</div>
-    <h1>BARCODE LABELS</h1>
-    <p class="desc">Print 2.25 × 1.25 in barcode labels</p>
-    <span class="tag">COMING SOON</span>
-    <div class="note">
-      <b>Placeholder.</b> Replace this file with the real module when it is ready —
-      keep the file name <code>barcode-labels.html</code> and keep it next to <code>index.html</code>,
-      and the tile in the main menu will open it with no other change.
-      The file name is set in <code>EXTERNAL_MODES</code> at the top of the index.html script.
-      <br><br><b>What the station already gives you:</b> the signed-in name is in
-      <code>localStorage.ps_name</code> (the literal <code>admin</code> means the manager),
-      the company inventory workbook is the one link in <code>INVENTORY_SHEET_URL</code>,
-      and the receiving module caches that catalog in <code>localStorage.rc_catalog_v1</code>
-      (<code>{main:[], pending:[]}</code>) plus assigned barcodes in <code>localStorage.rc_state_v1</code>.
-    </div>
-    <a class="back" href="javascript:window.close()">✕ Close this tab</a>
+
+<!-- ============ NAME GATE (only when the station has no name yet) ============ -->
+<div class="namegate" id="namegate" hidden>
+  <div class="gbox">
+    <img class="glogo" id="gateLogo" alt="" hidden>
+    <span class="gdot" id="gateDot"></span>
+    <div class="gtitle">CALIPOKE STATION</div>
+    <div class="gsub">Barcode Labels</div>
+    <h2>Enter your name to start</h2>
+    <p>Same name you use on the station — it is remembered on this device.</p>
+    <input id="gateName" type="text" autocomplete="off" maxlength="24" placeholder="e.g. Joe">
+    <button class="print-btn" id="gateGo" type="button">Continue</button>
   </div>
+</div>
+
+<!-- ============ STATION HEADER ============ -->
+<header class="stationbar" id="stationbar">
+  <div class="brand">
+    <img class="brandlogo" id="logoHeader" alt="" hidden>
+    <span class="sdot" id="dotHeader"></span>
+    <div>CALIPOKE STATION<small id="meName">—</small></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="pill" id="catPill" title="Products cached from the company catalog">📚 <b id="catPillN">0</b> catalog</div>
+  <div class="pill">🏷️ <b>2.25 × 1.25 in</b></div>
+  <button class="btn" id="backBtn" type="button">← Main menu</button>
+</header>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Barcode Labels</h1>
+      <p class="sub">Code 128 · thermal label printer · one label per page</p>
+    </div>
+    <div class="stock"><span class="swatch"></span>2.25 × 1.25 in</div>
+  </header>
+
+  <div class="seg mode" id="mode" role="group" aria-label="Input mode">
+    <button type="button" data-m="single" aria-pressed="true">One code</button>
+    <button type="button" data-m="batch" aria-pressed="false">Paste from spreadsheet</button>
+  </div>
+
+  <div class="grid">
+    <!-- ============ CONTROLS ============ -->
+    <section>
+      <!-- company catalog -->
+      <div class="card" id="cardCatalog">
+        <p class="eyebrow"><span>Company catalog</span><span class="count" id="catCount"></span></p>
+        <div class="field" style="margin-bottom:0">
+          <label for="catSearch">Find a product <span class="hint">— type a name or scan a barcode</span></label>
+          <input id="catSearch" class="small" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="e.g. Charizard, or scan a code">
+        </div>
+        <div class="slist" id="catList" hidden style="margin-top:11px"></div>
+        <p class="empty-note" id="catNote" hidden style="margin-top:11px"></p>
+      </div>
+
+      <!-- single -->
+      <div class="card" id="cardSingle">
+        <p class="eyebrow"><span>Label content</span></p>
+
+        <div class="field">
+          <label for="code">Code <span class="hint">— this is what gets encoded</span></label>
+          <input id="code" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+                 placeholder="193052099723-1" value="193052099723-1">
+          <div class="err" id="codeErr"></div>
+        </div>
+
+        <div class="field">
+          <label for="top">Top line <span class="hint">— optional</span></label>
+          <input id="top" class="small" type="text" autocomplete="off" placeholder="e.g. Charizard VMAX / PSA 10">
+        </div>
+      </div>
+
+      <!-- batch -->
+      <div class="card" id="cardBatch" hidden>
+        <p class="eyebrow"><span>Paste rows</span></p>
+        <div class="field">
+          <label for="paste">Copy cells in Google Sheets and paste here <span class="hint">— one label per row</span></label>
+          <textarea id="paste" spellcheck="false" autocomplete="off"
+                    placeholder="Name&#9;Variation&#9;Barcode&#10;Charizard VMAX&#9;PSA 10&#9;193052099723-1&#10;Pikachu Promo&#9;Sealed&#9;193052099724-2"></textarea>
+        </div>
+        <p class="parseline" id="parseInfo">Nothing pasted yet.</p>
+        <div class="field" style="margin-top:13px;margin-bottom:0">
+          <label class="check"><input type="checkbox" id="hdrChk"> First row is a header</label>
+        </div>
+        <div class="mapgrid" id="mapGrid"></div>
+      </div>
+
+      <!-- shared label options -->
+      <div class="card">
+        <p class="eyebrow"><span>Label options</span></p>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="showHr" checked> Print the code text under the bars</label>
+        </div>
+        <div class="field">
+          <label for="barh">Bar height</label>
+          <div class="seg" id="barh" role="group" aria-label="Bar height">
+            <button type="button" data-h="s" aria-pressed="false">Short</button>
+            <button type="button" data-h="m" aria-pressed="true">Medium</button>
+            <button type="button" data-h="l" aria-pressed="false">Tall</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow"><span>Print</span></p>
+        <div class="row">
+          <div class="field qty-wrap" style="margin-bottom:0">
+            <label for="qty">Copies <span class="hint" id="qtyHint"></span></label>
+            <input id="qty" class="small" type="number" min="1" max="500" step="1" value="1">
+          </div>
+          <div class="chips" id="qtyChips" style="padding-bottom:1px">
+            <button class="chip" type="button" data-q="1">1</button>
+            <button class="chip" type="button" data-q="2">2</button>
+            <button class="chip" type="button" data-q="4">4</button>
+            <button class="chip" type="button" data-q="6">6</button>
+            <button class="chip" type="button" data-q="12">12</button>
+            <button class="chip" type="button" data-q="24">24</button>
+          </div>
+        </div>
+
+        <div class="field" id="enterWrap" style="margin-top:16px;margin-bottom:0">
+          <label class="check"><input type="checkbox" id="enterPrint" checked> Print on <kbd>Enter</kbd> in the code field <span class="hint">(handy with a scanner)</span></label>
+        </div>
+
+        <button class="print-btn" id="printBtn">Print <span class="n" id="btnN">1 label</span></button>
+        <p class="print-note" id="printNote" hidden></p>
+      </div>
+    </section>
+
+    <!-- ============ PREVIEW ============ -->
+    <section>
+      <div class="card">
+        <p class="eyebrow"><span>Actual-size preview</span></p>
+        <div class="stage">
+          <div class="rownav" id="rowNav" hidden>
+            <button class="navbtn" id="prevRow" type="button" aria-label="Previous row">‹</button>
+            <span class="pos" id="rowPos">Row 1 of 1</span>
+            <button class="navbtn" id="nextRow" type="button" aria-label="Next row">›</button>
+          </div>
+          <div class="liner">
+            <div class="label" id="label"></div>
+          </div>
+          <p class="scale-note">Shown at 1:1 — on-screen size depends on your monitor's pixel density.</p>
+          <dl class="specs">
+            <div class="spec"><dt>Symbology</dt><dd id="specSym">—</dd></div>
+            <div class="spec"><dt>Modules</dt><dd id="specMod">—</dd></div>
+            <div class="spec wide">
+              <dt>Module width</dt><dd id="specMil">—</dd>
+              <span class="pill ok" id="specPill">—</span>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="eyebrow"><span>Printer settings</span></p>
+        <ul class="tips">
+          <li>In the print dialog choose paper size <strong>2.25 × 1.25 in</strong> (or "Label"), margins <strong>None / 0</strong>, scale <strong>100 %</strong>. Background graphics can stay off.</li>
+          <li>Turn off "Fit to page" — otherwise the barcode gets squeezed and stops scanning.</li>
+          <li>Below 10 mil module width a 203 dpi printer often reads unreliably. If the readout flags it, shorten the code or raise the bars.</li>
+          <li><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>P</kbd> prints too — the label sheet is built automatically.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ BATCH ROWS ============ -->
+  <div class="card" id="cardRows" hidden style="margin-top:20px">
+    <p class="eyebrow"><span>Rows</span><span class="count" id="rowsCount"></span></p>
+    <p class="summary" id="rowsSummary"></p>
+    <div class="tablewrap scrollbox">
+      <table class="rows">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>Top line</th>
+            <th>Code</th>
+            <th>Module</th>
+            <th class="num">Copies</th>
+            <th class="num">Drop</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+    </div>
+    <div class="cardfoot">
+      <button class="btn" id="saveAllBtn" type="button">Save all rows to list</button>
+      <span class="note">Click any row to preview it. Dropping a row only affects this print run — re-paste to bring it back.</span>
+    </div>
+  </div>
+
+  <!-- ============ SAVED CODES ============ -->
+  <div class="card" style="margin-top:20px">
+    <p class="eyebrow"><span>Saved codes</span><span class="count" id="savedCount"></span></p>
+
+    <div class="saveform">
+      <input id="saveName" type="text" autocomplete="off" placeholder="Name this code, e.g. Charizard VMAX PSA 10">
+      <button class="btn primary" id="saveBtn" type="button">Save current</button>
+    </div>
+
+    <div class="field" id="filterWrap" hidden style="margin-bottom:12px">
+      <input id="filter" class="small" type="search" autocomplete="off" placeholder="Filter by name or code">
+    </div>
+
+    <div class="slist" id="savedList"></div>
+    <p class="empty-note" id="savedEmpty">No saved codes yet. Type a name above and hit "Save current" to keep the code you're working on.</p>
+
+    <div class="undo" id="undoBar" hidden>
+      <span>Deleted <span class="name" id="undoName"></span></span>
+      <button class="btn" id="undoBtn" type="button">Undo</button>
+    </div>
+
+    <div class="cardfoot">
+      <button class="linkbtn" id="exportBtn" type="button">Export list</button>
+      <button class="linkbtn" id="importBtn" type="button">Import list</button>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+      <span class="note">Saved in this browser on this computer. Export to move the list elsewhere.</span>
+    </div>
+  </div>
+</div>
+
+<div id="printArea" aria-hidden="true"></div>
+
+<script>
+"use strict";
+/* ================= Code 128 (auto B/C) ================= */
+var PATTERNS = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+var START_B = 104, START_C = 105, CODE_B = 100, CODE_C = 99, STOP = 106;
+
+function digitRun(s, pos){
+  var n = 0;
+  while (pos + n < s.length && s[pos+n] >= "0" && s[pos+n] <= "9") n++;
+  return n;
+}
+
+function encodeValues(data){
+  var codes = [], i = 0, lead = digitRun(data, 0), mode;
+  if (data.length >= 2 && lead === data.length && lead % 2 === 0) mode = "C";
+  else if (lead >= 4) mode = "C";
+  else mode = "B";
+  codes.push(mode === "C" ? START_C : START_B);
+  var usedC = mode === "C", usedB = mode === "B";
+  while (i < data.length){
+    if (mode === "C"){
+      var d = digitRun(data, i);
+      if (d >= 2){
+        var take = d - (d % 2);
+        for (var k = 0; k < take; k += 2) codes.push(parseInt(data.substr(i+k,2),10));
+        i += take;
+        if (i < data.length && digitRun(data,i) < 2){ codes.push(CODE_B); mode = "B"; usedB = true; }
+      } else { codes.push(CODE_B); mode = "B"; usedB = true; }
+    } else {
+      var dd = digitRun(data, i);
+      if ((dd % 2 === 0 && dd >= 4) || dd >= 6){ codes.push(CODE_C); mode = "C"; usedC = true; }
+      else { codes.push(data.charCodeAt(i) - 32); i++; }
+    }
+  }
+  var sum = codes[0];
+  for (var j = 1; j < codes.length; j++) sum += codes[j] * j;
+  codes.push(sum % 103);
+  codes.push(STOP);
+  codes.sets = (usedB && usedC) ? "B+C" : (usedC ? "C" : "B");
+  return codes;
+}
+
+function encodeWidths(data){
+  var codes = encodeValues(data), out = [];
+  for (var i = 0; i < codes.length; i++){
+    var p = PATTERNS[codes[i]];
+    for (var k = 0; k < p.length; k++) out.push(+p[k]);
+  }
+  out.sets = codes.sets;
+  return out;
+}
+
+var QUIET = 10; // quiet-zone modules on each side
+
+function barcodeSvg(data){
+  var w = encodeWidths(data), total = QUIET * 2, i;
+  for (i = 0; i < w.length; i++) total += w[i];
+  var rects = "", x = QUIET;
+  for (i = 0; i < w.length; i++){
+    if (i % 2 === 0) rects += '<rect x="' + x + '" y="0" width="' + w[i] + '" height="100"/>';
+    x += w[i];
+  }
+  return {
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' 100" ' +
+         'preserveAspectRatio="none" shape-rendering="crispEdges" fill="#000">' + rects + '</svg>',
+    modules: total,
+    sets: w.sets
+  };
+}
+
+/* ================= CALIPOKE STATION integration =================
+   This module is opened from the station's main menu in a new tab.
+   It reads (never writes) three things the station already keeps in
+   this browser:
+     ps_name          — who is signed in ("admin" means the manager)
+     rc_catalog_v1    — the company catalog cached by NEW SHIPMENT
+     rc_state_v1      — barcodes NEW SHIPMENT assigned to new products
+   ================================================================= */
+/* >>> COMPANY LOGO — keep in sync with LOGO_URL in index.html <<< */
+var STATION_LOGO = "https://i.postimg.cc/VkfXDqWf/images.jpg";
+/* >>> the station's own file, used when this page was opened directly <<< */
+var STATION_FILE = "index.html";
+
+var LS_NAME = "ps_name", LS_CATALOG = "rc_catalog_v1", LS_RECV = "rc_state_v1";
+var USER = "", IS_ADMIN = false;
+
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsJson(k){ try{ return JSON.parse(lsGet(k) || "null") || null; }catch(e){ return null; } }
+
+function applyStationLogo(){
+  [["logoHeader","dotHeader"],["gateLogo","gateDot"]].forEach(function(pair){
+    var img = document.getElementById(pair[0]), dot = document.getElementById(pair[1]);
+    if (!img || !STATION_LOGO) return;
+    img.src = STATION_LOGO;
+    img.hidden = false; if (dot) dot.hidden = true;
+    img.onerror = function(){ img.hidden = true; if (dot) dot.hidden = false; };
+  });
+}
+
+function setUser(name){
+  USER = String(name || "").trim();
+  IS_ADMIN = USER.toLowerCase() === "admin";
+  var el = document.getElementById("meName");
+  if (el) el.textContent = USER ? (USER + (IS_ADMIN ? " · admin" : "")) : "—";
+}
+
+function backToStation(){
+  // opened from the station menu → this tab can close itself;
+  // opened directly → walk back to the station instead.
+  try { window.close(); } catch (e) {}
+  setTimeout(function(){ if (!window.closed) location.href = STATION_FILE; }, 150);
+}
+
+/* ---- the company catalog, as a flat list of printable codes ---- */
+function splitCodes(s){
+  return String(s == null ? "" : s).split(/[,;\n]+/)
+    .map(function(x){ return x.trim(); }).filter(Boolean);
+}
+function catalogRows(){
+  var out = [], seen = {};
+  function push(name, variation, code, loc, tag){
+    if (!code || !name) return;
+    var k = code.toLowerCase() + "|" + String(name).toLowerCase();
+    if (seen[k]) return;
+    seen[k] = 1;
+    out.push({ name: name, variation: variation || "", code: code, loc: loc || "", tag: tag || "" });
+  }
+  var cat = lsJson(LS_CATALOG) || {};
+  (cat.main || []).forEach(function(e){
+    splitCodes(e.barcode).forEach(function(b){ push(e.name, e.variation, b, e.location, ""); });
+  });
+  (cat.pending || []).forEach(function(e){
+    splitCodes(e.barcode).forEach(function(b){ push(e.name, e.variation, b, "", "pending"); });
+  });
+  var recv = lsJson(LS_RECV) || {};
+  var learned = recv.learned || {};
+  Object.keys(learned).forEach(function(b){
+    var e = learned[b] || {};
+    push(e.name, e.variation, b, "", "new");
+  });
+  return out;
+}
+
+var CATALOG = [];
+function refreshCatalog(){
+  CATALOG = catalogRows();
+  var n = CATALOG.length;
+  var pill = document.getElementById("catPillN"); if (pill) pill.textContent = n;
+  var cnt = document.getElementById("catCount");
+  if (cnt) cnt.textContent = n ? n + (n === 1 ? " code" : " codes") : "";
+}
+
+function renderCatalogSearch(){
+  var box = document.getElementById("catList"), note = document.getElementById("catNote");
+  var q = (document.getElementById("catSearch").value || "").trim().toLowerCase();
+  box.innerHTML = "";
+
+  if (!CATALOG.length){
+    box.hidden = true; note.hidden = false;
+    note.textContent = "No catalog on this device yet. Open NEW SHIPMENT → ⚙ Catalog on the station once, " +
+                       "or just type the code below by hand.";
+    return;
+  }
+  if (!q){ box.hidden = true; note.hidden = false; note.textContent = "Start typing to search " + CATALOG.length + " codes."; return; }
+
+  var hits = CATALOG.filter(function(r){
+    return r.name.toLowerCase().indexOf(q) > -1 ||
+           r.variation.toLowerCase().indexOf(q) > -1 ||
+           r.code.toLowerCase().indexOf(q) > -1;
+  });
+  // an exact code match is what a scanner just produced — put it first
+  hits.sort(function(a, b){
+    var ea = a.code.toLowerCase() === q ? 0 : 1, eb = b.code.toLowerCase() === q ? 0 : 1;
+    return ea - eb || a.name.localeCompare(b.name);
+  });
+
+  if (!hits.length){ box.hidden = true; note.hidden = false; note.textContent = "Nothing in the catalog matches that."; return; }
+
+  note.hidden = true; box.hidden = false;
+  hits.slice(0, 40).forEach(function(r){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "catrow";
+    b.innerHTML = '<span class="cinfo"><span class="cnm">' + esc(r.name) +
+      (r.variation ? " · " + esc(r.variation) : "") + '</span>' +
+      '<span class="ccd">' + esc(r.code) + (r.loc ? " · 📍 " + esc(r.loc) : "") + "</span></span>" +
+      (r.tag ? '<span class="ctag ' + r.tag + '">' + r.tag + "</span>" : "");
+    b.addEventListener("click", function(){ useCatalogRow(r); });
+    box.appendChild(b);
+  });
+  if (hits.length > 40){
+    var more = document.createElement("p");
+    more.className = "empty-note";
+    more.style.marginTop = "8px";
+    more.textContent = "Showing 40 of " + hits.length + " — narrow the search.";
+    box.appendChild(more);
+  }
+}
+
+function useCatalogRow(r){
+  if (mode !== "single") setMode("single");
+  codeEl.value = r.code;
+  topEl.value = r.variation ? (r.name + " · " + r.variation) : r.name;
+  nameEl.value = r.name;
+  renderSingle();
+  writeStore();
+  codeEl.focus();
+  codeEl.select();
+}
+
+/* ================= constants and state ================= */
+var LABEL_W = 2.25, PAD = 0.09;
+var INNER_W = LABEL_W - PAD * 2;
+var BAR_H = { s: 46, m: 60, l: 74 };
+var STORE_KEY = "bcl-settings";
+var MAX_PAGES = 500;
+
+var $ = function(id){ return document.getElementById(id); };
+var codeEl = $("code"), topEl = $("top"), hrEl = $("showHr"), qtyEl = $("qty"),
+    enterEl = $("enterPrint"), labelEl = $("label"), errEl = $("codeErr"),
+    nameEl = $("saveName"), filterEl = $("filter"), pasteEl = $("paste"), hdrChk = $("hdrChk");
+
+var mode = "single";
+var barHeight = "m";
+var saved = [];
+var current = null;                 // label shown in the preview
+var pendingDelete = null, undoTimer = null;
+
+var parsed = { cells: [], cols: 0 };  // raw pasted grid (header row included)
+var mapping = [];                     // per-column role
+var headerAuto = false, headerManual = null;
+var items = [];                       // built batch labels
+var selIndex = 0;
+
+/* ================= storage ================= */
+function readStore(){
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    var s = JSON.parse(raw);
+    if (typeof s.top === "string") topEl.value = s.top;
+    if (typeof s.hr === "boolean") hrEl.checked = s.hr;
+    if (typeof s.enter === "boolean") enterEl.checked = s.enter;
+    if (s.barh && BAR_H[s.barh]) barHeight = s.barh;
+    if (typeof s.qty === "number") qtyEl.value = s.qty;
+    if (Array.isArray(s.saved)) saved = s.saved.filter(isEntry).slice(0, 500);
+    else if (Array.isArray(s.recent)) {
+      saved = s.recent.filter(function(c){ return typeof c === "string"; })
+                      .map(function(c){ return { id: newId(), name: c, code: c, top: "" }; });
+    }
+  } catch (e) {}
+}
+function writeStore(){
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      top: topEl.value, hr: hrEl.checked, enter: enterEl.checked,
+      barh: barHeight, qty: +qtyEl.value || 1, saved: saved
+    }));
+  } catch (e) {}
+}
+function isEntry(x){ return x && typeof x.code === "string" && x.code && typeof x.name === "string"; }
+function newId(){ return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ================= helpers ================= */
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function validate(v){
+  if (!v) return "Enter a code.";
+  for (var i = 0; i < v.length; i++){
+    var c = v.charCodeAt(i);
+    if (c < 32 || c > 126) return "Code 128 can't encode “" + v[i] + "”. Use Latin letters, digits and punctuation.";
+  }
+  return null;
+}
+
+function milFor(modules){ return (INNER_W / modules) * 1000; }
+
+function grade(mil){
+  if (mil >= 10) return { cls: "ok", text: "solid at 203 dpi" };
+  if (mil >= 7.5) return { cls: "warn", text: "tight — test-scan it" };
+  return { cls: "bad", text: "too tight, shorten the code" };
+}
+
+function makeLabel(code, top){
+  var err = validate(code);
+  if (err) return { code: code, top: top, err: err };
+  var bc = barcodeSvg(code);
+  return { code: code, top: top, bc: bc, modules: bc.modules, mil: milFor(bc.modules), err: null };
+}
+
+function buildLabelHtml(item, showHr){
+  var parts = "";
+  if (item.top) parts += '<div class="top">' + esc(item.top) + "</div>";
+  parts += '<div class="bars" style="flex-basis:' + BAR_H[barHeight] + '%">' + item.bc.svg + "</div>";
+  if (showHr) parts += '<div class="hr">' + esc(item.code) + "</div>";
+  return parts;
+}
+
+/* ================= preview ================= */
+function showPreview(item, emptyMsg){
+  if (!item || item.err){
+    current = null;
+    labelEl.className = "label empty";
+    labelEl.innerHTML = '<div class="placeholder">' + esc(emptyMsg || "ENTER A CODE") + "</div>";
+    $("specSym").textContent = "—";
+    $("specMod").textContent = "—";
+    $("specMil").textContent = "—";
+    var p0 = $("specPill"); p0.className = "pill warn"; p0.textContent = "no data";
+    $("saveBtn").disabled = true;
+    return;
+  }
+  current = item;
+  labelEl.className = "label";
+  labelEl.innerHTML = buildLabelHtml(item, hrEl.checked);
+  $("specSym").textContent = "CODE 128 " + item.bc.sets;
+  $("specMod").textContent = item.modules;
+  $("specMil").textContent = item.mil.toFixed(1) + " mil";
+  var g = grade(item.mil), pill = $("specPill");
+  pill.className = "pill " + g.cls;
+  pill.textContent = g.text;
+  $("saveBtn").disabled = false;
+}
+
+/* ================= single mode ================= */
+function renderSingle(){
+  var code = codeEl.value.trim();
+  var top = topEl.value.trim();
+  var err = validate(code);
+
+  codeEl.classList.toggle("invalid", !!err && code.length > 0);
+  errEl.textContent = err && code.length > 0 ? err : "";
+  errEl.classList.toggle("on", !!err && code.length > 0);
+
+  showPreview(err ? null : makeLabel(code, top));
+  updatePrintBtn();
+  markActive();
+}
+
+/* ================= batch parsing ================= */
+function splitLine(line, delim){
+  var out = [], cur = "", q = false;
+  for (var i = 0; i < line.length; i++){
+    var ch = line[i];
+    if (q){
+      if (ch === '"'){
+        if (line[i+1] === '"'){ cur += '"'; i++; }
+        else q = false;
+      } else cur += ch;
+    } else if (ch === '"'){ q = true; }
+    else if (ch === delim){ out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+function detectDelim(lines){
+  var cand = ["\t", ",", ";", "|"], best = "\t", bestN = 0;
+  cand.forEach(function(d){
+    var counts = lines.slice(0, 5).map(function(l){ return splitLine(l, d).length; });
+    var n = Math.min.apply(null, counts);
+    if (n > bestN){ bestN = n; best = d; }
+  });
+  return { delim: best, cols: bestN };
+}
+
+var DELIM_NAME = { "\t": "tab", ",": "comma", ";": "semicolon", "|": "pipe" };
+var HEADER_WORDS = /^(name|title|item|product|description|variation|variant|version|edition|set|grade|condition|sku|code|barcode|bar code|upc|ean|id|qty|quantity|copies|count|labels)$/i;
+
+function parsePaste(){
+  var text = pasteEl.value.replace(/ /g, " ");
+  var lines = text.split(/\r\n|\r|\n/).filter(function(l){ return l.trim() !== ""; });
+  if (!lines.length){ parsed = { cells: [], cols: 0, delim: "\t" }; return; }
+  var d = detectDelim(lines);
+  var cells = lines.map(function(l){
+    return splitLine(l, d.delim).map(function(c){ return c.trim(); });
+  });
+  var cols = cells.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  cells.forEach(function(r){ while (r.length < cols) r.push(""); });
+  parsed = { cells: cells, cols: cols, delim: d.delim };
+}
+
+function looksLikeCode(v){
+  if (!v) return false;
+  if (validate(v)) return false;
+  return /\d/.test(v) && v.length >= 4 && !/\s{2,}/.test(v);
+}
+
+function detectHeader(){
+  if (!parsed.cells.length) return false;
+  var first = parsed.cells[0];
+  if (first.filter(function(c){ return HEADER_WORDS.test(c); }).length >= 1) return true;
+  if (parsed.cells.length > 1){
+    var firstHas = first.some(looksLikeCode);
+    var restHas = parsed.cells.slice(1).some(function(r){ return r.some(looksLikeCode); });
+    if (!firstHas && restHas) return true;
+  }
+  return false;
+}
+
+function headerOn(){ return headerManual === null ? headerAuto : headerManual; }
+function dataRows(){ return headerOn() ? parsed.cells.slice(1) : parsed.cells; }
+function headerLabels(){
+  var h = [];
+  for (var i = 0; i < parsed.cols; i++){
+    h.push(headerOn() && parsed.cells[0] && parsed.cells[0][i] ? parsed.cells[0][i] : "Column " + (i+1));
+  }
+  return h;
+}
+
+function autoMap(){
+  var rows = dataRows(), labels = headerLabels();
+  mapping = [];
+  var scores = [];
+  for (var c = 0; c < parsed.cols; c++){
+    var hit = 0, seen = 0;
+    for (var r = 0; r < rows.length; r++){
+      if (rows[r][c] === "") continue;
+      seen++;
+      if (looksLikeCode(rows[r][c])) hit++;
+    }
+    scores.push(seen ? hit / seen : 0);
+  }
+  var codeCol = -1, bestScore = 0;
+  for (var i = 0; i < scores.length; i++){
+    if (/^(barcode|bar code|code|sku|upc|ean)$/i.test(labels[i]) && scores[i] > 0){ codeCol = i; break; }
+    if (scores[i] >= 0.6 && scores[i] >= bestScore){ bestScore = scores[i]; codeCol = i; }
+  }
+  if (codeCol === -1){
+    // nothing scanned as a code — fall back to a barcode-ish header, else the last column,
+    // so each row reports what is actually wrong with its value instead of "no barcode".
+    for (var h = 0; h < labels.length; h++){
+      if (/barcode|bar code|code|sku|upc|ean/i.test(labels[h])){ codeCol = h; break; }
+    }
+    if (codeCol === -1) codeCol = parsed.cols - 1;
+  }
+  for (var j = 0; j < parsed.cols; j++){
+    if (j === codeCol) mapping.push("code");
+    else if (/^(qty|quantity|copies|count|labels)$/i.test(labels[j])) mapping.push("copies");
+    else mapping.push("top");
+  }
+}
+
+function renderMapping(){
+  var grid = $("mapGrid");
+  grid.innerHTML = "";
+  if (!parsed.cols) return;
+  var labels = headerLabels(), rows = dataRows();
+  for (var i = 0; i < parsed.cols; i++){
+    (function(i){
+      var box = document.createElement("div");
+      box.className = "mapcol";
+      var h = document.createElement("div");
+      h.className = "h"; h.textContent = labels[i];
+      var sel = document.createElement("select");
+      sel.setAttribute("aria-label", "Role for " + labels[i]);
+      [["code","Barcode"],["top","Top line"],["copies","Copies"],["skip","Ignore"]].forEach(function(o){
+        var op = document.createElement("option");
+        op.value = o[0]; op.textContent = o[1];
+        if (mapping[i] === o[0]) op.selected = true;
+        sel.appendChild(op);
+      });
+      sel.addEventListener("change", function(){
+        if (sel.value === "code"){
+          for (var k = 0; k < mapping.length; k++) if (k !== i && mapping[k] === "code") mapping[k] = "top";
+        }
+        mapping[i] = sel.value;
+        renderMapping(); buildItems(); renderRows(); selectRow(0);
+      });
+      var s = document.createElement("div");
+      s.className = "sample";
+      s.textContent = rows.length ? (rows[0][i] || "—") : "—";
+      box.appendChild(h); box.appendChild(sel); box.appendChild(s);
+      grid.appendChild(box);
+    })(i);
+  }
+}
+
+function buildItems(){
+  items = [];
+  var rows = dataRows();
+  var codeCol = mapping.indexOf("code");
+  rows.forEach(function(r, idx){
+    var code = codeCol > -1 ? r[codeCol] : "";
+    var tops = [], copies = null;
+    for (var c = 0; c < parsed.cols; c++){
+      if (mapping[c] === "top" && r[c]) tops.push(r[c]);
+      if (mapping[c] === "copies"){
+        var n = parseInt(r[c], 10);
+        if (isFinite(n) && n > 0) copies = Math.min(n, MAX_PAGES);
+      }
+    }
+    var item = makeLabel(code, tops.join(" · "));
+    item.row = idx + 1;
+    item.copies = copies;
+    item.dropped = false;
+    if (!code) item.err = "No barcode in this row.";
+    items.push(item);
+  });
+}
+
+function livingItems(){ return items.filter(function(i){ return !i.dropped; }); }
+function printableItems(){ return items.filter(function(i){ return !i.dropped && !i.err; }); }
+
+function copiesFor(item){
+  return item.copies !== null && item.copies !== undefined ? item.copies : getQty();
+}
+
+function totalPages(){
+  return printableItems().reduce(function(s, i){ return s + copiesFor(i); }, 0);
+}
+
+function renderRows(){
+  var body = $("rowsBody");
+  body.innerHTML = "";
+  var live = livingItems();
+
+  $("rowsCount").textContent = live.length ? live.length + (live.length === 1 ? " row" : " rows") : "";
+
+  var bad = live.filter(function(i){ return i.err; }).length;
+  var tight = live.filter(function(i){ return !i.err && i.mil < 10; }).length;
+  var sum = "<b>" + printableItems().length + "</b> ready";
+  if (tight) sum += " · <b>" + tight + "</b> tight";
+  if (bad) sum += " · <b>" + bad + "</b> " + (bad === 1 ? "needs" : "need") + " attention";
+  sum += " · <b>" + totalPages() + "</b> labels to print";
+  $("rowsSummary").innerHTML = sum;
+
+  live.forEach(function(item){
+    var tr = document.createElement("tr");
+    tr.className = item.err ? "bad" : "";
+    if (items.indexOf(item) === selIndex) tr.className += " sel";
+
+    var g = item.err ? { cls: "bad" } : grade(item.mil);
+    var modCell = item.err
+      ? '<span class="dot bad"></span>' + esc(item.err)
+      : '<span class="dot ' + g.cls + '"></span>' + item.mil.toFixed(1) + " mil";
+
+    tr.innerHTML =
+      '<td class="num">' + item.row + "</td>" +
+      '<td class="text">' + (item.top ? esc(item.top) : '<span class="hint">—</span>') + "</td>" +
+      '<td class="code">' + (item.code ? esc(item.code) : '<span class="hint">empty</span>') + "</td>" +
+      "<td>" + modCell + "</td>" +
+      '<td class="num">' + (item.err ? "—" : copiesFor(item)) + "</td>" +
+      '<td class="num"></td>';
+
+    tr.addEventListener("click", function(e){
+      if (e.target.closest(".iconbtn")) return;
+      selectRow(items.indexOf(item));
+    });
+
+    var db = document.createElement("button");
+    db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
+    db.title = "Drop this row"; db.setAttribute("aria-label", "Drop row " + item.row);
+    db.addEventListener("click", function(){
+      item.dropped = true;
+      renderRows(); updatePrintBtn();
+      var live2 = livingItems();
+      selectRow(live2.length ? items.indexOf(live2[0]) : -1);
+    });
+    tr.lastChild.appendChild(db);
+
+    body.appendChild(tr);
+  });
+}
+
+function selectRow(i){
+  var live = livingItems();
+  if (!live.length){ selIndex = -1; showPreview(null, "PASTE ROWS ABOVE"); updateRowNav(); renderRows(); updatePrintBtn(); return; }
+  if (i < 0 || i >= items.length || items[i].dropped) i = items.indexOf(live[0]);
+  selIndex = i;
+  var item = items[i];
+  showPreview(item.err ? null : item, item.err ? item.err.toUpperCase() : "");
+  if (item.err) $("saveBtn").disabled = true;
+  updateRowNav();
+  renderRows();
+  updatePrintBtn();
+  markActive();
+}
+
+function updateRowNav(){
+  var live = livingItems();
+  var pos = live.indexOf(items[selIndex]);
+  $("rowNav").hidden = mode !== "batch" || !live.length;
+  if (!live.length) return;
+  $("rowPos").textContent = "Row " + (pos + 1) + " of " + live.length;
+  $("prevRow").disabled = pos <= 0;
+  $("nextRow").disabled = pos >= live.length - 1;
+}
+
+function stepRow(d){
+  var live = livingItems();
+  var pos = live.indexOf(items[selIndex]) + d;
+  if (pos < 0 || pos >= live.length) return;
+  selectRow(items.indexOf(live[pos]));
+}
+
+function refreshBatch(keepSel){
+  parsePaste();
+  headerAuto = detectHeader();
+  hdrChk.checked = headerOn();
+  var info = $("parseInfo");
+  if (!parsed.cells.length){
+    info.textContent = "Nothing pasted yet.";
+    $("mapGrid").innerHTML = "";
+    items = [];
+    $("cardRows").hidden = true;
+    selectRow(-1);
+    return;
+  }
+  info.textContent = DELIM_NAME[parsed.delim] + "-separated · " + parsed.cols +
+                     (parsed.cols === 1 ? " column · " : " columns · ") +
+                     dataRows().length + (dataRows().length === 1 ? " data row" : " data rows");
+  autoMap();
+  renderMapping();
+  buildItems();
+  $("cardRows").hidden = false;
+  selectRow(keepSel ? selIndex : 0);
+}
+
+/* ================= mode ================= */
+function setMode(m){
+  mode = m;
+  Array.prototype.forEach.call($("mode").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.m === m ? "true" : "false");
+  });
+  $("cardSingle").hidden = m !== "single";
+  $("cardCatalog").hidden = m !== "single";
+  $("cardBatch").hidden = m !== "batch";
+  $("enterWrap").hidden = m !== "single";
+  $("cardRows").hidden = m !== "batch" || !items.length;
+  $("qtyHint").textContent = m === "batch" ? "per row" : "";
+  if (m === "batch") refreshBatch(true);
+  else { renderSingle(); $("rowNav").hidden = true; }
+  updatePrintBtn();
+}
+
+/* ================= print button ================= */
+function getQty(){
+  var n = Math.round(+qtyEl.value);
+  if (!isFinite(n) || n < 1) n = 1;
+  if (n > MAX_PAGES) n = MAX_PAGES;
+  return n;
+}
+
+function plannedPages(){
+  if (mode === "single") return current ? getQty() : 0;
+  return totalPages();
+}
+
+function updatePrintBtn(){
+  var n = plannedPages();
+  $("btnN").textContent = n + (n === 1 ? " label" : " labels");
+  $("printBtn").disabled = n === 0;
+
+  var note = $("printNote");
+  if (mode === "batch" && n > 0){
+    var rows = printableItems().length;
+    note.hidden = false;
+    note.textContent = rows + (rows === 1 ? " row" : " rows") +
+      (n > MAX_PAGES ? " · over the " + MAX_PAGES + "-label limit, drop some rows" : "");
+    $("printBtn").disabled = n > MAX_PAGES;
+  } else note.hidden = true;
+
+  var chips = $("qtyChips").children;
+  for (var i = 0; i < chips.length; i++)
+    chips[i].setAttribute("aria-pressed", (+chips[i].dataset.q === getQty()) ? "true" : "false");
+}
+
+/* ================= saved codes ================= */
+var ICON_PRINT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+var ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+function visibleSaved(){
+  var q = (filterEl.value || "").trim().toLowerCase();
+  if (!q) return saved;
+  return saved.filter(function(e){
+    return e.name.toLowerCase().indexOf(q) > -1 || e.code.toLowerCase().indexOf(q) > -1;
+  });
+}
+
+function renderSaved(){
+  var list = $("savedList");
+  var vis = visibleSaved();
+  list.innerHTML = "";
+
+  $("savedCount").textContent = saved.length ? saved.length + (saved.length === 1 ? " code" : " codes") : "";
+  $("filterWrap").hidden = saved.length < 8;
+  $("savedEmpty").hidden = saved.length > 0;
+
+  if (saved.length && !vis.length){
+    var none = document.createElement("p");
+    none.className = "empty-note";
+    none.textContent = "Nothing matches that filter.";
+    list.appendChild(none);
+    return;
+  }
+
+  vis.forEach(function(e){
+    var row = document.createElement("div");
+    row.className = "sitem";
+    row.dataset.id = e.id;
+
+    var main = document.createElement("button");
+    main.type = "button"; main.className = "main"; main.title = "Load this code";
+    main.innerHTML = '<div class="nm">' + esc(e.name) + '</div><div class="cd">' +
+                     esc(e.code) + (e.top ? " · " + esc(e.top) : "") + "</div>";
+    main.addEventListener("click", function(){ loadEntry(e); });
+
+    var pb = document.createElement("button");
+    pb.type = "button"; pb.className = "iconbtn"; pb.innerHTML = ICON_PRINT;
+    pb.title = "Load and print"; pb.setAttribute("aria-label", "Load and print " + e.name);
+    pb.addEventListener("click", function(){ loadEntry(e); doPrint(); });
+
+    var db = document.createElement("button");
+    db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
+    db.title = "Delete"; db.setAttribute("aria-label", "Delete " + e.name);
+    db.addEventListener("click", function(){ removeEntry(e); });
+
+    row.appendChild(main); row.appendChild(pb); row.appendChild(db);
+    list.appendChild(row);
+  });
+
+  markActive();
+}
+
+function markActive(){
+  var code = current ? current.code : null;
+  var rows = $("savedList").children;
+  for (var i = 0; i < rows.length; i++){
+    if (!rows[i].dataset || !rows[i].dataset.id) continue;
+    var e = byId(rows[i].dataset.id);
+    rows[i].classList.toggle("active", !!e && !!code && e.code === code);
+  }
+}
+
+function byId(id){
+  for (var i = 0; i < saved.length; i++) if (saved[i].id === id) return saved[i];
+  return null;
+}
+
+function loadEntry(e){
+  if (mode !== "single") setMode("single");
+  codeEl.value = e.code;
+  topEl.value = e.top || "";
+  nameEl.value = e.name;
+  renderSingle();
+  writeStore();
+}
+
+function addSaved(name, code, top){
+  for (var i = 0; i < saved.length; i++){
+    if (saved[i].name.toLowerCase() === name.toLowerCase()){
+      saved[i].code = code; saved[i].top = top; return false;
+    }
+  }
+  saved.unshift({ id: newId(), name: name, code: code, top: top });
+  if (saved.length > 500) saved.length = 500;
+  return true;
+}
+
+function saveCurrent(){
+  if (!current) return;
+  addSaved(nameEl.value.trim() || current.top || current.code, current.code, current.top || "");
+  hideUndo(); renderSaved(); writeStore();
+}
+
+function saveAllRows(){
+  var list = printableItems(), added = 0;
+  list.forEach(function(it){ if (addSaved(it.top || it.code, it.code, it.top || "")) added++; });
+  hideUndo(); renderSaved(); writeStore();
+  alert(added ? "Saved " + added + (added === 1 ? " new code." : " new codes.") +
+                (list.length - added ? " Updated " + (list.length - added) + " existing." : "")
+              : "All rows were already in the list.");
+}
+
+function removeEntry(e){
+  var idx = saved.indexOf(e);
+  if (idx < 0) return;
+  saved.splice(idx, 1);
+  pendingDelete = { entry: e, index: idx };
+  $("undoName").textContent = e.name;
+  $("undoBar").hidden = false;
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndo, 10000);
+  renderSaved(); writeStore();
+}
+
+function undoDelete(){
+  if (!pendingDelete) return;
+  saved.splice(Math.min(pendingDelete.index, saved.length), 0, pendingDelete.entry);
+  hideUndo(); renderSaved(); writeStore();
+}
+
+function hideUndo(){
+  clearTimeout(undoTimer);
+  pendingDelete = null;
+  $("undoBar").hidden = true;
+}
+
+/* ================= export / import ================= */
+function exportList(){
+  var blob = new Blob([JSON.stringify({ type: "barcode-labels", version: 1, saved: saved }, null, 2)],
+                      { type: "application/json" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "barcode-labels.json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
+function importList(file){
+  var r = new FileReader();
+  r.onload = function(){
+    var incoming;
+    try {
+      var p = JSON.parse(String(r.result));
+      incoming = Array.isArray(p) ? p : p.saved;
+    } catch (e) { incoming = null; }
+    if (!Array.isArray(incoming)){ alert("That file doesn't look like an exported code list."); return; }
+    var added = 0;
+    incoming.filter(isEntry).forEach(function(e){
+      var dup = saved.some(function(s){ return s.code === e.code && s.name === e.name; });
+      if (dup) return;
+      saved.push({ id: newId(), name: e.name, code: e.code, top: typeof e.top === "string" ? e.top : "" });
+      added++;
+    });
+    renderSaved(); writeStore();
+    alert(added ? "Imported " + added + (added === 1 ? " code." : " codes.") : "Nothing new to import.");
+  };
+  r.readAsText(file);
+}
+
+/* ================= printing ================= */
+function buildPrintArea(){
+  var out = "", n = 0, i;
+  if (mode === "single"){
+    if (!current) return false;
+    var one = buildLabelHtml(current, hrEl.checked);
+    n = getQty();
+    for (i = 0; i < n; i++) out += '<div class="plabel">' + one + "</div>";
+  } else {
+    var list = printableItems();
+    if (!list.length) return false;
+    for (var k = 0; k < list.length; k++){
+      var html = buildLabelHtml(list[k], hrEl.checked);
+      var c = copiesFor(list[k]);
+      for (i = 0; i < c; i++){ out += '<div class="plabel">' + html + "</div>"; n++; }
+      if (n > MAX_PAGES) return false;
+    }
+  }
+  $("printArea").innerHTML = out;
+  return n > 0;
+}
+
+function doPrint(){
+  if (!buildPrintArea()) return;
+  window.print();
+}
+
+/* ================= events ================= */
+[codeEl, topEl].forEach(function(el){
+  el.addEventListener("input", function(){ renderSingle(); writeStore(); });
+});
+hrEl.addEventListener("change", function(){
+  if (mode === "single") renderSingle(); else selectRow(selIndex);
+  writeStore();
+});
+enterEl.addEventListener("change", writeStore);
+qtyEl.addEventListener("input", function(){
+  if (mode === "batch") renderRows();
+  updatePrintBtn(); writeStore();
+});
+
+$("qtyChips").addEventListener("click", function(e){
+  var b = e.target.closest(".chip");
+  if (!b) return;
+  qtyEl.value = b.dataset.q;
+  if (mode === "batch") renderRows();
+  updatePrintBtn(); writeStore();
+});
+
+$("barh").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if (!b) return;
+  barHeight = b.dataset.h;
+  Array.prototype.forEach.call(this.children, function(x){
+    x.setAttribute("aria-pressed", x === b ? "true" : "false");
+  });
+  if (mode === "single") renderSingle(); else selectRow(selIndex);
+  writeStore();
+});
+
+$("mode").addEventListener("click", function(e){
+  var b = e.target.closest("button");
+  if (b) setMode(b.dataset.m);
+});
+
+pasteEl.addEventListener("input", function(){ headerManual = null; refreshBatch(false); });
+hdrChk.addEventListener("change", function(){ headerManual = hdrChk.checked; refreshBatch(false); });
+$("prevRow").addEventListener("click", function(){ stepRow(-1); });
+$("nextRow").addEventListener("click", function(){ stepRow(1); });
+$("saveAllBtn").addEventListener("click", saveAllRows);
+
+codeEl.addEventListener("keydown", function(e){
+  if (e.key === "Enter" && enterEl.checked && !$("printBtn").disabled){
+    e.preventDefault();
+    doPrint();
+  }
+});
+
+nameEl.addEventListener("keydown", function(e){
+  if (e.key === "Enter"){ e.preventDefault(); saveCurrent(); }
+});
+
+$("printBtn").addEventListener("click", doPrint);
+$("saveBtn").addEventListener("click", saveCurrent);
+$("undoBtn").addEventListener("click", undoDelete);
+filterEl.addEventListener("input", renderSaved);
+$("exportBtn").addEventListener("click", exportList);
+$("importBtn").addEventListener("click", function(){ $("importFile").click(); });
+$("importFile").addEventListener("change", function(){
+  if (this.files && this.files[0]) importList(this.files[0]);
+  this.value = "";
+});
+window.addEventListener("beforeprint", buildPrintArea);
+
+/* ================= boot ================= */
+applyStationLogo();
+document.getElementById("backBtn").addEventListener("click", backToStation);
+document.getElementById("catSearch").addEventListener("input", renderCatalogSearch);
+refreshCatalog();
+renderCatalogSearch();
+
+/* the station stores the signed-in name; ask for it only if this device has none */
+(function nameGate(){
+  var saved = (lsGet(LS_NAME) || "").trim();
+  if (saved){ setUser(saved); return; }
+  var gate = document.getElementById("namegate"), input = document.getElementById("gateName");
+  gate.hidden = false;
+  setTimeout(function(){ input.focus(); }, 60);
+  function go(){
+    var v = input.value.trim();
+    if (v.length < 2){ input.focus(); return; }
+    try { localStorage.setItem(LS_NAME, v); } catch (e) {}
+    setUser(v);
+    gate.hidden = true;
+    codeEl.focus(); codeEl.select();
+  }
+  document.getElementById("gateGo").addEventListener("click", go);
+  input.addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); go(); } });
+})();
+
+/* another tab (NEW SHIPMENT) may add codes while this one is open */
+window.addEventListener("storage", function(e){
+  if (e.key === LS_CATALOG || e.key === LS_RECV){ refreshCatalog(); renderCatalogSearch(); }
+  if (e.key === LS_NAME) setUser(lsGet(LS_NAME) || "");
+});
+window.addEventListener("focus", function(){ refreshCatalog(); });
+
+readStore();
+Array.prototype.forEach.call($("barh").children, function(x){
+  x.setAttribute("aria-pressed", x.dataset.h === barHeight ? "true" : "false");
+});
+renderSingle();
+renderSaved();
+codeEl.focus();
+codeEl.select();
+</script>
+
 </body>
 </html>
