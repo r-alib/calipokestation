@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANALYZER — CALIPOKE STATION</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
+  --border:#262D38; --line:#2C3543; --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --r:14px;
+  --disp:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{background:var(--bg); color:var(--ink); font-family:var(--body); display:grid; place-items:center; padding:24px}
+.box{width:min(560px,94vw); text-align:center}
+.logo{height:96px; width:auto; max-width:70vw; object-fit:contain; margin:0 auto 6px; display:block; mix-blend-mode:screen}
+.dot{width:16px;height:16px;border-radius:5px;background:var(--accent);box-shadow:0 0 14px var(--accent);display:inline-block}
+.station{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; color:var(--muted); margin:10px 0 26px}
+.icon{width:92px;height:92px;border-radius:26px;background:var(--panel); border:1px solid var(--border);
+  display:grid; place-items:center; font-size:44px; margin:0 auto 20px}
+h1{font-family:var(--disp); font-weight:700; font-size:29px; letter-spacing:.03em; margin:0 0 8px}
+.desc{color:var(--muted); font-size:15px; margin:0 0 26px}
+.tag{display:inline-block; font-family:var(--disp); font-weight:700; font-size:12px; letter-spacing:.18em;
+  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:8px 20px}
+.note{margin-top:30px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r);
+  padding:15px 18px; font-size:13px; color:var(--muted); text-align:left; line-height:1.55}
+.note b{color:var(--ink)}
+.note code{font-family:ui-monospace,Menlo,monospace; color:var(--ink); background:var(--bg); padding:1px 6px; border-radius:5px}
+.back{display:inline-block; margin-top:22px; color:var(--muted); font-size:13.5px; text-decoration:none;
+  border:1px solid var(--line); border-radius:11px; padding:11px 18px}
+.back:hover{color:var(--ink); border-color:var(--faint)}
+</style>
+</head>
+<body>
+  <div class="box">
+    <img class="logo" src="https://i.postimg.cc/VkfXDqWf/images.jpg" alt="" onerror="this.style.display='none';document.getElementById('d').style.display='inline-block'">
+    <span class="dot" id="d" style="display:none"></span>
+    <div class="station">CALIPOKE STATION</div>
+    <div class="icon">📊</div>
+    <h1>ANALYZER</h1>
+    <p class="desc">Sales analysis</p>
+    <span class="tag">COMING SOON</span>
+    <div class="note">
+      <b>Placeholder.</b> Replace this file with the real module when it is ready —
+      keep the file name <code>analyzer.html</code> and keep it next to <code>index.html</code>,
+      and the tile in the main menu will open it with no other change.
+      The file name is set in <code>EXTERNAL_MODES</code> at the top of the index.html script.
+      <br><br><b>What the station already gives you:</b> the signed-in name is in
+      <code>localStorage.ps_name</code> (the literal <code>admin</code> means the manager),
+      the company inventory workbook is the one link in <code>INVENTORY_SHEET_URL</code>,
+      and the receiving module caches that catalog in <code>localStorage.rc_catalog_v1</code>
+      (<code>{main:[], pending:[]}</code>) plus assigned barcodes in <code>localStorage.rc_state_v1</code>.
+    </div>
+    <a class="back" href="javascript:window.close()">✕ Close this tab</a>
+  </div>
+</body>
+</html>

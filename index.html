@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Pack Station Live — Calipokehouse</title>
+<title>CALIPOKE STATION</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
@@ -388,6 +388,131 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .item.scanlock .chk{opacity:.45}
 .item.scanlock .counter .step{display:none}
 .item.scanlock .counter .cnt{min-width:64px}
+
+/* ---------- main menu ---------- */
+.menuhead{display:flex; flex-direction:column; align-items:center; text-align:center; padding:6px 0 24px}
+.menutitle{font-family:var(--disp); font-weight:700; font-size:32px; letter-spacing:.03em; margin:14px 0 5px}
+.menusub{color:var(--muted); font-size:12px; letter-spacing:.1em; text-transform:uppercase; margin:0}
+.modegrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px}
+.modetile{display:grid; grid-template-columns:auto 1fr auto; gap:16px; align-items:center; text-align:left; position:relative;
+  background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:17px 18px; color:var(--ink); transition:.15s}
+.modetile:hover{border-color:var(--accent); background:#11201a; transform:translateY(-2px)}
+.modetile .micon{width:54px; height:54px; border-radius:15px; background:var(--panel2); border:1px solid var(--border);
+  display:grid; place-items:center; font-size:27px; flex:none}
+.modetile:hover .micon{border-color:var(--accent)}
+.modetile .mname{font-family:var(--disp); font-weight:700; font-size:16.5px; letter-spacing:.03em}
+.modetile .mdesc{font-size:13px; color:var(--muted); margin-top:3px; line-height:1.35}
+.modetile .mgo{color:var(--faint); font-size:19px} .modetile:hover .mgo{color:var(--accent)}
+.modetile.soon{opacity:.6} .modetile.soon:hover{border-color:var(--line); background:var(--panel); transform:none}
+.modetile.soon:hover .micon{border-color:var(--border)}
+.modetile .soonbadge{position:absolute; top:11px; right:12px; font-size:9.5px; font-weight:700; letter-spacing:.12em; color:var(--faint)}
+.modetile .newtab{position:absolute; top:11px; right:12px; font-size:11px; color:var(--faint)}
+.mbar{display:flex; align-items:center; gap:10px; margin-top:11px}
+.mbar .bar{flex:1; margin:0}
+.mbar span{font-size:12px; color:var(--muted); font-family:var(--mono); white-space:nowrap}
+.adminpanel{margin-top:24px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:18px}
+.adminpanel .arow{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+.adminpanel .btn{padding:10px 15px; font-size:13.5px}
+@media (max-width:560px){ .modegrid{grid-template-columns:1fr} .menutitle{font-size:25px} }
+
+/* ============================================================
+   RECEIVING SYSTEM  (independent module — see JS block "RECEIVING")
+   ============================================================ */
+.rcwrap{display:flex; flex-direction:column; gap:14px}
+.rcsteps{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px}
+.rcstep{font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; font-weight:700; padding:5px 11px; border-radius:99px;
+  background:var(--panel2); border:1px solid var(--border); color:var(--faint)}
+.rcstep.on{color:var(--accent); border-color:var(--accent)}
+.rcstep.done{color:var(--muted); border-color:var(--line)}
+
+.rcgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:11px; margin-top:14px}
+.rcchoice{text-align:left; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:13px 14px; color:var(--ink); font-size:14.5px; font-weight:500; transition:.12s}
+.rcchoice:hover{border-color:var(--accent); background:#11211a}
+.rcchoice.sel{border-color:var(--accent); background:#11211a; color:var(--accent)}
+
+.rcunits{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:16px}
+.rcunit{position:relative; text-align:left; background:var(--panel); border:1px solid var(--border); border-radius:var(--r);
+  padding:15px; color:var(--ink); transition:.14s}
+.rcunit:hover{border-color:var(--line); transform:translateY(-2px)}
+.rcunit .un{font-family:var(--disp); font-weight:700; font-size:22px}
+.rcunit .us{font-size:12.5px; color:var(--muted); margin-top:4px}
+.rcunit.todo{border-color:#473a1c; background:#1b1810}
+.rcunit.todo .un{color:var(--warn)}
+.rcunit.done{border-color:var(--accent); background:#0f1c16}
+.rcunit.done .un{color:var(--accent)}
+.rcunit .ubadge{position:absolute; top:10px; right:11px; font-size:10px; font-weight:700; letter-spacing:.09em}
+.rcunit.done .ubadge{color:var(--accent)} .rcunit.todo .ubadge{color:var(--warn)}
+
+.rcrow{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.rcnote{background:var(--panel2); border:1px solid var(--border); border-left:3px solid var(--warn);
+  border-radius:var(--r-sm); padding:12px 15px; font-size:13.5px; color:var(--muted); margin-top:14px}
+.rcnote b{color:var(--ink)}
+
+.rcitems{display:flex; flex-direction:column; gap:10px; margin-top:16px}
+.rcitem{display:grid; grid-template-columns:56px 1fr auto; gap:14px; align-items:center;
+  background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:11px 13px}
+.rcitem.new{border-color:#23395c}
+.rcitem img{width:56px; height:56px; border-radius:9px; object-fit:cover; background:var(--raised); border:1px solid var(--border); cursor:zoom-in}
+.rcitem .rin{font-weight:600; font-size:15px; line-height:1.25}
+.rcitem .riv{font-size:12.5px; color:var(--muted); margin-top:1px}
+.rcitem .rchips{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap}
+.rcqty{display:flex; align-items:center; gap:5px}
+.rcqty .step{width:34px; height:34px; border-radius:9px; border:2px solid var(--line); background:var(--raised);
+  color:var(--ink); font-size:20px; line-height:1; display:grid; place-items:center; font-weight:700}
+.rcqty .step:active{transform:scale(.92)}
+.rcqty input{width:66px; text-align:center; background:var(--bg); border:1.5px solid var(--line); border-radius:9px;
+  color:var(--ink); font-family:var(--mono); font-weight:700; font-size:17px; padding:8px 4px; outline:none}
+.rcqty input:focus{border-color:var(--accent)}
+.rcdel{background:none; border:none; color:var(--muted); font-size:15px; padding:4px 7px; border-radius:7px}
+.rcdel:hover{color:var(--err); background:#1f1417}
+
+.rcmodal{position:fixed; inset:0; z-index:220; background:rgba(4,6,10,.84); display:grid; place-items:center; padding:18px}
+.rcbox{width:min(520px,96vw); max-height:88vh; overflow:auto; background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--r); padding:20px}
+.rcbox h2{margin-bottom:10px}
+.rccard{display:flex; gap:15px; align-items:center; background:var(--panel2); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:14px; margin:14px 0}
+.rccard img{width:96px; height:96px; border-radius:11px; object-fit:cover; background:var(--raised); border:1px solid var(--border); flex:none}
+.rccard .cn{font-family:var(--disp); font-weight:600; font-size:19px; line-height:1.2}
+.rccard .cv{font-size:13.5px; color:var(--muted); margin-top:3px}
+.rclist{display:flex; flex-direction:column; gap:9px; max-height:46vh; overflow:auto; margin-top:12px; padding-right:4px}
+.rcpick{display:flex; gap:12px; align-items:center; text-align:left; background:var(--panel2); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:10px 12px; color:var(--ink); transition:.12s}
+.rcpick:hover{border-color:var(--accent); background:#11211a}
+.rcpick img{width:54px; height:54px; border-radius:9px; object-fit:cover; background:var(--raised); border:1px solid var(--border); flex:none}
+.rcpick .pn{font-weight:600; font-size:14.5px; line-height:1.2}
+.rcpick .pv{font-size:12px; color:var(--muted); margin-top:2px}
+.rcbigqty{width:100%; text-align:center; background:var(--bg); border:1.5px solid var(--line); border-radius:12px;
+  color:var(--ink); font-family:var(--mono); font-weight:700; font-size:34px; padding:14px; outline:none; margin:6px 0 4px}
+.rcbigqty:focus{border-color:var(--accent)}
+
+.rcplt{display:flex; flex-direction:column; gap:10px; margin-top:14px}
+.rcpline{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center;
+  background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:11px 13px}
+.rcpline .pl{font-weight:600; font-size:14.5px}
+.rcpline .pr{font-family:var(--mono); font-size:13px; color:var(--muted)}
+.rcpline.zero{opacity:.45}
+
+.rcreport{background:var(--bg); border:1px solid var(--line); border-radius:var(--r-sm); padding:15px;
+  font-family:var(--mono); font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word;
+  max-height:48vh; overflow:auto; margin-top:12px}
+.rcarch{display:flex; flex-direction:column; gap:9px; margin-top:12px}
+.rcarow{display:flex; align-items:center; gap:12px; background:var(--panel2); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:11px 14px; font-size:13.5px}
+.rcarow .an{font-weight:600} .rcarow .am{color:var(--muted); font-size:12.5px}
+.rcarow.live{border-color:#473a1c; background:#1b1810}
+.rcarow.live .an{color:var(--warn)}
+.rcarow .btn{padding:8px 13px; font-size:13px}
+.rcbc{background:#fff; border-radius:9px; padding:10px 12px; margin-top:12px}
+.rcbc svg{display:block; width:100%; height:78px}
+.rcbccode{font-family:var(--mono); font-weight:700; font-size:15px; color:#000; text-align:center; margin-top:6px; letter-spacing:.08em}
+@media (max-width:560px){
+  .rcitem{grid-template-columns:48px 1fr; }
+  .rcitem .rcqty{grid-column:1/-1; justify-content:flex-end}
+  .rcitem img{width:48px;height:48px}
+  .rccard img{width:72px;height:72px}
+}
 </style>
 </head>
 <body>
@@ -398,10 +523,10 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div class="gatebrand">
       <img class="brandlogo xl hide" id="logoGate" alt="logo">
       <span class="dot big" id="dotGate"></span>
-      <div class="gatetitle">Pack Station Live</div>
-      <div class="gatesub">Calipokehouse · shared packing</div>
+      <div class="gatetitle">CALIPOKE STATION</div>
+      <div class="gatesub">Calipokehouse · warehouse station</div>
     </div>
-    <h1 id="gateTitle">Enter your name to join the shift</h1>
+    <h1 id="gateTitle">Enter your name to start</h1>
     <p class="sub" id="gateSub">Your name is visible to teammates and shows up in the report. Type <b>admin</b> for the manager view.</p>
     <input id="nameInput" class="tinput" autocomplete="off" placeholder="e.g. Joe" maxlength="24">
     <button class="btn primary lg" id="enterBtn" style="width:100%">Join shift</button>
@@ -410,7 +535,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 </div>
 
 <header class="hide" id="appHeader">
-  <div class="brand"><img class="brandlogo hide" id="logoHeader" alt="logo"><span class="dot" id="dotHeader"></span><div>Pack Station Live<small id="meName">—</small></div></div>
+  <div class="brand"><img class="brandlogo hide" id="logoHeader" alt="logo"><span class="dot" id="dotHeader"></span><div>CALIPOKE STATION<small id="meName">—</small></div></div>
   <div class="spacer"></div>
   <button class="pill online" id="onlinePill" title="Who's online">🟢 <b id="onlineCount">0</b> online</button>
   <div class="pill" title="Shift started">🗓 <b id="shiftDate">—</b></div>
@@ -422,6 +547,18 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 </header>
 
 <main class="hide" id="appMain">
+  <!-- ============ MAIN MENU ============ -->
+  <section id="screen-menu" class="hide">
+    <div class="menuhead">
+      <img class="brandlogo xl hide" id="logoMenu" alt="logo">
+      <span class="dot big" id="dotMenu"></span>
+      <h1 class="menutitle">CALIPOKE STATION</h1>
+      <p class="menusub" id="menuWho">—</p>
+    </div>
+    <div class="modegrid" id="modeGrid"></div>
+    <div id="menuAdmin"></div>
+  </section>
+
   <!-- ============ SEED / LOAD ============ -->
   <section id="screen-seed" class="hide">
     <div class="eyebrow">Shift start — base not loaded yet</div>
@@ -442,22 +579,28 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 
     <!-- Inventory source (separate) -->
     <div class="card" style="margin-bottom:14px">
-      <div class="srchead"><span class="mode items">Inventory</span><span class="sub" style="font-size:13px">separate table · stock, location, image</span></div>
+      <div class="srchead"><span class="mode items">Inventory</span><span class="sub" style="font-size:13px">the fixed company sheet — no link to paste</span></div>
       <div class="srcrow">
-        <input id="invUrl" class="tinput" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/… (inventory)">
-        <button class="btn primary" id="invLoad">Load inventory</button>
+        <button class="btn primary" id="invLoad">🔄 Load the company inventory</button>
       </div>
-      <p class="sub" id="invStatus" style="font-size:12.5px; margin-top:9px">Columns: item name · variation · location · stock · barcode · image. The first sheet is used.</p>
+      <p class="sub" id="invStatus" style="font-size:12.5px; margin-top:9px">Always read from the company workbook set in the code (Inventory tab). Columns: item name · variation · location · stock · barcode · image.</p>
       <button class="btn hide" id="invProxy" style="margin-top:10px">↪ Try via proxy</button>
       <label class="btn ghost" style="margin-top:10px">or choose .xlsx file<input id="invFile" type="file" accept=".xlsx,.xls,.csv" class="hide"></label>
     </div>
 
-    <button class="btn primary lg" id="continueBtn" disabled>Continue to platforms →</button>
+    <div class="rcrow">
+      <button class="btn primary lg" id="continueBtn" disabled>Continue to platforms →</button>
+      <div class="spacer" style="flex:1"></div>
+      <button class="btn lg" id="seedMenuBtn">← Main menu</button>
+    </div>
   </section>
 
   <!-- ============ PLATFORMS ============ -->
   <section id="screen-platforms" class="hide">
-    <div class="eyebrow">Choose platform</div>
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap">
+      <button class="btn ghost" id="packMenuBtn">← Main menu</button>
+      <div class="eyebrow" style="margin:0">Pick &amp; pack</div>
+    </div>
     <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
     <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
       <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
@@ -522,13 +665,15 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   <!-- ============ PRODUCT GUIDEBOOK (read-only reference) ============ -->
   <section id="screen-guide" class="hide">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
-      <button class="btn ghost" id="guideBack">← Platforms</button>
+      <button class="btn ghost" id="guideBack">← Back</button>
       <h1 style="margin:0">📖 Product Guidebook</h1>
       <div class="spacer"></div>
       <div class="pill" id="guideCount">—</div>
     </div>
     <div class="card">
-      <div class="srcrow"><input id="guideName" class="tinput" autocomplete="off" spellcheck="false" placeholder="Search by product name…" style="min-width:240px"></div>
+      <div class="srcrow"><input id="guideName" class="tinput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search by name, or scan / type a barcode…" style="min-width:240px">
+        <button class="btn primary" id="guideCam" title="Scan with the phone camera">📷 Camera</button>
+        <button class="btn ghost" id="guideClear">✕ Clear</button></div>
       <div class="guidefilters">
         <select id="guideType"></select>
         <select id="guideBrand"></select>
@@ -569,6 +714,19 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <h1 id="reportTitle">Summary</h1>
     <div class="statgrid" id="reportStats"></div>
     <div id="reportBody"></div>
+  </section>
+
+  <!-- ============ RECEIVING SYSTEM (independent of orders / shift) ============ -->
+  <section id="screen-recv" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
+      <button class="btn ghost" id="rcBack">← Main menu</button>
+      <h1 style="margin:0">📥 Receiving System</h1>
+      <div class="spacer"></div>
+      <div class="pill" id="rcCatPill" title="Catalog cached locally">📚 <b id="rcCatCount">0</b> catalog</div>
+      <button class="btn ghost" id="rcList">☰ Receivings</button>
+      <button class="btn ghost" id="rcCatBtn">⚙ Catalog</button>
+    </div>
+    <div id="rcArea" class="rcwrap"></div>
   </section>
 </main>
 
@@ -618,7 +776,23 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-07-22 · partial+report-viewer+time';   // bump when you change this file; visible in the header
+/* >>> COMPANY INVENTORY WORKBOOK — one fixed sheet, used by every mode
+       (needs an "Inventory" tab and a "Pending" tab).
+       If the sheet ever moves, change THIS ONE LINE and nothing else. <<< */
+const INVENTORY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
+
+/* >>> EXTERNAL MODES — modes that live in their own file and open in a new tab.
+       Drop the real module in place of the stub, keep the file next to index.html,
+       and keep the file name here in sync. <<< */
+const EXTERNAL_MODES = {
+  labels:    'barcode-labels.html',
+  inventory: 'inventory.html',
+  stockup:   'stock-up-report.html',
+  analyzer:  'analyzer.html',
+  plan:      'warehouse-plan.html'
+};
+
+const BUILD = '2026-08-31 · calipoke station';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -672,7 +846,7 @@ let pkChoice=null;   // picking mode: {list:[{platform,order}], code} ambiguity 
 /* >>> COMPANY LOGO — paste an image URL (https… or data:…) to show it in the header
        and on the login screen. Leave empty to keep the default green mark. <<< */
 let LOGO_URL = "https://i.postimg.cc/VkfXDqWf/images.jpg";
-let _ordSource=null, _invSource=null;
+let _ordSource=null, _invSource=INVENTORY_SHEET_URL;   // inventory always comes from the fixed sheet
 const _proxy={ord:null, inv:null};
 
 /* ============================================================
@@ -769,7 +943,7 @@ function connect(){
   // shared staff scan-only flag (admin-controlled). Default ON when unset.
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
-  root.child('meta').once('value').then(snap=>{ const has=snap.exists(); if(IS_ADMIN){ if(has) goPlatforms(); else show('seed'); } else { goPlatforms(); } });
+  root.child('meta').once('value').then(()=>{ goMenu(); });
 }
 
 async function seedOrders(buf, sourceMeta){
@@ -866,7 +1040,7 @@ async function fetchSheet(input, viaProxy, kind){
   if(!exportUrl){ gstatus(kind,'That does not look like a Google Sheet link.','err'); return null; }
   if(location.protocol==='file:' && !viaProxy){
     gstatus(kind,'Opened as a local file (file://) — the browser blocks network access. Host on GitHub Pages/localhost, or use “via proxy”.','err');
-    _proxy[kind]=input; $('#'+kind+'Proxy').classList.remove('hide'); return null;
+    _proxy[kind]=input; const pb0=$('#'+kind+'Proxy'); if(pb0) pb0.classList.remove('hide'); return null;
   }
   gstatus(kind, viaProxy?'Loading via proxy…':'Loading from Google…','info');
   const target = viaProxy ? ('https://api.allorigins.win/raw?url='+encodeURIComponent(exportUrl)) : exportUrl;
@@ -877,10 +1051,10 @@ async function fetchSheet(input, viaProxy, kind){
     if(ct.includes('text/html')) throw new Error('private');
     const buf=new Uint8Array(await res.arrayBuffer());
     if(!(buf[0]===0x50 && buf[1]===0x4B)) throw new Error('private');
-    $('#'+kind+'Proxy').classList.add('hide'); return buf;
+    const pb1=$('#'+kind+'Proxy'); if(pb1) pb1.classList.add('hide'); return buf;
   }catch(err){
     if(err.message==='private') gstatus(kind,'No access to the sheet. Set sharing to “Anyone with the link → Viewer”.','err');
-    else { gstatus(kind,'Request blocked (CORS/network). You can try “via proxy”.','err'); if(!viaProxy){_proxy[kind]=input; $('#'+kind+'Proxy').classList.remove('hide');} }
+    else { gstatus(kind,'Request blocked (CORS/network). You can try “via proxy”.','err'); if(!viaProxy){_proxy[kind]=input; const pb2=$('#'+kind+'Proxy'); if(pb2) pb2.classList.remove('hide');} }
     return null;
   }
 }
@@ -899,17 +1073,84 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['seed','platforms','pack','picking','guide','reportview','report'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['menu','seed','platforms','pack','picking','guide','reportview','report','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
   window.scrollTo({top:0});
 }
 function goPlatforms(){ show('platforms'); renderPlatforms(); }
+function goMenu(){ show('menu'); renderMenu(); }
+
+/* ============================================================
+   MAIN MENU
+   Every mode of the station lives here. Modes marked `ext` are
+   separate files opened in a new tab (see EXTERNAL_MODES).
+   Order = how often the mode is actually used.
+   ============================================================ */
+const MODES=[
+  {icon:'📖', name:'PRODUCT GUIDEBOOK', desc:'Look up any product — photo, location, stock', go:()=>enterGuide('menu')},
+  {icon:'📦', name:'PICK &amp; PACK',   desc:'Pick and pack customer orders', bar:true, go:goPlatforms},
+  {icon:'🚚', name:'NEW SHIPMENT',      desc:'Receive and count new stock', go:enterReceiving},
+  {icon:'🏷️', name:'BARCODE LABELS',    desc:'Print 2.25 × 1.25 in barcode labels', ext:'labels'},
+  {icon:'🔢', name:'INVENTORY',         desc:'Count inventory', ext:'inventory'},
+  {icon:'📈', name:'STOCK UP REPORT',   desc:'Build restock reports', ext:'stockup'},
+  {icon:'📊', name:'ANALYZER',          desc:'Sales analysis', ext:'analyzer'},
+  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
+];
+function openExternal(key){
+  const f=EXTERNAL_MODES[key]; if(!f) return;
+  const w=window.open(f,'_blank');
+  if(!w) toast('The browser blocked the new tab — allow pop-ups','warn',3600);
+}
+function renderMenu(){
+  const who=$('#menuWho'); if(who) who.textContent = MY_NAME + (IS_ADMIN?' · admin':'') + (S.date?(' · shift '+S.date):'');
+  const g=$('#modeGrid'); if(!g) return;
+  const st=globalStats();
+  g.innerHTML=MODES.map((m,i)=>{
+    const soon=!!m.ext;
+    let extra='';
+    if(m.bar){
+      const pct=st.all?Math.round(st.done/st.all*100):0;
+      extra = st.all
+        ? '<div class="mbar"><div class="bar"><i style="width:'+pct+'%"></i></div><span>'+st.done+'/'+st.all+'</span></div>'
+        : '<div class="mbar"><span>no shift loaded</span></div>';
+    }
+    return '<button class="modetile'+(soon?' soon':'')+'" data-mode="'+i+'">'+
+      (soon?'<span class="soonbadge">SOON ↗</span>':'')+
+      '<div class="micon">'+m.icon+'</div>'+
+      '<div><div class="mname">'+m.name+'</div><div class="mdesc">'+m.desc+'</div>'+extra+'</div>'+
+      '<div class="mgo">→</div></button>';
+  }).join('');
+  $$('#modeGrid [data-mode]').forEach(b=>b.onclick=()=>{ const m=MODES[+b.dataset.mode]; if(m.ext) openExternal(m.ext); else m.go(); });
+  renderMenuAdmin();
+}
+function renderMenuAdmin(){
+  const a=$('#menuAdmin'); if(!a) return;
+  if(!IS_ADMIN){ a.innerHTML=''; return; }
+  a.innerHTML='<div class="adminpanel"><div class="eyebrow" style="margin:0">Admin — shift controls</div>'+
+    '<p class="sub" style="font-size:13px">The same controls also live inside Pick &amp; Pack.</p><div class="arow">'+
+    '<button class="btn" id="mFinishBtn">📋 Shift report</button>'+
+    '<button class="btn" id="mReadReportBtn">📂 Read past reports</button>'+
+    '<button class="btn" id="mLoadDataBtn">⚙ Load data</button>'+
+    '<button class="btn" id="mPullOrdersBtn">🔄 Sync orders</button>'+
+    '<button class="btn" id="mUpdInvBtn">🔄 Update inventory</button>'+
+    '<button class="btn" id="mScanOnlyBtn">'+(scanOnly?'📷 Scan-only: ON':'✋ Scan-only: OFF')+'</button>'+
+    '<button class="btn danger ghost" id="mWipeBtn">🧹 Clear shift</button>'+
+    '</div></div>';
+  $('#mFinishBtn').onclick=()=>doShiftReport('menu');
+  $('#mReadReportBtn').onclick=()=>doReadReports('menu');
+  $('#mLoadDataBtn').onclick=()=>show('seed');
+  $('#mPullOrdersBtn').onclick=doPullOrders;
+  $('#mUpdInvBtn').onclick=doUpdateInventory;
+  $('#mScanOnlyBtn').onclick=toggleScanOnly;
+  $('#mWipeBtn').onclick=doWipeShift;
+}
 function renderCurrent(){
   $('#shiftDate').textContent=S.date||'—';
   const g=globalStats(); $('#totalDone').textContent=g.done; $('#totalAll').textContent=g.all;
-  if(curScreen==='platforms') renderPlatforms();
+  if(curScreen==='menu') renderMenu();
+  else if(curScreen==='platforms') renderPlatforms();
   else if(curScreen==='pack'){ renderPackHeader(); renderOrderArea(); }
   else if(curScreen==='picking') renderPicking();
   else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
@@ -927,7 +1168,7 @@ function platformStats(p){ const all=p.orders.length; const done=p.orders.filter
 function globalStats(){ let all=0,done=0; for(const k in S.platforms){const s=platformStats(S.platforms[k]); all+=s.all; done+=s.done;} return {all,done}; }
 function renderPlatforms(){
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !IS_ADMIN);
-  if(IS_ADMIN){ $('#pullOrdersBtn').classList.toggle('hide', !_ordSource); $('#updInvBtn').classList.toggle('hide', !_invSource); }
+  if(IS_ADMIN){ $('#pullOrdersBtn').classList.toggle('hide', !_ordSource); $('#updInvBtn').classList.remove('hide'); }
   const g=$('#pgrid');
   if(Object.keys(S.platforms).length===0){
     if(IS_ADMIN) g.innerHTML='<div class="empty">No data loaded yet.<br><button class="btn primary" id="goSeedBtn" style="margin-top:12px">Load data →</button></div>';
@@ -958,7 +1199,7 @@ function openPlatform(key){ curPlatformKey=key; activeOrder=null; activePick=nul
 function renderPackHeader(){ const p=S.platforms[curPlatformKey]; if(!p)return; const st=platformStats(p); $('#pDone').textContent=st.done; $('#pAll').textContent=st.all; }
 function setMode(m){ const tag=$('#modeTag'),hint=$('#modeHint'),inp=$('#scan'); if(m==='label'){tag.textContent='Scan label';tag.className='mode label';hint.textContent='tracking';inp.placeholder='Scan label, or type last 4 digits…';}else{tag.textContent='Scan items';tag.className='mode items';hint.textContent='item';inp.placeholder='Scan item barcode (or check manually)…';} }
 function focusScan(){ const i=$('#scan'); if(i){i.value='';i.focus();} }
-function activeScanInput(){ if(curScreen==='pack') return $('#scan'); if(curScreen==='picking') return $('#pkScan'); return null; }
+function activeScanInput(){ if(curScreen==='pack') return $('#scan'); if(curScreen==='picking') return $('#pkScan'); if(curScreen==='recv') return $('#rcScan'); if(curScreen==='guide') return $('#guideName'); return null; }
 
 function findInPlatform(pk,tid){ const p=S.platforms[pk]; if(!p)return null; const t=norm(tid),c=clean(tid); return p.orders.find(o=>norm(o.trackingId)===t)||p.orders.find(o=>clean(o.trackingId)===c)||null; }
 function findAnyPlatform(tid){ const t=norm(tid),c=clean(tid); for(const k in S.platforms){ const o=S.platforms[k].orders.find(o=>norm(o.trackingId)===t)||S.platforms[k].orders.find(o=>clean(o.trackingId)===c); if(o)return {platform:k,order:o}; } return null; }
@@ -1430,8 +1671,23 @@ function renderPicking(){
    PRODUCT GUIDEBOOK  (read-only reference / search)
    ============================================================ */
 let guideF={type:'',brand:'',series:'',name:''};
-function enterGuide(){ show('guide'); buildGuideFilters(); renderGuide(); const i=$('#guideName'); if(i) i.focus(); }
-function distinctVals(field){ const s=new Set(); for(const k in S.inventory){ const v=(S.inventory[k][field]||'').trim(); if(v) s.add(v); } return [...s].sort((a,b)=>String(a).localeCompare(String(b))); }
+let guideFrom='platforms';
+function enterGuide(from){ guideFrom=from||'platforms'; show('guide'); guideAutoLoad(); buildGuideFilters(); renderGuide(); const i=$('#guideName'); if(i){ i.value=guideF.name||''; i.focus(); } }
+/* the guidebook must work even when no shift is loaded: fall back to the locally
+   cached company catalog, and pull the sheet once if we have nothing at all */
+function guideSource(){
+  if(Object.keys(S.inventory).length) return S.inventory;
+  const m={}; for(const e of (RCCAT.main||[])) m[keyOf(e.name,e.variation)]=e;
+  return m;
+}
+let guideAutoTried=false;
+function guideAutoLoad(){
+  if(guideAutoTried) return; guideAutoTried=true;
+  if(Object.keys(S.inventory).length || (RCCAT.main||[]).length) return;
+  toast('Loading the company catalog…','info',2200);
+  fetchSheet(INVENTORY_SHEET_URL,false,'rcCat').then(buf=>{ if(buf){ rcLoadCatalogFromBuf(buf,INVENTORY_SHEET_URL); if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); } } });
+}
+function distinctVals(field){ const src=guideSource(); const s=new Set(); for(const k in src){ const v=(src[k][field]||'').trim(); if(v) s.add(v); } return [...s].sort((a,b)=>String(a).localeCompare(String(b))); }
 function guideLabel(field){ return {type:'Type',brand:'Brand',series:'Series'}[field]||field; }
 function buildGuideFilters(){
   [['guideType','type'],['guideBrand','brand'],['guideSeries','series']].forEach(([id,field])=>{
@@ -1449,16 +1705,20 @@ function renderGuideChips(){
 function renderGuide(){
   const area=$('#guideResults'); if(!area) return;
   renderGuideChips();
-  if(Object.keys(S.inventory).length===0){ area.innerHTML='<div class="empty">Inventory is not loaded yet.</div>'; $('#guideCount').textContent='—'; return; }
+  const src=guideSource();
+  if(Object.keys(src).length===0){ area.innerHTML='<div class="empty">Catalog is not loaded yet.</div>'; $('#guideCount').textContent='—'; return; }
   const nameQ=norm(guideF.name);
-  const list=[];
-  for(const k in S.inventory){ const v=S.inventory[k];
+  let list=[];
+  for(const k in src){ const v=src[k];
     if(guideF.type && norm(v.type)!==norm(guideF.type)) continue;
     if(guideF.brand && norm(v.brand)!==norm(guideF.brand)) continue;
     if(guideF.series && norm(v.series)!==norm(guideF.series)) continue;
-    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ))) continue;
+    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ)
+       || barcodesOf(v.barcode).some(b=>b.includes(nameQ)))) continue;
     list.push(v);
   }
+  // a scanned barcode should land on exactly that product, not on everything that contains it
+  if(nameQ){ const exact=list.filter(v=>barcodesOf(v.barcode).includes(nameQ)); if(exact.length) list=exact; }
   list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')) || String(a.variation||'').localeCompare(String(b.variation||'')));
   $('#guideCount').textContent=list.length+' item'+(list.length===1?'':'s');
   if(!list.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
@@ -1468,6 +1728,7 @@ function renderGuide(){
     const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
     let chips=''; if(stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
     if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';
+    const bcs=barcodesOf(v.barcode); if(bcs.length) chips+='<span class="pkstock">⌗ '+esc(bcs.join(' · '))+'</span>';
     let tags='';
     if(v.type) tags+='<span class="gtag type">'+esc(v.type)+'</span>';
     if(v.brand) tags+='<span class="gtag brand">'+esc(v.brand)+'</span>';
@@ -1657,6 +1918,7 @@ function applyRole(){
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !a);
   $('#meName').textContent = MY_NAME + (a?' · admin':'');
   applyScanOnly();
+  if(curScreen==='menu') renderMenu();
 }
 function enter(){
   const v=$('#nameInput').value.trim();
@@ -1680,8 +1942,7 @@ $('#ordProxy').onclick=async()=>{ if(!_proxy.ord)return; const buf=await fetchSh
 $('#ordFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)readFile(f,buf=>{ _ordSource=null; seedOrders(buf,null); }); });
 
 // inventory source (separate)
-$('#invLoad').onclick=async()=>{ const buf=await fetchSheet($('#invUrl').value,false,'inv'); if(buf){ _invSource=$('#invUrl').value.trim(); loadInventory(buf,{type:'gsheet',input:_invSource}); } };
-$('#invUrl').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();$('#invLoad').click();} });
+$('#invLoad').onclick=async()=>{ const buf=await fetchSheet(INVENTORY_SHEET_URL,false,'inv'); if(buf){ _invSource=INVENTORY_SHEET_URL; loadInventory(buf,{type:'gsheet',input:_invSource}); } };
 $('#invProxy').onclick=async()=>{ if(!_proxy.inv)return; const buf=await fetchSheet(_proxy.inv,true,'inv'); if(buf){ _invSource=_proxy.inv; loadInventory(buf,{type:'gsheet',input:_proxy.inv}); } };
 $('#invFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)readFile(f,buf=>loadInventory(buf,null)); });
 
@@ -1718,23 +1979,42 @@ $('#scanGo').onclick=()=>handleScan($('#scan').value);
 $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the current order first','warn',2600); return; } pendingChoice={type:'all'}; renderOrderArea(); };
 
 // nav
+/* one implementation per admin action, wired from both the menu and pick & pack */
+let reportFrom='platforms', rvFrom='platforms';
+function doShiftReport(from){ reportFrom=from||'platforms'; show('report'); renderReport(); }
+function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
+async function doPullOrders(){
+  if(!_ordSource){ toast('Load the orders sheet first (⚙ Load data)','warn',3200); return; }
+  const buf=await fetchSheet(_ordSource,false,'ord'); if(buf) await addNewOrders(buf);
+}
+async function doUpdateInventory(){
+  toast('Reading the company inventory sheet…','info',2000);
+  const buf=await fetchSheet(_invSource||INVENTORY_SHEET_URL,false,'inv');
+  if(buf) await loadInventory(buf,{type:'gsheet',input:_invSource||INVENTORY_SHEET_URL});
+  else toast('Could not read the inventory sheet','err',3600);
+}
+async function doWipeShift(){
+  if(!confirm('Clear the ENTIRE shift for everyone? All packing progress will be deleted.\nReceiving data is NOT touched.'))return;
+  if(!confirm('Are you sure? This cannot be undone.'))return;
+  await root.remove(); toast('Shift cleared','ok'); location.reload();
+}
 $('#backBtn').onclick=()=>goPlatforms();
-$('#homeBtn').onclick=()=>goPlatforms();
-$('#finishBtn').onclick=()=>{ show('report'); renderReport(); };
+$('#homeBtn').onclick=goMenu;
+$('#finishBtn').onclick=()=>doShiftReport('platforms');
 $('#loadDataBtn').onclick=()=>show('seed');
-$('#readReportBtn').onclick=()=>{ show('reportview'); renderReportView(); };
-$('#rvBack').onclick=()=>goPlatforms();
+$('#readReportBtn').onclick=()=>doReadReports('platforms');
+$('#rvBack').onclick=()=>{ rvFrom==='menu'?goMenu():goPlatforms(); };
 $('#rvFile').addEventListener('change',e=>{ [...e.target.files].forEach(loadReportFile); e.target.value=''; });
 $('#rvExport').onclick=exportMergedCSV;
-$('#reportBack').onclick=()=>goPlatforms();
+$('#reportBack').onclick=()=>{ reportFrom==='menu'?goMenu():goPlatforms(); };
 $('#csvBtn').onclick=exportCSV;
 $('#printBtn').onclick=()=>window.print();
 $('#soundBtn').onclick=()=>{ soundOn=!soundOn; $('#soundBtn').textContent=soundOn?'🔊':'🔇'; $('#soundBtn').classList.toggle('on',soundOn); };
 $('#onlinePill').onclick=()=>{ root.child('presence').once('value').then(s=>{ const names=[]; const now=Date.now(); s.forEach(c=>{const v=c.val(); if(v&&now-(v.at||0)<60000)names.push(v.name);}); toast('Online: '+(names.join(', ')||'—'),'info',4000); }); };
 
-$('#pullOrdersBtn').onclick=async()=>{ if(!_ordSource)return; $('#pullOrdersBtn').disabled=true; const buf=await fetchSheet(_ordSource,false,'ord'); if(buf) await addNewOrders(buf); $('#pullOrdersBtn').disabled=false; };
-$('#updInvBtn').onclick=async()=>{ if(!_invSource)return; $('#updInvBtn').disabled=true; const buf=await fetchSheet(_invSource,false,'inv'); if(buf) await loadInventory(buf,{type:'gsheet',input:_invSource}); $('#updInvBtn').disabled=false; };
-$('#wipeBtn').onclick=async()=>{ if(!confirm('Clear the ENTIRE shift for everyone? All packing progress will be deleted.'))return; if(!confirm('Are you sure? This cannot be undone.'))return; await root.remove(); toast('Shift cleared','ok'); location.reload(); };
+$('#pullOrdersBtn').onclick=async()=>{ $('#pullOrdersBtn').disabled=true; await doPullOrders(); $('#pullOrdersBtn').disabled=false; };
+$('#updInvBtn').onclick=async()=>{ $('#updInvBtn').disabled=true; await doUpdateInventory(); $('#updInvBtn').disabled=false; };
+$('#wipeBtn').onclick=doWipeShift;
 
 document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) $$('.menupop').forEach(p=>p.classList.add('hide')); });
 document.addEventListener('click',e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains('thumb')){ e.stopPropagation(); const lb=$('#lightbox'); $('#lightboxImg').src=t.src; $('#lightboxCap').textContent=t.alt||''; lb.classList.remove('hide'); } });
@@ -1745,8 +2025,9 @@ $('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
    lost and only Enter reached the app. Route ALL stray input back into the scan box so
    nothing is dropped, on both the pack and picking screens. */
 document.addEventListener('keydown',e=>{
-  if(curScreen!=='pack' && curScreen!=='picking') return;
+  if(curScreen!=='pack' && curScreen!=='picking' && curScreen!=='recv' && curScreen!=='guide') return;
   if(!$('#lightbox').classList.contains('hide')) return;
+  if($('#rcModal')) return;                                          // receiving modal owns input
   if($('#cam') && !$('#cam').classList.contains('hide')) return;      // camera modal owns input
   if($('#pick') && !$('#pick').classList.contains('hide')) return;    // picker modal open
   const inp=activeScanInput(); if(!inp) return;
@@ -1774,7 +2055,7 @@ window.goPlatforms=goPlatforms; window.backToScan=backToScan;
    ============================================================ */
 function applyLogo(){
   const url=(LOGO_URL||'').trim();
-  [['logoHeader','dotHeader'],['logoGate','dotGate']].forEach(([logoId,dotId])=>{
+  [['logoHeader','dotHeader'],['logoGate','dotGate'],['logoMenu','dotMenu']].forEach(([logoId,dotId])=>{
     const img=$('#'+logoId), dot=$('#'+dotId); if(!img) return;
     if(url){ img.src=url; img.classList.remove('hide'); if(dot) dot.classList.add('hide');
       img.onerror=()=>{ img.classList.add('hide'); if(dot) dot.classList.remove('hide'); }; }
@@ -1797,6 +2078,7 @@ function applyScanOnly(){
     b.title = 'Staff scan-only: '+(scanOnly?'ON — staff must scan (you are exempt)':'OFF — staff may check manually');
   }
   if(curScreen==='pack') renderOrderArea();
+  else if(curScreen==='menu') renderMenuAdmin();
 }
 function toggleScanOnly(){
   if(!IS_ADMIN) return;                                // only admin can change it
@@ -1812,6 +2094,8 @@ $('#scanOnlyBtn').onclick=toggleScanOnly;
    ============================================================ */
 function updateCamHint(){
   const m=$('#camMode'), h=$('#camHint'); if(!m||!h) return;
+  if(curScreen==='guide'){ m.textContent='lookup'; h.textContent='Scan a product barcode to look it up'; return; }
+  if(curScreen==='recv'){ m.textContent='receiving'; h.textContent='Scan the item barcode'; return; }
   if(curScreen==='picking'){ m.textContent='find'; h.textContent='Scan a label to look up the order (all platforms)'; return; }
   if(activePick){ m.textContent='items'; const order=findByKey(activeOrder.key);
     h.textContent = order ? ('Order '+order.trackingId+' · scan each item') : 'Scan items'; }
@@ -1844,7 +2128,9 @@ function onCamDecode(text){
   const now=Date.now();
   if(text===camLast.code && now-camLast.t<1400) return;   // debounce repeated frames
   camLast.code=text; camLast.t=now;
-  if(curScreen==='picking') pickingResolve(text);
+  if(curScreen==='guide'){ guideF.name=String(text||'').trim(); const gi=$('#guideName'); if(gi) gi.value=guideF.name; renderGuide(); beep('ok'); closeCamIfOpen(); }
+  else if(curScreen==='recv') rcScanCode(text);
+  else if(curScreen==='picking') pickingResolve(text);
   else handleScan(text);
   updateCamHint();
 }
@@ -1868,12 +2154,1061 @@ $('#pkCam').onclick=openCam;
 $('#pkScan').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); pkSubmit(); } });
 
 /* product guidebook wiring */
-$('#guideBtn').onclick=enterGuide;
-$('#guideBack').onclick=goPlatforms;
+$('#guideBtn').onclick=()=>enterGuide('platforms');
+$('#guideBack').onclick=()=>{ guideFrom==='menu'?goMenu():goPlatforms(); };
+$('#guideCam').onclick=openCam;
+$('#guideClear').onclick=()=>{ guideF.name=''; const i=$('#guideName'); if(i){ i.value=''; i.focus(); } renderGuide(); };
 $('#guideName').addEventListener('input',e=>{ guideF.name=e.target.value; renderGuide(); });
 $('#guideType').addEventListener('change',e=>{ guideF.type=e.target.value; renderGuide(); });
 $('#guideBrand').addEventListener('change',e=>{ guideF.brand=e.target.value; renderGuide(); });
 $('#guideSeries').addEventListener('change',e=>{ guideF.series=e.target.value; renderGuide(); });
+
+
+/* ============================================================
+   RECEIVING SYSTEM
+   ------------------------------------------------------------
+   Fully independent from orders / packing / reports.
+   • Nothing is written to Firebase — all state lives in this
+     browser (localStorage), so "Clear shift (manager)" cannot
+     touch it.
+   • The ONLY link to the main app is the inventory catalog,
+     which is read-only and cached locally (so it also survives
+     a shift wipe).
+   ============================================================ */
+
+/* >>> SUPPLIER LIST — edit this array to add / remove suppliers <<< */
+const RC_SUPPLIERS = [
+  'tentoy','big freeze','tcg chinese supplier','fuggler','love pokemon','tsubasa',
+  'keisuke','toco maru','land s','take','kickz','worldclass','gts','madal',
+  'toni miami','sold out (nick)','show purchases'
+];
+/* >>> CARRIER LIST — edit to add / remove carriers <<< */
+const RC_CARRIERS = ['FedEx','UPS','USPS'];
+/* >>> Warehouse name printed in the Slack report <<< */
+const RC_WAREHOUSE = 'Arcadia Warehouse';
+/* >>> Pallet shipments have no tracking number. When true the pallet number
+       (P1, P2 …) is used in the Slack line instead, so the groups stay readable.
+       Set to false to print those lines with no prefix at all. <<< */
+const RC_SLACK_PALLET_PREFIX = true;
+/* >>> Scanning the same barcode again inside one pallet/package adds +1
+       instead of re-asking for the quantity. Set to false to always ask. <<< */
+const RC_RESCAN_INCREMENTS = true;
+
+const RC_LS_STATE = 'rc_state_v1';
+const RC_LS_CAT   = 'rc_catalog_v1';
+const RC_ARCHIVE_MAX = 30;
+
+let RC = { sessions:[], learned:{} };   // every receiving, open and finished, newest first
+let RCCAT = { main:[], pending:[], at:0, source:'' };
+let rcIdx = {};                 // barcode -> [catalog entries]
+let rcView = 'home';
+let rcUnitN = null;             // pallet/package being counted
+let rcPalletN = null;           // pallet being filled (packages flow)
+let rcDraft = null;             // a new receiving, kept in memory until its unit list exists
+let rcActiveId = null;          // which receiving is open right now
+let rcModalState = null;
+
+/* the receiving currently being worked on (a fresh draft, or one picked from the list) */
+function rcCur(){ return rcDraft || RC.sessions.find(s=>s.id===rcActiveId) || null; }
+function rcOpenSession(id){
+  rcDraft=null; rcActiveId=id; const s=rcCur(); if(!s){ rcGo('home'); return; }
+  if(s.finished){ rcGo('report'); return; }
+  if(s.stage==='setup') rcGo('setup');
+  else if(s.stage==='report') rcGo('report');
+  else if(s.stage==='palletize') rcGo(s.palletize.asked?'pallets':'palletask');
+  else rcGo('units');
+}
+function rcDeleteSession(id){
+  if(!IS_ADMIN){ toast('Only the admin can delete a receiving','warn',3000); return; }
+  const i=RC.sessions.findIndex(s=>s.id===id); if(i<0) return;
+  const s=RC.sessions[i];
+  if(!confirm('Delete the receiving "'+(s.supplier||'—')+' · '+s.dateStr+'"?\nThis cannot be undone — export the report first if you still need it.')) return;
+  RC.sessions.splice(i,1);
+  if(rcActiveId===id) rcActiveId=null;
+  rcSave(); toast('Receiving deleted','ok'); rcGo('home');
+}
+
+/* ---------- storage ---------- */
+function rcSave(){
+  try{ localStorage.setItem(RC_LS_STATE, JSON.stringify({v:2, sessions:RC.sessions, learned:RC.learned})); }
+  catch(e){ toast('Local storage is full — export the report','warn',3500); }
+}
+function rcLoad(){
+  try{ const raw=localStorage.getItem(RC_LS_STATE); if(!raw) return;
+    const o=JSON.parse(raw)||{}; RC.learned=o.learned||{};
+    if(Array.isArray(o.sessions)) RC.sessions=o.sessions;
+    else { RC.sessions=[]; if(o.session) RC.sessions.push(o.session); (o.archive||[]).forEach(a=>RC.sessions.push(a)); }  // migrate v1
+  }catch(e){}
+}
+function rcSaveCat(){ try{ localStorage.setItem(RC_LS_CAT, JSON.stringify(RCCAT)); }catch(e){ toast('Catalog too large for local storage','warn',3500); } }
+function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,source:o.source||''}; } }catch(e){} }
+
+/* ---------- catalog ---------- */
+function rcBuildIdx(){
+  rcIdx={};
+  const add=e=>{ for(const b of barcodesOf(e.barcode)) (rcIdx[b]=rcIdx[b]||[]).push(e); };
+  RCCAT.main.forEach(add); RCCAT.pending.forEach(add);
+  for(const b in RC.learned){ const e=RC.learned[b]; (rcIdx[norm(b)]=rcIdx[norm(b)]||[]).push({name:e.name,variation:e.variation||'',image:e.image||'',barcode:b,learned:true}); }
+}
+/* mirror the live (Firebase) inventory into the local cache — never the other way round */
+function rcMirrorLive(){
+  const arr=[];
+  for(const k in S.inventory){ const v=S.inventory[k]; if(!v||!v.name) continue;
+    arr.push({name:v.name, variation:v.variation||'', barcode:v.barcode||'', image:v.image||'', location:v.location||''}); }
+  if(!arr.length) return false;                     // shift wiped / not loaded → keep the cache
+  RCCAT.main=arr; RCCAT.at=Date.now(); if(!RCCAT.source) RCCAT.source='live shift inventory';
+  rcSaveCat(); rcBuildIdx(); return true;
+}
+/* read BOTH the Inventory tab and the Pending tab out of the inventory workbook */
+function rcParseCatalog(buf){
+  const wb=XLSX.read(buf,{type:'array'});
+  const out={main:[],pending:[]}; let fallback=null;
+  const grab=(sn,bucket)=>{
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''});
+    if(rows.length<2) return 0;
+    const h=rows[0];
+    const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),
+      location:pickCol(h,'location'),stock:pickCol(h,'stock'),damaged:pickCol(h,'damaged'),
+      type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series')};
+    if(ci.name<0) return 0;
+    let n=0;
+    for(let r=1;r<rows.length;r++){ const row=rows[r]; const nm=String(row[ci.name]??'').trim(); if(!nm) continue;
+      bucket.push({ name:nm,
+        variation:ci.variation>=0?String(row[ci.variation]??'').trim():'',
+        barcode:ci.barcode>=0?String(row[ci.barcode]??'').trim():'',
+        image:ci.image>=0?String(row[ci.image]??'').trim():'',
+        location:ci.location>=0?String(row[ci.location]??'').trim():'',
+        stock:ci.stock>=0?(parseInt(row[ci.stock],10)||0):null,
+        damaged:ci.damaged>=0?(parseInt(row[ci.damaged],10)||0):null,
+        type:ci.type>=0?String(row[ci.type]??'').trim():'',
+        brand:ci.brand>=0?String(row[ci.brand]??'').trim():'',
+        series:ci.series>=0?String(row[ci.series]??'').trim():'' }); n++; }
+    return n;
+  };
+  for(const sn of wb.SheetNames){
+    const n=norm(sn);
+    if(n.indexOf('pending')>=0) grab(sn,out.pending);
+    else if(INVENTORY_NAMES.includes(n)||n.indexOf('inventory')>=0||n.indexOf('catalog')>=0) grab(sn,out.main);
+    else if(!fallback) fallback=sn;
+  }
+  if(!out.main.length && fallback) grab(fallback,out.main);
+  out.sheets=wb.SheetNames.slice();
+  if(!out.main.length && !out.pending.length) throw new Error('No "Inventory" / "Pending" tab found. Tabs in the file: '+wb.SheetNames.join(', '));
+  return out;
+}
+async function rcLoadCatalogFromBuf(buf, source){
+  let cat; try{ cat=rcParseCatalog(buf); }catch(e){ gstatus('rcCat', e.message, 'err'); return; }
+  RCCAT={main:cat.main, pending:cat.pending, at:Date.now(), source:source||'file'};
+  rcSaveCat(); rcBuildIdx(); rcRender();
+  if(!cat.pending.length){
+    gstatus('rcCat','✓ '+cat.main.length+' inventory items — but NO Pending rows were read. Tabs found: '+
+      (cat.sheets||[]).join(', ')+'. The Pending tab must be named "Pending" and have an item-name column.','err');
+    toast('Loaded, but the Pending tab is empty','warn',5000);
+  }else{
+    gstatus('rcCat','✓ Catalog: '+cat.main.length+' inventory · '+cat.pending.length+' pending.','ok');
+    toast('Catalog cached locally','ok',2400);
+  }
+}
+
+/* ---------- session ---------- */
+function rcDateStr(ts){ const d=new Date(ts||Date.now()); const p=n=>String(n).padStart(2,'0');
+  return p(d.getMonth()+1)+'/'+p(d.getDate())+'/'+String(d.getFullYear()).slice(2); }
+function rcShortId(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
+function rcNewSession(){
+  return { id:rcShortId()+Date.now().toString(36).slice(-4).toUpperCase(), startedAt:Date.now(), dateStr:rcDateStr(),
+    supplier:'', method:'', carrier:'', units:[], stage:'setup',
+    palletize:{asked:false, use:false, pallets:[]}, finished:false };
+}
+function rcMakeUnits(s,count){
+  s.units=[]; for(let i=1;i<=count;i++) s.units.push({n:i, type:s.method, tracking:'', noTracking:false, counted:false, code:'', items:[]});
+}
+function rcUnit(n){ const s=rcCur(); return s?s.units.find(u=>u.n===n)||null:null; }
+function rcAllCounted(){ const s=rcCur(); return !!s && s.units.length>0 && s.units.every(u=>u.counted); }
+function rcUnitWord(s,cap){ const w = s.method==='pallet' ? 'pallet' : 'package'; return cap ? w[0].toUpperCase()+w.slice(1) : w; }
+
+/* totals across the whole shipment, aggregated by product */
+function rcTotals(s){
+  const m=new Map();
+  for(const u of s.units) for(const it of u.items){
+    const k=norm(it.name)+'||'+norm(it.variation||'');
+    if(!m.has(k)) m.set(k,{name:it.name, variation:it.variation||'', qty:0});
+    m.get(k).qty += (+it.qty||0);
+  }
+  return [...m.values()].sort((a,b)=>b.qty-a.qty || a.name.localeCompare(b.name));
+}
+/* how much of each product has already been placed on pallets (packages flow) */
+function rcPlaced(s){
+  const m={}; for(const p of (s.palletize.pallets||[])) for(const it of (p.items||[])){
+    const k=norm(it.name)+'||'+norm(it.variation||''); m[k]=(m[k]||0)+(+it.qty||0); } return m;
+}
+
+/* ============================================================
+   CODE 128-B  (pallet barcodes — no external library)
+   ============================================================ */
+const RC_C128=["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213",
+"221312","231212","112232","122132","122231","113222","123122","123221","223211","221132",
+"221231","213212","223112","312131","311222","321122","321221","312212","322112","322211",
+"212123","212321","232121","111323","131123","131321","112313","132113","132311","211313",
+"231113","231311","112133","112331","132131","113123","113321","133121","313121","211331",
+"231131","213113","213311","213131","311123","311321","331121","312113","312311","332111",
+"314111","221411","431111","111224","111422","121124","121421","141122","141221","112214",
+"112412","122114","122411","142112","142211","241211","221114","413111","241112","134111",
+"111242","121142","121241","114212","124112","124211","411212","421112","421211","212141",
+"214121","412121","111143","111341","131141","114113","114311","411113","411311","113141",
+"114131","311141","411131","211412","211214","211232","2331112"];
+function rcBarcodeSVG(data){
+  const vals=[104];                                   // Start B
+  for(const ch of String(data)){ const c=ch.charCodeAt(0); if(c<32||c>126) continue; vals.push(c-32); }
+  let sum=104; for(let i=1;i<vals.length;i++) sum+=vals[i]*i;
+  vals.push(sum%103); vals.push(106);                 // check + stop
+  let pat=''; for(const v of vals) pat+=RC_C128[v];
+  let total=0; for(const d of pat) total+=+d;
+  const QZ=10;                                        // mandatory quiet zone, 10 modules each side
+  let x=QZ, bar=true, rects='';
+  for(const d of pat){ const w=+d; if(bar) rects+='<rect x="'+x+'" y="0" width="'+w+'" height="100"/>'; x+=w; bar=!bar; }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+(total+QZ*2)+' 100" preserveAspectRatio="none" fill="#000">'+
+    '<rect x="0" y="0" width="'+(total+QZ*2)+'" height="100" fill="#fff"/>'+rects+'</svg>';
+}
+/* unique, human-readable, encodes the receiving date + session + pallet number */
+function rcPalletCode(s,n){
+  const d=new Date(s.startedAt); const p=v=>String(v).padStart(2,'0');
+  const ymd=String(d.getFullYear()).slice(2)+p(d.getMonth()+1)+p(d.getDate());
+  return 'PLT'+ymd+'-'+s.id.slice(0,4)+'-P'+p(n);
+}
+
+/* ============================================================
+   LABEL PRINTING  (4x6 in, landscape)
+   ============================================================ */
+function rcPrint(title, bodyHtml, extraCss){
+  const w=window.open('','_blank','width=980,height=760');
+  if(!w){ toast('The browser blocked the print window — allow pop-ups','err',4200); return; }
+  const css = '@page{size:6in 4in;margin:0}'+
+    'html,body{margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '.lbl{width:6in;height:4in;box-sizing:border-box;padding:.22in;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;page-break-after:always;break-after:page}'+
+    '.lbl:last-child{page-break-after:auto;break-after:auto}'+
+    '.fitbox{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}'+
+    '.txt{font-weight:900;line-height:1.05;width:100%;overflow-wrap:normal;word-break:normal;hyphens:none}'+
+    '.txt.brk{overflow-wrap:break-word;word-break:break-word}'+
+    (extraCss||'')+
+    '@media screen{body{background:#2b2f36;padding:18px}.lbl{background:#fff;margin:0 auto 16px;box-shadow:0 6px 22px rgba(0,0,0,.55)}}';
+  /* auto-fit: grow the name to the biggest size that still fits the label.
+     Words are never broken mid-word unless a single word cannot fit at all. */
+  const script = '(function(){function fit(t,b){var lo=6,hi=300,i;for(i=0;i<28;i++){var m=(lo+hi)/2;t.style.fontSize=m+"px";'+
+    'if(t.scrollHeight<=b.clientHeight&&t.scrollWidth<=b.clientWidth)lo=m;else hi=m;}t.style.fontSize=Math.floor(lo)+"px";return lo;}'+
+    'var boxes=document.querySelectorAll(".fitbox");for(var i=0;i<boxes.length;i++){var t=boxes[i].querySelector(".txt");if(!t)continue;'+
+    'var s=fit(t,boxes[i]);if(s<40&&t.textContent.trim().indexOf(" ")<0){t.className+=" brk";fit(t,boxes[i]);}}'+
+    'setTimeout(function(){window.focus();window.print();},300);})();';
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css+'</style></head><body>'+
+    bodyHtml+'<scr'+'ipt>'+script+'</scr'+'ipt></body></html>');
+  w.document.close();
+}
+function rcPrintProductLabels(list){          // list: [{name, copies}]
+  let html=''; let n=0;
+  for(const it of list){ const c=Math.max(0,+it.copies||0);
+    for(let i=0;i<c;i++){ html+='<div class="lbl"><div class="fitbox"><div class="txt">'+esc(it.name)+'</div></div></div>'; n++; } }
+  if(!n){ toast('Nothing to print — set the number of labels','warn'); return; }
+  rcPrint('Product labels', html);
+}
+function rcPrintPalletLabel(s, code, n, copies){
+  const extra='.pl-top{font-size:22px;font-weight:700;letter-spacing:.02em}'+
+    '.pl-bc{width:100%;height:1.5in;margin:.10in 0 .04in}.pl-bc svg{width:100%;height:100%}'+
+    '.pl-code{font-family:"Courier New",monospace;font-weight:700;font-size:26px;letter-spacing:.06em}'+
+    '.pl-big{font-size:40px;font-weight:900;margin-top:.06in}';
+  let html='';
+  for(let i=0;i<copies;i++){
+    html+='<div class="lbl">'+
+      '<div class="pl-top">'+esc(s.supplier||'—')+' &nbsp;·&nbsp; '+esc(s.dateStr)+'</div>'+
+      '<div class="pl-bc">'+rcBarcodeSVG(code)+'</div>'+
+      '<div class="pl-code">'+esc(code)+'</div>'+
+      '<div class="pl-big">PALLET '+n+'</div>'+
+    '</div>';
+  }
+  rcPrint('Pallet '+n+' — '+code, html, extra);
+}
+
+/* ============================================================
+   REPORTS
+   ============================================================ */
+function rcSlackReport(s){
+  const L=[];
+  L.push('New shipment. '+RC_WAREHOUSE+'. '+s.dateStr);
+  const method = s.method==='pallet' ? 'Pallets' : (s.carrier||'Packages');
+  L.push(':package: From: '+(s.supplier||'—')+'. '+method+'. '+s.units.length);
+  for(const u of s.units){
+    const pref = s.method==='pallet'
+      ? (RC_SLACK_PALLET_PREFIX ? ('P'+u.n) : '')
+      : (u.tracking||'');
+    for(const it of u.items) L.push(':black_medium_small_square: '+(pref?pref+': ':'')+it.name+' = '+it.qty);
+  }
+  L.push('');
+  L.push('Total:');
+  for(const t of rcTotals(s)) L.push(t.name+' = '+t.qty);
+  return L.join('\n');
+}
+function rcReportRows(s){
+  const rows=[['item','supplier','tracking','date','','qty']];
+  for(const u of s.units){
+    const trk = s.method==='pallet' ? (u.code||('Pallet '+u.n)) : (u.tracking||'');
+    for(const it of u.items) rows.push([it.name, s.supplier||'', trk, s.dateStr, '', +it.qty||0]);
+  }
+  return rows;
+}
+function rcFileBase(s){ return 'receiving_'+clean(s.supplier||'shipment')+'_'+s.dateStr.replace(/\//g,'-'); }
+function rcExportXlsx(s){
+  try{
+    const ws=XLSX.utils.aoa_to_sheet(rcReportRows(s));
+    ws['!cols']=[{wch:46},{wch:20},{wch:14},{wch:11},{wch:6},{wch:7}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Receiving');
+    XLSX.writeFile(wb, rcFileBase(s)+'.xlsx');
+  }catch(e){ toast('XLSX export failed: '+(e&&e.message||e),'err',4000); }
+}
+function rcExportCsv(s){ downloadCSV(rcReportRows(s), rcFileBase(s)+'.csv'); }
+/* every barcode this device has ever assigned, newest first */
+function rcLearnedList(){
+  return Object.keys(RC.learned).map(b=>Object.assign({barcode:b}, RC.learned[b]))
+    .sort((a,b)=>(b.at||0)-(a.at||0));
+}
+/* barcodes assigned while counting ONE receiving (read off the counted lines, so it
+   stays correct even if the entry is later removed from the catalog list) */
+function rcAssignedIn(s){
+  const out=[], seen={};
+  for(const u of (s.units||[])) for(const it of (u.items||[])){
+    if(!it.assigned || !it.barcode) continue;
+    const k=norm(it.barcode)+'||'+norm(it.name); if(seen[k]) continue; seen[k]=1;
+    const L=RC.learned[it.barcode]||null;                       // may already be deleted from the registry
+    out.push({barcode:it.barcode, name:it.name, variation:it.variation||'',
+      supplier:(L&&L.supplier)||s.supplier||'', dateStr:(L&&L.dateStr)||s.dateStr||'', by:(L&&L.by)||''});
+  }
+  return out;
+}
+function rcBarcodeRows(list, s){
+  const rows=[['barcode','item','variation','supplier','date','assigned by']];
+  for(const e of list) rows.push([e.barcode, e.name, e.variation||'',
+    e.supplier!==undefined?e.supplier:((s&&s.supplier)||''),
+    e.dateStr!==undefined?e.dateStr:((s&&s.dateStr)||''),
+    e.by||'']);
+  return rows;
+}
+function rcExportBarcodes(list, name, s, xlsx){
+  if(!list.length){ toast('No new barcodes to export','info'); return; }
+  const rows=rcBarcodeRows(list, s);
+  if(!xlsx){ downloadCSV(rows, name+'.csv'); return; }
+  try{
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:20},{wch:46},{wch:16},{wch:20},{wch:11},{wch:14}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'New barcodes');
+    XLSX.writeFile(wb, name+'.xlsx');
+  }catch(e){ toast('XLSX export failed: '+(e&&e.message||e),'err',4000); }
+}
+function rcDeleteLearned(code){
+  const e=RC.learned[code]; if(!e) return;
+  if(!confirm('Remove the barcode '+code+' from "'+e.name+'"?\nIt will stop being recognised on the next scan. Counted lines are not changed.')) return;
+  delete RC.learned[code]; rcBuildIdx(); rcSave(); toast('Barcode removed','ok');
+  if($('#rcBcList')) rcRenderBcList(); else rcRender();
+}
+function rcClearLearned(){
+  if(!IS_ADMIN){ toast('Only the admin can clear the whole list','warn',3000); return; }
+  const n=Object.keys(RC.learned).length; if(!n) return;
+  if(!confirm('Remove all '+n+' assigned barcodes?\nExport them first if you still need them.')) return;
+  RC.learned={}; rcBuildIdx(); rcSave(); toast('List cleared','ok'); rcRender();
+}
+
+/* ============================================================
+   SCANNING / ITEM RESOLUTION
+   ============================================================ */
+function rcAddItem(unit, entry, qty, barcode){
+  const k=norm(entry.name)+'||'+norm(entry.variation||'');
+  const ex=unit.items.find(i=>norm(i.name)+'||'+norm(i.variation||'')===k);
+  if(ex){ ex.qty=(+ex.qty||0)+(+qty||0); if(barcode&&!ex.barcode) ex.barcode=barcode; }
+  else unit.items.push({name:entry.name, variation:entry.variation||'', image:entry.image||'', barcode:barcode||entry.barcode||'', qty:+qty||0, isNew:!!entry.isNew, assigned:!!entry.assigned});
+  rcSave();
+}
+function rcScanCode(raw){
+  const code=String(raw==null?'':raw).trim();   // stored and exported exactly as scanned
+  const key=norm(code); if(!key) return;        // matching is case/spacing insensitive
+  const unit=rcUnit(rcUnitN); if(!unit) return;
+  // already counted in this pallet/package → just add one more
+  if(RC_RESCAN_INCREMENTS){
+    const ex=unit.items.find(i=>barcodesOf(i.barcode).includes(key));
+    if(ex){ ex.qty=(+ex.qty||0)+1; rcSave(); flash('ok'); beep('ok');
+      scanFx('ok',{name:ex.name,variation:ex.variation,image:ex.image},'+1 → '+ex.qty,raw);
+      rcRender(); closeCamIfOpen(); return; }
+  }
+  const hits=(rcIdx[key]||[]);
+  if(hits.length===1) rcOpenConfirm(hits[0], code);
+  else if(hits.length>1) rcOpenChoose(hits, code);
+  else { flash('err'); beep('warn'); rcOpenPending(code, 'Barcode not in the catalog'); }
+}
+/* --- modal plumbing --- */
+function rcCloseModal(){ rcModalState=null; const m=$('#rcModal'); if(m) m.remove(); }
+function rcModal(html){
+  rcCloseModal();
+  const d=document.createElement('div'); d.className='rcmodal'; d.id='rcModal';
+  d.innerHTML='<div class="rcbox">'+html+'</div>';
+  document.body.appendChild(d);
+  d.addEventListener('click',e=>{ if(e.target===d) rcCloseModal(); });
+  return d;
+}
+function rcImg(src,alt,cls){ return '<img class="'+(cls||'')+'" src="'+esc(src||PLACEHOLDER)+'" alt="'+esc(alt||'')+'" onerror="this.src=\''+PLACEHOLDER+'\'">'; }
+
+function rcOpenConfirm(entry, code){
+  flash('ok'); beep('ok'); closeCamIfOpen();
+  const d=rcModal(
+    '<h2>Is this the product?</h2>'+
+    '<p class="sub" style="font-size:13px">Barcode <b class="mono">'+esc(code)+'</b>'+(entry.learned?' · assigned here earlier':'')+'</p>'+
+    '<div class="rccard">'+rcImg(entry.image,entry.name)+'<div><div class="cn">'+esc(entry.name)+'</div>'+
+      (entry.variation?'<div class="cv">'+esc(entry.variation)+'</div>':'')+
+      (entry.location?'<div class="cv">📍 '+esc(entry.location)+'</div>':'')+'</div></div>'+
+    '<div class="rcrow"><button class="btn primary lg" id="rcYes" style="flex:1">✔ Yes, that\'s it</button>'+
+    '<button class="btn lg" id="rcNo">✕ No</button></div>'+
+    '<button class="btn ghost" id="rcCancel" style="width:100%;margin-top:10px">Cancel</button>');
+  d.querySelector('#rcYes').onclick=()=>rcOpenQty(entry, code);
+  d.querySelector('#rcNo').onclick=()=>rcOpenPending(code,'Not this product — pick from Pending');
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+}
+function rcOpenChoose(hits, code){
+  flash('ok'); beep('warn'); closeCamIfOpen();
+  const d=rcModal('<h2>Same barcode — pick the product</h2>'+
+    '<p class="sub" style="font-size:13px">Barcode <b class="mono">'+esc(code)+'</b></p>'+
+    '<div class="rclist">'+hits.map((h,i)=>'<button class="rcpick" data-i="'+i+'">'+rcImg(h.image,h.name)+
+      '<div><div class="pn">'+esc(h.name)+'</div>'+(h.variation?'<div class="pv">'+esc(h.variation)+'</div>':'')+'</div></button>').join('')+'</div>'+
+    '<button class="btn ghost" id="rcCancel" style="width:100%;margin-top:12px">Cancel</button>');
+  d.querySelectorAll('.rcpick').forEach(b=>b.onclick=()=>rcOpenQty(hits[+b.dataset.i], code));
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+}
+/* The product picker for an unknown barcode.
+   The Pending tab is the ONLY list offered by default — Inventory is never
+   substituted for it silently. Searching Inventory stays possible, but only
+   as a deliberate switch (for a product that is in Inventory yet has no
+   barcode on its row yet). */
+function rcOpenPending(code, headline){
+  closeCamIfOpen();
+  let srcKey='pending';
+  const d=rcModal('<h2>'+esc(headline||'Pick the product')+'</h2>'+
+    (code?'<p class="sub" style="font-size:13px">This barcode will be attached to whatever you pick: <b class="mono">'+esc(code)+'</b></p>':'')+
+    '<div class="rcrow" style="margin-top:12px">'+
+      '<button class="rcchoice sel" data-src="pending" style="flex:1">Pending <b id="rcSrcP">'+RCCAT.pending.length+'</b></button>'+
+      '<button class="rcchoice" data-src="inv" style="flex:1">Inventory <b id="rcSrcI">'+RCCAT.main.length+'</b></button>'+
+    '</div>'+
+    '<input id="rcPendSearch" class="tinput" style="width:100%;margin-top:10px" placeholder="Search the Pending list…" autocomplete="off">'+
+    '<div class="rclist" id="rcPendList"></div>'+
+    '<div class="rcrow" style="margin-top:12px"><button class="btn" id="rcManual" style="flex:1">✍ Type the name manually</button>'+
+    '<button class="btn ghost" id="rcCancel">Cancel</button></div>');
+  const list=d.querySelector('#rcPendList'), inp=d.querySelector('#rcPendSearch');
+  const draw=()=>{
+    const q=norm(inp.value);
+    const src = srcKey==='pending' ? RCCAT.pending : RCCAT.main;
+    const rows=src.filter(e=>!q||norm(e.name).indexOf(q)>=0||norm(e.variation).indexOf(q)>=0).slice(0,120);
+    if(rows.length){
+      list.innerHTML = rows.map((e,i)=>'<button class="rcpick" data-i="'+i+'">'+rcImg(e.image,e.name)+
+        '<div><div class="pn">'+esc(e.name)+'</div>'+(e.variation?'<div class="pv">'+esc(e.variation)+'</div>':'')+'</div></button>').join('');
+    } else if(srcKey==='pending' && !RCCAT.pending.length){
+      list.innerHTML='<div class="empty" style="padding:22px"><b>The Pending tab is not loaded.</b><br>'+
+        '<span style="font-size:13px">Open ⚙ Catalog and load the inventory workbook — the shift inventory alone has no Pending tab. '+
+        'Meanwhile you can type the name manually.</span></div>';
+    } else {
+      list.innerHTML='<div class="empty" style="padding:22px">Nothing found in '+(srcKey==='pending'?'Pending':'Inventory')+'</div>';
+    }
+    list.querySelectorAll('.rcpick').forEach(b=>b.onclick=()=>rcOpenQty(rows[+b.dataset.i], code, true));
+  };
+  d.querySelectorAll('[data-src]').forEach(b=>b.onclick=()=>{
+    srcKey=b.dataset.src;
+    d.querySelectorAll('[data-src]').forEach(x=>x.classList.toggle('sel', x===b));
+    inp.placeholder = srcKey==='pending' ? 'Search the Pending list…' : 'Search Inventory…';
+    draw(); inp.focus();
+  });
+  inp.addEventListener('input',draw); draw(); setTimeout(()=>inp.focus(),50);
+  d.querySelector('#rcManual').onclick=()=>rcOpenManual(code);
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+}
+function rcOpenManual(code){
+  const d=rcModal('<h2>New product</h2>'+
+    (code?'<p class="sub" style="font-size:13px">Barcode <b class="mono">'+esc(code)+'</b> will be attached to it</p>':'')+
+    '<input id="rcMName" class="tinput" style="width:100%;margin-top:12px" placeholder="Product name" autocomplete="off">'+
+    '<input id="rcMVar" class="tinput" style="width:100%;margin-top:9px" placeholder="Variation (optional)" autocomplete="off">'+
+    '<div class="rcrow" style="margin-top:12px"><button class="btn primary" id="rcMOk" style="flex:1">Continue →</button>'+
+    '<button class="btn ghost" id="rcCancel">Cancel</button></div>');
+  const nm=d.querySelector('#rcMName');
+  const go=()=>{ const v=nm.value.trim(); if(v.length<2){ nm.focus(); toast('Enter the product name','warn'); return; }
+    rcOpenQty({name:v, variation:d.querySelector('#rcMVar').value.trim(), image:'', isNew:true}, code, true); };
+  d.querySelector('#rcMOk').onclick=go;
+  nm.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();go();} });
+  d.querySelector('#rcMVar').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();go();} });
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+  setTimeout(()=>nm.focus(),50);
+}
+function rcOpenQty(entry, code, learn){
+  const d=rcModal('<h2>How many?</h2>'+
+    '<div class="rccard">'+rcImg(entry.image,entry.name)+'<div><div class="cn">'+esc(entry.name)+'</div>'+
+      (entry.variation?'<div class="cv">'+esc(entry.variation)+'</div>':'')+'</div></div>'+
+    '<input id="rcQty" class="rcbigqty" type="number" inputmode="numeric" min="1" step="1" value="1">'+
+    '<div class="rcrow" style="margin-top:8px"><button class="btn" data-q="-1">−1</button><button class="btn" data-q="1">+1</button>'+
+    '<button class="btn" data-q="6">+6</button><button class="btn" data-q="12">+12</button><button class="btn" data-q="24">+24</button></div>'+
+    '<button class="btn primary lg" id="rcQOk" style="width:100%;margin-top:14px">Add to the list</button>'+
+    '<button class="btn ghost" id="rcCancel" style="width:100%;margin-top:9px">Cancel</button>');
+  const q=d.querySelector('#rcQty');
+  d.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ q.value=Math.max(1,(parseInt(q.value,10)||0)+(+b.dataset.q)); q.focus(); });
+  const ok=()=>{
+    const n=Math.max(1,parseInt(q.value,10)||1);
+    const unit=rcUnit(rcUnitN); if(!unit){ rcCloseModal(); return; }
+    const s=rcCur();
+    if(learn && code){
+      for(const k in RC.learned) if(norm(k)===norm(code) && k!==code) delete RC.learned[k];
+      RC.learned[code]={ name:entry.name, variation:entry.variation||'', image:entry.image||'', at:Date.now(),
+        supplier:(s&&s.supplier)||'', dateStr:(s&&s.dateStr)||rcDateStr(), by:MY_NAME||'', sid:(s&&s.id)||'' };
+      entry=Object.assign({}, entry, {assigned:true});      // remembered on the line too, for the receiving's own report
+      rcBuildIdx();
+    }
+    rcAddItem(unit, entry, n, code);
+    rcCloseModal(); flash('ok'); beep('ok');
+    scanFx('ok',{name:entry.name,variation:entry.variation,image:entry.image},'added ×'+n, code||'manual');
+    rcRender(); rcFocusScan();
+  };
+  d.querySelector('#rcQOk').onclick=ok;
+  q.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();ok();} });
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+  setTimeout(()=>{ q.focus(); q.select(); },50);
+}
+function rcFocusScan(){ const i=$('#rcScan'); if(i) setTimeout(()=>{ try{ i.focus(); }catch(e){} },40); }
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+function rcGo(v){ rcView=v; rcRender(); window.scrollTo({top:0}); }
+let rcAutoTried=false;
+/* pull the fixed company workbook once per session if this device has no catalog yet */
+function rcAutoLoadCatalog(){
+  if(rcAutoTried) return; rcAutoTried=true;
+  if(RCCAT.main.length || RCCAT.pending.length) return;
+  fetchSheet(INVENTORY_SHEET_URL,false,'rcCat').then(buf=>{ if(buf) rcLoadCatalogFromBuf(buf,INVENTORY_SHEET_URL); });
+}
+function enterReceiving(){
+  rcMirrorLive(); rcBuildIdx(); rcAutoLoadCatalog(); show('recv');
+  const s=rcCur();
+  if(s && !s.finished) rcOpenSession(s.id);        // still mid-count in this tab → straight back into it
+  else { rcDraft=null; rcActiveId=null; rcGo('home'); }
+}
+function rcStepBar(active){
+  const steps=[['setup','Shipment'],['units','Count'],['pallets','Pallets'],['report','Report']];
+  const s=rcCur(); if(!s) return '';
+  const list = s.method==='package' ? steps : steps.filter(x=>x[0]!=='pallets');
+  const order=list.map(x=>x[0]); const ai=order.indexOf(active);
+  return '<div class="rcsteps">'+list.map((x,i)=>'<span class="rcstep'+(x[0]===active?' on':(ai>=0&&i<ai?' done':''))+'">'+
+    (i+1)+'. '+x[1]+'</span>').join('')+'</div>';
+}
+function rcRender(){
+  const cc=$('#rcCatCount'); if(cc) cc.textContent=(RCCAT.main.length+RCCAT.pending.length);
+  const a=$('#rcArea'); if(!a) return;
+  switch(rcView){
+    case 'catalog':   a.innerHTML=rcViewCatalog(); rcWireCatalog(); break;
+    case 'setup':     a.innerHTML=rcViewSetup(); rcWireSetup(); break;
+    case 'units':     a.innerHTML=rcViewUnits(); rcWireUnits(); break;
+    case 'unit':      a.innerHTML=rcViewUnit(); rcWireUnit(); break;
+    case 'palletask': a.innerHTML=rcViewPalletAsk(); rcWirePalletAsk(); break;
+    case 'pallets':   a.innerHTML=rcViewPallets(); rcWirePallets(); break;
+    case 'pallet':    a.innerHTML=rcViewPallet(); rcWirePallet(); break;
+    case 'report':    a.innerHTML=rcViewReport(); rcWireReport(); break;
+    default:          a.innerHTML=rcViewHome(); rcWireHome();
+  }
+}
+
+/* ---------- home ---------- */
+function rcSessionRow(s){
+  const fin=!!s.finished;
+  const counted=s.units.filter(u=>u.counted).length;
+  const units=rcTotals(s).reduce((n,t)=>n+t.qty,0);
+  const how=(s.method==='pallet'?'pallets':(s.carrier||'packages'));
+  const W=rcUnitWord(s,false);
+  return '<div class="rcarow'+(fin?'':' live')+'">'+
+    '<div><div class="an">'+esc(s.supplier||'—')+' · '+esc(s.dateStr)+'</div>'+
+    '<div class="am">'+esc(how)+' · '+
+      (fin ? (s.units.length+' '+W+'s · '+units+' units')
+           : (counted+'/'+s.units.length+' '+W+'s counted · '+units+' units so far'))+
+    '</div></div><div class="spacer" style="flex:1"></div>'+
+    (fin ? '<button class="btn ghost" data-report="'+esc(s.id)+'">Report</button>'
+         : '<button class="btn primary" data-open="'+esc(s.id)+'">Continue</button>')+
+    (IS_ADMIN ? '<button class="btn danger ghost" data-del="'+esc(s.id)+'">Delete</button>' : '')+
+    '</div>';
+}
+function rcViewHome(){
+  const open=RC.sessions.filter(s=>!s.finished);
+  const done=RC.sessions.filter(s=>s.finished);
+  let h='<div class="card"><div class="eyebrow">Receiving</div><h2>Start a new receiving</h2>'+
+    '<p class="sub">Stop whenever you need to, start another one, and come back later — each receiving keeps its own count.</p>'+
+    '<button class="btn primary lg" id="rcNew" style="margin-top:14px">📥 New receiving</button></div>';
+
+  if(open.length){
+    h+='<div class="card" style="margin-top:14px"><div class="eyebrow">In progress — '+open.length+'</div>'+
+       '<div class="rcarch">'+open.map(rcSessionRow).join('')+'</div></div>';
+  }
+  const cat=RCCAT.main.length+RCCAT.pending.length;
+  h+='<div class="rcnote">'+(cat
+      ? '<b>Catalog:</b> '+RCCAT.main.length+' inventory items, '+RCCAT.pending.length+' pending'+(RCCAT.at?' · updated '+fmtTime(RCCAT.at):'')+(RCCAT.source?' · '+esc(RCCAT.source):'')+
+        (RCCAT.pending.length?'':'<br><b style="color:var(--warn)">No Pending rows loaded</b> — unknown barcodes will only offer manual entry. Load the workbook in ⚙ Catalog.')
+      : '<b>Catalog is empty.</b> Open ⚙ Catalog and load the inventory workbook so scanned barcodes are recognised and the Pending list works.')+'</div>';
+  if(done.length){
+    h+='<div class="card" style="margin-top:14px"><div class="eyebrow">Finished — '+done.length+' (this device)</div>'+
+       '<div class="rcarch">'+done.map(rcSessionRow).join('')+'</div>'+
+       (IS_ADMIN?'':'<p class="sub" style="font-size:12.5px;margin-top:11px">Deleting a receiving is an admin action.</p>')+'</div>';
+  }
+  return h;
+}
+function rcWireHome(){
+  const n=$('#rcNew'); if(n) n.onclick=()=>{ rcDraft=rcNewSession(); rcActiveId=null; rcGo('setup'); };
+  $$('#rcArea [data-open]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.open));
+  $$('#rcArea [data-report]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.report));
+  $$('#rcArea [data-del]').forEach(b=>b.onclick=()=>rcDeleteSession(b.dataset.del));
+}
+
+/* ---------- catalog ---------- */
+function rcViewCatalog(){
+  return '<div class="card"><div class="srchead"><span class="mode items">Catalog</span>'+
+    '<span class="sub" style="font-size:13px">read-only · Inventory + Pending tabs · cached on this device</span></div>'+
+    '<div class="srcrow"><button class="btn primary lg" id="rcCatLoad">🔄 Load / refresh from the company sheet</button></div>'+
+    '<p class="sub" id="rcCatStatus" style="font-size:12.5px;margin-top:9px">Fixed company workbook (set in the code). It needs an <b>Inventory</b> tab and a <b>Pending</b> tab. Columns used: item name · variation · barcode · image · location · stock.</p>'+
+    '<button class="btn hide" id="rcCatProxy" style="margin-top:10px">↪ Try via proxy</button>'+
+    '<label class="btn ghost" style="margin-top:10px">or choose an .xlsx file<input id="rcCatFile" type="file" accept=".xlsx,.xls,.csv" class="hide"></label>'+
+    '<div class="rcrow" style="margin-top:14px"><button class="btn" id="rcCatMirror">↻ Take the shift inventory</button></div>'+
+    '<div class="rcnote"'+(RCCAT.pending.length?'':' style="border-left-color:var(--err)"')+'><b>'+RCCAT.main.length+'</b> inventory · <b>'+RCCAT.pending.length+'</b> pending'+
+      (RCCAT.at?' · updated '+fmtTime(RCCAT.at):'')+
+      (RCCAT.pending.length?'':'<br>The Pending list is empty — an unknown barcode will have nothing to pick from. Load the workbook above; “Take the shift inventory” only fills the Inventory side.')+'</div></div>'+
+    rcViewBarcodes()+
+    '<button class="btn ghost" id="rcCatBack" style="margin-top:14px">← Back</button>';
+}
+/* --- barcodes this device assigned to new products --- */
+let rcBcFilter='';
+function rcBcRow(e){
+  return '<div class="rcarow"><div style="min-width:0">'+
+    '<div class="an">'+esc(e.name)+(e.variation?' <span class="sub">· '+esc(e.variation)+'</span>':'')+'</div>'+
+    '<div class="am mono">'+esc(e.barcode)+'</div>'+
+    '<div class="am">'+[e.supplier?esc(e.supplier):'', e.dateStr?esc(e.dateStr):'', e.by?('by '+esc(e.by)):''].filter(Boolean).join(' · ')+'</div>'+
+    '</div><div class="spacer" style="flex:1"></div>'+
+    '<button class="btn danger ghost" data-bcdel="'+esc(e.barcode)+'">Delete</button></div>';
+}
+function rcBcFiltered(){
+  const all=rcLearnedList(), q=norm(rcBcFilter);
+  return q ? all.filter(e=>norm(e.name).indexOf(q)>=0||norm(e.variation).indexOf(q)>=0||norm(e.barcode).indexOf(q)>=0) : all;
+}
+function rcViewBarcodes(){
+  const all=rcLearnedList();
+  let h='<div class="card" style="margin-top:14px"><div class="srchead"><span class="mode label">New barcodes</span>'+
+    '<span class="sub" style="font-size:13px">codes this device attached to new products · kept until you delete them</span></div>';
+  if(!all.length){
+    return h+'<div class="empty" style="margin-top:12px">Nothing yet.<br><span style="font-size:13px">When a scanned barcode is not in the catalog and you pick the product from Pending or type the name in, the code is saved here.</span></div></div>';
+  }
+  h+='<div class="rcrow" style="margin-top:12px"><input id="rcBcSearch" class="tinput" style="min-width:200px" autocomplete="off" placeholder="Search barcode or product…" value="'+esc(rcBcFilter)+'">'+
+     '<button class="btn" id="rcBcXlsx">⬇ Excel</button><button class="btn ghost" id="rcBcCsv">⬇ CSV</button>'+
+     (IS_ADMIN?'<button class="btn danger ghost" id="rcBcClear">Clear all</button>':'')+'</div>'+
+     '<div class="rcarch" id="rcBcList" style="margin-top:12px"></div>'+
+     '<p class="sub" id="rcBcNote" style="font-size:12.5px;margin-top:10px"></p></div>';
+  return h;
+}
+/* only the list is repainted while typing, so the sheet URL above is never wiped */
+function rcRenderBcList(){
+  const box=$('#rcBcList'); if(!box) return;          // list not on screen (empty state) — nothing to repaint
+  const all=rcLearnedList(), list=rcBcFiltered();
+  box.innerHTML = list.length ? list.map(rcBcRow).join('') : '<div class="empty" style="padding:22px">Nothing matches</div>';
+  $$('#rcBcList [data-bcdel]').forEach(b=>b.onclick=()=>rcDeleteLearned(b.dataset.bcdel));
+  const note=$('#rcBcNote');
+  if(note) note.textContent = (list.length===all.length)
+    ? (all.length+' barcode'+(all.length===1?'':'s')+' · exports always write the full list')
+    : ('Showing '+list.length+' of '+all.length+' · exports always write the full list');
+}
+function rcWireBarcodes(){
+  const se=$('#rcBcSearch');
+  if(se) se.addEventListener('input',e=>{ rcBcFilter=e.target.value; rcRenderBcList(); });
+  const x=$('#rcBcXlsx'); if(x) x.onclick=()=>rcExportBarcodes(rcLearnedList(),'new_barcodes_'+TODAY,null,true);
+  const c=$('#rcBcCsv');  if(c) c.onclick=()=>rcExportBarcodes(rcLearnedList(),'new_barcodes_'+TODAY,null,false);
+  const cl=$('#rcBcClear'); if(cl) cl.onclick=rcClearLearned;
+  rcRenderBcList();
+}
+function rcWireCatalog(){
+  $('#rcCatLoad').onclick=async()=>{ const b=$('#rcCatLoad'); b.disabled=true; const buf=await fetchSheet(INVENTORY_SHEET_URL,false,'rcCat'); if(buf) rcLoadCatalogFromBuf(buf,INVENTORY_SHEET_URL); b.disabled=false; };
+  $('#rcCatProxy').onclick=async()=>{ if(!_proxy.rcCat)return; const buf=await fetchSheet(_proxy.rcCat,true,'rcCat'); if(buf) rcLoadCatalogFromBuf(buf,_proxy.rcCat); };
+  $('#rcCatFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) readFile(f,buf=>rcLoadCatalogFromBuf(buf,'file: '+f.name)); });
+  $('#rcCatMirror').onclick=()=>{ if(rcMirrorLive()){ toast('Inventory copied from the shift','ok'); rcRender(); } else toast('The shift inventory is empty','warn'); };
+  rcWireBarcodes();
+  $('#rcCatBack').onclick=()=>{ const s=rcCur(); if(s) rcOpenSession(s.id); else rcGo('home'); };
+}
+
+/* ---------- setup: supplier + method ---------- */
+function rcViewSetup(){
+  const s=rcCur();
+  let h=rcStepBar('setup');
+  h+='<div class="card"><div class="eyebrow">Step 2 — where did it come from</div><h2>Supplier</h2>'+
+    '<div class="rcgrid">'+RC_SUPPLIERS.map(x=>'<button class="rcchoice'+(norm(s.supplier)===norm(x)?' sel':'')+'" data-sup="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>'+
+    '<div class="srcrow" style="margin-top:12px"><input id="rcSupOther" class="tinput" autocomplete="off" placeholder="or type the supplier manually…" value="'+
+      (s.supplier&&!RC_SUPPLIERS.some(x=>norm(x)===norm(s.supplier))?esc(s.supplier):'')+'"></div></div>';
+
+  h+='<div class="card"><div class="eyebrow">Step 3 — how did it arrive</div>'+
+    '<div class="rcgrid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">'+
+    '<button class="rcchoice'+(s.method==='pallet'?' sel':'')+'" data-m="pallet">🟫 Pallets</button>'+
+    '<button class="rcchoice'+(s.method==='package'?' sel':'')+'" data-m="package">📦 Packages</button></div>';
+  if(s.method==='package'){
+    h+='<div style="margin-top:16px"><div class="eyebrow">Carrier</div>'+
+      '<div class="rcgrid">'+RC_CARRIERS.map(x=>'<button class="rcchoice'+(norm(s.carrier)===norm(x)?' sel':'')+'" data-car="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>'+
+      '<div class="srcrow" style="margin-top:12px"><input id="rcCarOther" class="tinput" autocomplete="off" placeholder="or another carrier…" value="'+
+        (s.carrier&&!RC_CARRIERS.some(x=>norm(x)===norm(s.carrier))?esc(s.carrier):'')+'"></div></div>';
+  }
+  if(s.method){
+    h+='<div style="margin-top:16px"><div class="eyebrow">How many '+(s.method==='pallet'?'pallets':'packages')+'</div>'+
+      '<div class="srcrow"><input id="rcCount" class="tinput" type="number" min="1" max="200" step="1" style="max-width:180px" value="'+(s.units.length||'')+'" placeholder="e.g. 3">'+
+      '<button class="btn primary lg" id="rcMake">Create the list →</button></div>'+
+      (s.units.length?'<p class="sub" style="font-size:12.5px;margin-top:9px">A list of '+s.units.length+' already exists — changing the number rebuilds it (counted data is kept for the ones that remain).</p>':'')+'</div>';
+  }
+  h+='</div><button class="btn ghost" id="rcSetupBack" style="margin-top:4px">← Receiving home</button>';
+  return h;
+}
+function rcWireSetup(){
+  const s=rcCur();
+  $$('#rcArea [data-sup]').forEach(b=>b.onclick=()=>{ s.supplier=b.dataset.sup; const o=$('#rcSupOther'); if(o)o.value=''; rcSave(); rcRender(); });
+  const so=$('#rcSupOther'); if(so) so.addEventListener('input',e=>{ const v=e.target.value.trim(); if(v){ s.supplier=v; rcSave(); $$('#rcArea [data-sup]').forEach(x=>x.classList.remove('sel')); } });
+  $$('#rcArea [data-m]').forEach(b=>b.onclick=()=>{ s.method=b.dataset.m; rcSave(); rcRender(); });
+  $$('#rcArea [data-car]').forEach(b=>b.onclick=()=>{ s.carrier=b.dataset.car; const o=$('#rcCarOther'); if(o)o.value=''; rcSave(); rcRender(); });
+  const co=$('#rcCarOther'); if(co) co.addEventListener('input',e=>{ const v=e.target.value.trim(); if(v){ s.carrier=v; rcSave(); $$('#rcArea [data-car]').forEach(x=>x.classList.remove('sel')); } });
+  const mk=$('#rcMake'); if(mk) mk.onclick=()=>{
+    if(!s.supplier){ toast('Pick or type the supplier','warn'); return; }
+    if(s.method==='package' && !s.carrier){ toast('Pick the carrier','warn'); return; }
+    const n=parseInt($('#rcCount').value,10);
+    if(!n||n<1||n>200){ toast('Enter a number between 1 and 200','warn'); return; }
+    if(s.units.length!==n){
+      const keep=s.units.slice(0,n);
+      rcMakeUnits(s,n);
+      keep.forEach((u,i)=>{ s.units[i]=Object.assign(s.units[i],{tracking:u.tracking,noTracking:u.noTracking,counted:u.counted,code:u.code,items:u.items}); });
+    }
+    s.stage='units';
+    if(rcDraft){ RC.sessions.unshift(rcDraft); rcActiveId=rcDraft.id; rcDraft=null; }   // only now does it become a real receiving
+    rcSave(); rcGo('units');
+  };
+  $('#rcSetupBack').onclick=()=>{ if(rcDraft){ rcDraft=null; rcActiveId=null; } rcGo('home'); };
+}
+
+/* ---------- unit list ---------- */
+function rcViewUnits(){
+  const s=rcCur(); const W=rcUnitWord(s,true);
+  let h=rcStepBar('units');
+  h+='<div class="rcrow"><h1 style="margin:0">'+esc(s.supplier)+' · '+(s.method==='pallet'?'pallets':esc(s.carrier||'packages'))+'</h1>'+
+    '<div class="spacer" style="flex:1"></div><div class="pill">Counted <b>'+s.units.filter(u=>u.counted).length+'</b>/'+s.units.length+'</div></div>'+
+    '<p class="sub">Pick a '+rcUnitWord(s,false)+' to count. Counted ones turn green.</p>';
+  h+='<div class="rcunits">'+s.units.map(u=>{
+    const qty=u.items.reduce((n,i)=>n+(+i.qty||0),0);
+    return '<button class="rcunit '+(u.counted?'done':'todo')+'" data-u="'+u.n+'">'+
+      '<div class="ubadge">'+(u.counted?'✓ DONE':'TO COUNT')+'</div>'+
+      '<div class="un">'+W+' '+u.n+'</div>'+
+      '<div class="us">'+(u.items.length? u.items.length+' items · '+qty+' units' : 'not counted')+
+      (u.tracking?'<br>trk …'+esc(u.tracking):(u.noTracking?'<br>no tracking':''))+
+      (u.code?'<br><span class="mono" style="font-size:11px">'+esc(u.code)+'</span>':'')+'</div></button>';
+  }).join('')+'</div>';
+  h+='<div class="rcrow" style="margin-top:20px">'+
+    '<button class="btn primary lg" id="rcNext" '+(rcAllCounted()?'':'disabled')+'>'+
+      (s.method==='pallet'?'All pallets counted → report':'All packages counted → next')+'</button>'+
+    '<button class="btn ghost" id="rcEditSetup">⚙ Shipment details</button>'+
+    '<div class="spacer" style="flex:1"></div><button class="btn ghost" id="rcHome">← Receiving home</button></div>';
+  if(!rcAllCounted()) h+='<div class="rcnote">Count every '+rcUnitWord(s,false)+' to unlock the next step.</div>';
+  return h;
+}
+function rcWireUnits(){
+  const s=rcCur();
+  $$('#rcArea [data-u]').forEach(b=>b.onclick=()=>{ rcUnitN=+b.dataset.u; rcGo('unit'); rcFocusScan(); });
+  $('#rcEditSetup').onclick=()=>{ s.stage='setup'; rcSave(); rcGo('setup'); };
+  $('#rcHome').onclick=()=>{ rcActiveId=null; rcGo('home'); };   // pause: everything is already saved
+  const nx=$('#rcNext'); if(nx) nx.onclick=()=>{
+    if(!rcAllCounted()) return;
+    if(s.method==='pallet'){ s.stage='report'; rcSave(); rcGo('report'); }
+    else { s.stage='palletize'; rcSave(); rcGo(s.palletize.asked?'pallets':'palletask'); }
+  };
+}
+
+/* ---------- counting one pallet / package ---------- */
+function rcViewUnit(){
+  const s=rcCur(), u=rcUnit(rcUnitN); if(!u) return '<div class="empty">Not found</div>';
+  const W=rcUnitWord(s,true);
+  const qty=u.items.reduce((n,i)=>n+(+i.qty||0),0);
+  let h='<div class="rcrow"><button class="btn ghost" id="rcUBack">← '+W+'s</button><h1 style="margin:0">'+W+' '+u.n+' <span class="sub" style="font-size:15px">of '+s.units.length+'</span></h1>'+
+    '<div class="spacer" style="flex:1"></div><div class="pill">Items <b>'+u.items.length+'</b> · units <b>'+qty+'</b></div></div>';
+
+  if(s.method==='package'){
+    h+='<div class="card" style="margin-bottom:14px"><div class="eyebrow">Step 3.2.5 — tracking number</div>'+
+      '<div class="srcrow"><input id="rcTrk" class="tinput" inputmode="numeric" maxlength="4" style="max-width:200px" placeholder="last 4 digits" value="'+esc(u.tracking)+'"'+(u.noTracking?' disabled':'')+'>'+
+      '<button class="btn'+(u.noTracking?' primary':'')+'" id="rcNoTrk">'+(u.noTracking?'✓ No tracking number':'No tracking number')+'</button></div></div>';
+  }
+
+  h+='<div class="scanwrap"><div class="scanhead"><span class="mode items">Scan items</span>'+
+    '<span class="who">'+esc(s.supplier)+' · '+W.toLowerCase()+' '+u.n+'</span></div>'+
+    '<div class="scanrow"><input id="rcScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan the item barcode…">'+
+    '<button class="btn primary" id="rcCam" title="Scan with the phone camera">📷 Camera</button>'+
+    '<button class="btn" id="rcScanGo">Enter</button>'+
+    '<button class="btn ghost" id="rcAddManual">＋ Manual</button></div></div>';
+
+  if(u.items.length){
+    h+='<div class="rcitems">'+u.items.map((it,i)=>
+      '<div class="rcitem'+(it.isNew?' new':'')+'">'+rcImg(it.image,it.name,'thumb')+
+      '<div><div class="rin">'+esc(it.name)+'</div>'+(it.variation?'<div class="riv">'+esc(it.variation)+'</div>':'')+
+      '<div class="rchips">'+(it.barcode?'<span class="chip mono">'+esc(it.barcode)+'</span>':'<span class="chip">no barcode</span>')+
+      (it.isNew?'<span class="chip loc">new</span>':'')+'</div></div>'+
+      '<div class="rcqty"><button class="step" data-dec="'+i+'">−</button>'+
+      '<input type="number" min="0" step="1" data-qty="'+i+'" value="'+(+it.qty||0)+'">'+
+      '<button class="step" data-inc="'+i+'">+</button>'+
+      '<button class="rcdel" data-del="'+i+'" title="Remove">✕</button></div></div>').join('')+'</div>';
+    h+='<div class="rcnote">Step '+(s.method==='pallet'?'3.1.6':'3.2.7')+' — <b>re-check the list against the actual goods</b> before confirming. '+
+      'Print the box labels here if you need them.</div>';
+    h+='<div class="rcrow" style="margin-top:14px"><button class="btn" id="rcLabels">🏷 Print box labels</button>'+
+      '<div class="spacer" style="flex:1"></div>'+
+      '<button class="btn primary lg" id="rcConfirm">'+(s.method==='pallet'?'✔ Confirm count & make the pallet barcode':'✔ Confirm the count')+'</button></div>';
+  }else{
+    h+='<div class="empty" style="margin-top:16px">Nothing scanned yet.<br><span style="font-size:13px">Scan an item, or add it manually.</span></div>';
+  }
+  return h;
+}
+function rcWireUnit(){
+  const s=rcCur(), u=rcUnit(rcUnitN); if(!u) return;
+  $('#rcUBack').onclick=()=>rcGo('units');
+  const sc=$('#rcScan');
+  sc.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=sc.value.trim(); sc.value=''; if(v) rcScanCode(v); } });
+  $('#rcScanGo').onclick=()=>{ const v=sc.value.trim(); sc.value=''; if(v) rcScanCode(v); };
+  $('#rcCam').onclick=openCam;
+  $('#rcAddManual').onclick=()=>rcOpenPending('','Add a product manually');
+  const trk=$('#rcTrk');
+  if(trk){ trk.addEventListener('input',e=>{ u.tracking=e.target.value.replace(/\D/g,'').slice(0,4); e.target.value=u.tracking; rcSave(); });
+    $('#rcNoTrk').onclick=()=>{ u.noTracking=!u.noTracking; if(u.noTracking) u.tracking=''; rcSave(); rcRender(); }; }
+  $$('#rcArea [data-inc]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.inc; u.items[i].qty=(+u.items[i].qty||0)+1; rcSave(); rcRender(); });
+  $$('#rcArea [data-dec]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dec; u.items[i].qty=Math.max(0,(+u.items[i].qty||0)-1); rcSave(); rcRender(); });
+  $$('#rcArea [data-qty]').forEach(inp=>inp.addEventListener('change',()=>{ const i=+inp.dataset.qty; u.items[i].qty=Math.max(0,parseInt(inp.value,10)||0); rcSave(); rcRender(); }));
+  $$('#rcArea [data-del]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.del; if(!confirm('Remove "'+u.items[i].name+'" from the list?'))return; u.items.splice(i,1); rcSave(); rcRender(); });
+  const lb=$('#rcLabels'); if(lb) lb.onclick=()=>rcOpenLabels(u);
+  const cf=$('#rcConfirm'); if(cf) cf.onclick=()=>rcConfirmUnit(u);
+  rcFocusScan();
+}
+function rcOpenLabels(u){
+  const d=rcModal('<h2>Box labels</h2><p class="sub" style="font-size:13px">4×6 in, landscape · bold, centred, auto-fitted. Set how many labels per product.</p>'+
+    '<div class="rcplt">'+u.items.map((it,i)=>'<div class="rcpline"><div class="pl">'+esc(it.name)+'</div>'+
+      '<div class="pr">qty '+(+it.qty||0)+'</div>'+
+      '<input class="tinput" style="width:82px;min-width:0;text-align:center" type="number" min="0" step="1" data-lb="'+i+'" value="1"></div>').join('')+'</div>'+
+    '<div class="rcrow" style="margin-top:14px"><button class="btn" id="rcLbAllQty">Copies = qty</button><button class="btn" id="rcLbOne">Copies = 1</button>'+
+    '<button class="btn" id="rcLbZero">Clear</button></div>'+
+    '<button class="btn primary lg" id="rcLbPrint" style="width:100%;margin-top:14px">🖨 Print</button>'+
+    '<button class="btn ghost" id="rcCancel" style="width:100%;margin-top:9px">Close</button>');
+  const set=fn=>d.querySelectorAll('[data-lb]').forEach(inp=>{ inp.value=fn(u.items[+inp.dataset.lb]); });
+  d.querySelector('#rcLbAllQty').onclick=()=>set(it=>+it.qty||0);
+  d.querySelector('#rcLbOne').onclick=()=>set(()=>1);
+  d.querySelector('#rcLbZero').onclick=()=>set(()=>0);
+  d.querySelector('#rcLbPrint').onclick=()=>{
+    const list=[...d.querySelectorAll('[data-lb]')].map(inp=>({name:u.items[+inp.dataset.lb].name, copies:parseInt(inp.value,10)||0}));
+    rcPrintProductLabels(list);
+  };
+  d.querySelector('#rcCancel').onclick=()=>{ rcCloseModal(); rcFocusScan(); };
+}
+function rcConfirmUnit(u){
+  const s=rcCur();
+  if(!u.items.length){ toast('The list is empty','warn'); return; }
+  if(u.items.some(i=>(+i.qty||0)<=0)){ toast('Some lines have qty 0 — fix or remove them','warn',3200); return; }
+  if(s.method==='package' && !u.tracking && !u.noTracking){ toast('Enter the last 4 digits of the tracking number, or mark “No tracking number”','warn',3600); return; }
+  if(!confirm('Confirm the count for '+rcUnitWord(s,false)+' '+u.n+'?\nItems: '+u.items.length+' · units: '+u.items.reduce((n,i)=>n+(+i.qty||0),0))) return;
+  u.counted=true;
+  if(s.method==='pallet'){
+    if(!u.code) u.code=rcPalletCode(s,u.n);
+    rcSave(); rcShowPalletCode(u.code, u.n, ()=>rcGo('units'));
+  }else{ rcSave(); toast('Package '+u.n+' counted','ok'); rcGo('units'); }
+}
+function rcShowPalletCode(code, n, after){
+  const d=rcModal('<h2>Pallet '+n+' — barcode</h2>'+
+    '<p class="sub" style="font-size:13px">Unique code: receiving date + session + pallet number. Print 4 copies and stick them on all four sides of the pallet.</p>'+
+    '<div class="rcbc">'+rcBarcodeSVG(code)+'<div class="rcbccode">'+esc(code)+'</div></div>'+
+    '<div class="rcrow" style="margin-top:14px"><button class="btn primary lg" id="rcPltPrint" style="flex:1">🖨 Print 4 labels</button>'+
+    '<button class="btn" id="rcPltPrint1">1 label</button></div>'+
+    '<button class="btn ghost" id="rcPltDone" style="width:100%;margin-top:10px">Done</button>');
+  const s=rcCur();
+  d.querySelector('#rcPltPrint').onclick=()=>rcPrintPalletLabel(s,code,n,4);
+  d.querySelector('#rcPltPrint1').onclick=()=>rcPrintPalletLabel(s,code,n,1);
+  d.querySelector('#rcPltDone').onclick=()=>{ rcCloseModal(); if(after) after(); };
+}
+
+/* ---------- packages → pallets (3.2.9) ---------- */
+function rcViewPalletAsk(){
+  const s=rcCur();
+  return rcStepBar('pallets')+
+    '<div class="card"><div class="eyebrow">Step 3.2.9</div><h2>Are the goods going onto pallets?</h2>'+
+    '<p class="sub">All '+s.units.length+' packages are counted. You can put the goods on pallets and label them, or go straight to the report.</p>'+
+    '<div class="rcgrid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr))">'+
+    '<button class="rcchoice" id="rcPltYes">🟫 Yes, onto pallets</button>'+
+    '<button class="rcchoice" id="rcPltNo">→ No, go to the report</button></div></div>'+
+    '<button class="btn ghost" id="rcPABack" style="margin-top:4px">← Packages</button>';
+}
+function rcWirePalletAsk(){
+  const s=rcCur();
+  $('#rcPltYes').onclick=()=>{ s.palletize.asked=true; s.palletize.use=true; rcSave(); rcGo('pallets'); };
+  $('#rcPltNo').onclick=()=>{ s.palletize.asked=true; s.palletize.use=false; s.stage='report'; rcSave(); rcGo('report'); };
+  $('#rcPABack').onclick=()=>{ s.stage='units'; rcSave(); rcGo('units'); };
+}
+function rcViewPallets(){
+  const s=rcCur();
+  const placed=rcPlaced(s), tot=rcTotals(s);
+  const left=tot.reduce((n,t)=>n+Math.max(0,t.qty-(placed[norm(t.name)+'||'+norm(t.variation||'')]||0)),0);
+  let h=rcStepBar('pallets');
+  h+='<div class="rcrow"><h1 style="margin:0">🟫 Pallets</h1><div class="spacer" style="flex:1"></div>'+
+    '<div class="pill">Left to place <b>'+left+'</b></div></div>';
+  if(!s.palletize.pallets.length){
+    h+='<div class="card"><div class="eyebrow">Step 3.2.9.1</div><h2>How many pallets will be used?</h2>'+
+      '<div class="srcrow" style="margin-top:12px"><input id="rcPltCount" class="tinput" type="number" min="1" max="100" step="1" style="max-width:180px" placeholder="e.g. 2">'+
+      '<button class="btn primary lg" id="rcPltMake">Create →</button></div></div>';
+  }else{
+    h+='<p class="sub">Pick a pallet and put products on it. Confirmed pallets turn green.</p>'+
+      '<div class="rcunits">'+s.palletize.pallets.map(p=>{
+        const q=(p.items||[]).reduce((n,i)=>n+(+i.qty||0),0);
+        return '<button class="rcunit '+(p.confirmed?'done':'todo')+'" data-p="'+p.n+'">'+
+          '<div class="ubadge">'+(p.confirmed?'✓ DONE':'TO FILL')+'</div><div class="un">Pallet '+p.n+'</div>'+
+          '<div class="us">'+((p.items||[]).length? (p.items.length+' items · '+q+' units') : 'empty')+
+          (p.code?'<br><span class="mono" style="font-size:11px">'+esc(p.code)+'</span>':'')+'</div></button>';
+      }).join('')+'</div>';
+    h+='<div class="rcrow" style="margin-top:20px"><button class="btn primary lg" id="rcPltNext" '+
+      (s.palletize.pallets.every(p=>p.confirmed)?'':'disabled')+'>All pallets done → report</button>'+
+      '<button class="btn ghost" id="rcPltReset">Change the number of pallets</button>'+
+      '<div class="spacer" style="flex:1"></div><button class="btn ghost" id="rcPltBack">← Packages</button></div>';
+    if(left>0) h+='<div class="rcnote">'+left+' units are still not placed on any pallet. That is fine if part of the shipment stays off-pallet — the report always uses the package counts.</div>';
+  }
+  return h;
+}
+function rcWirePallets(){
+  const s=rcCur();
+  const mk=$('#rcPltMake'); if(mk) mk.onclick=()=>{
+    const n=parseInt($('#rcPltCount').value,10);
+    if(!n||n<1||n>100){ toast('Enter a number between 1 and 100','warn'); return; }
+    s.palletize.pallets=[]; for(let i=1;i<=n;i++) s.palletize.pallets.push({n:i, code:'', confirmed:false, items:[]});
+    rcSave(); rcRender();
+  };
+  $$('#rcArea [data-p]').forEach(b=>b.onclick=()=>{ rcPalletN=+b.dataset.p; rcGo('pallet'); });
+  const nx=$('#rcPltNext'); if(nx) nx.onclick=()=>{ s.stage='report'; rcSave(); rcGo('report'); };
+  const rs=$('#rcPltReset'); if(rs) rs.onclick=()=>{ if(!confirm('Reset the pallets? What has been placed on them will be cleared (the package counts stay).'))return;
+    s.palletize.pallets=[]; rcSave(); rcRender(); };
+  const bk=$('#rcPltBack'); if(bk) bk.onclick=()=>{ s.stage='units'; rcSave(); rcGo('units'); };
+}
+function rcViewPallet(){
+  const s=rcCur(); const p=s.palletize.pallets.find(x=>x.n===rcPalletN);
+  if(!p) return '<div class="empty">Not found</div>';
+  const tot=rcTotals(s), placed=rcPlaced(s);
+  const mine={}; for(const it of (p.items||[])) mine[norm(it.name)+'||'+norm(it.variation||'')]=+it.qty||0;
+  let h='<div class="rcrow"><button class="btn ghost" id="rcPBack">← Pallets</button><h1 style="margin:0">Pallet '+p.n+'</h1>'+
+    '<div class="spacer" style="flex:1"></div><div class="pill">On the pallet <b>'+(p.items||[]).reduce((n,i)=>n+(+i.qty||0),0)+'</b></div></div>'+
+    '<p class="sub">Enter how much of each product goes on this pallet. “Left” is what is not yet on any pallet.</p>';
+  h+='<div class="rcplt">'+tot.map((t,i)=>{
+    const k=norm(t.name)+'||'+norm(t.variation||'');
+    const onThis=mine[k]||0; const left=Math.max(0, t.qty-((placed[k]||0)-onThis));
+    return '<div class="rcpline'+(left===0&&onThis===0?' zero':'')+'"><div><div class="pl">'+esc(t.name)+'</div>'+
+      (t.variation?'<div class="pr">'+esc(t.variation)+'</div>':'')+'</div>'+
+      '<div class="pr">total '+t.qty+' · left '+left+'</div>'+
+      '<input class="tinput" style="width:92px;min-width:0;text-align:center" type="number" min="0" max="'+left+'" step="1" data-pq="'+i+'" value="'+onThis+'"></div>';
+  }).join('')+'</div>';
+  h+='<div class="rcrow" style="margin-top:16px"><button class="btn" id="rcPAll">Take everything that is left</button>'+
+    '<button class="btn ghost" id="rcPClear">Clear the pallet</button><div class="spacer" style="flex:1"></div>'+
+    '<button class="btn primary lg" id="rcPConfirm">✔ Confirm the pallet & make its barcode</button></div>';
+  if(p.code) h+='<div class="rcnote">Barcode: <b class="mono">'+esc(p.code)+'</b> · <button class="btn ghost" id="rcPReprint" style="padding:5px 10px">🖨 reprint</button></div>';
+  return h;
+}
+function rcWirePallet(){
+  const s=rcCur(); const p=s.palletize.pallets.find(x=>x.n===rcPalletN); if(!p) return;
+  const tot=rcTotals(s);
+  const read=()=>{ const out=[];
+    $$('#rcArea [data-pq]').forEach(inp=>{ const t=tot[+inp.dataset.pq]; const v=Math.max(0,parseInt(inp.value,10)||0);
+      if(v>0) out.push({name:t.name, variation:t.variation, qty:v}); });
+    return out; };
+  const commit=()=>{ p.items=read(); rcSave(); };
+  $$('#rcArea [data-pq]').forEach(inp=>inp.addEventListener('change',()=>{ commit(); rcRender(); }));
+  $('#rcPBack').onclick=()=>{ commit(); rcGo('pallets'); };
+  $('#rcPAll').onclick=()=>{ const placed=rcPlaced(s);
+    const mine={}; for(const it of (p.items||[])) mine[norm(it.name)+'||'+norm(it.variation||'')]=+it.qty||0;
+    p.items=tot.map(t=>{ const k=norm(t.name)+'||'+norm(t.variation||'');
+      return {name:t.name, variation:t.variation, qty:Math.max(0, t.qty-((placed[k]||0)-(mine[k]||0)))}; }).filter(x=>x.qty>0);
+    rcSave(); rcRender(); };
+  $('#rcPClear').onclick=()=>{ p.items=[]; rcSave(); rcRender(); };
+  const rp=$('#rcPReprint'); if(rp) rp.onclick=()=>rcPrintPalletLabel(s,p.code,p.n,4);
+  $('#rcPConfirm').onclick=()=>{
+    commit();
+    if(!p.items.length){ toast('The pallet is empty','warn'); return; }
+    if(!confirm('Confirm pallet '+p.n+'? Units on it: '+p.items.reduce((n,i)=>n+i.qty,0))) return;
+    p.confirmed=true; if(!p.code) p.code=rcPalletCode(s, p.n);
+    rcSave(); rcShowPalletCode(p.code,p.n,()=>rcGo('pallets'));
+  };
+}
+
+/* ---------- report ---------- */
+function rcViewReport(){
+  const s=rcCur(); if(!s) return '<div class="empty">No receiving loaded</div>';
+  const txt=rcSlackReport(s); const tot=rcTotals(s);
+  const units=tot.reduce((n,t)=>n+t.qty,0);
+  let h=rcStepBar('report');
+  h+='<div class="rcrow"><h1 style="margin:0">📋 Report</h1><div class="spacer" style="flex:1"></div>'+
+    '<div class="pill">Products <b>'+tot.length+'</b></div><div class="pill">Units <b>'+units+'</b></div></div>';
+  h+='<div class="statgrid" style="margin-top:14px">'+
+    stat(esc(s.supplier||'—'),'Supplier')+
+    stat(s.method==='pallet'?'Pallets':esc(s.carrier||'Packages'),'Arrived as')+
+    stat(s.units.length, s.method==='pallet'?'Pallets':'Packages')+
+    stat(units,'Units total','ok')+'</div>';
+  h+='<div class="card"><div class="srchead"><span class="mode label">Slack</span><span class="sub" style="font-size:13px">copy and post, then attach the Excel file</span></div>'+
+    '<div class="rcreport" id="rcSlackTxt">'+esc(txt)+'</div>'+
+    '<div class="rcrow" style="margin-top:12px"><button class="btn primary" id="rcCopy">📋 Copy the text</button>'+
+    '<button class="btn" id="rcXlsx">⬇ Excel (.xlsx)</button><button class="btn ghost" id="rcCsv">⬇ CSV</button></div></div>';
+  const nb=rcAssignedIn(s);
+  if(nb.length){
+    h+='<div class="card" style="margin-top:14px"><div class="srchead"><span class="mode label">New barcodes</span>'+
+      '<span class="sub" style="font-size:13px">'+nb.length+' code'+(nb.length>1?'s':'')+' attached to new products in this receiving</span></div>'+
+      '<table><thead><tr><th>Barcode</th><th>Item</th></tr></thead><tbody>'+
+      nb.map(e=>'<tr><td class="mono">'+esc(e.barcode)+'</td><td>'+esc(e.name)+(e.variation?' <span class="sub">· '+esc(e.variation)+'</span>':'')+'</td></tr>').join('')+
+      '</tbody></table>'+
+      '<div class="rcrow" style="margin-top:12px"><button class="btn" id="rcBcX">⬇ Excel</button>'+
+      '<button class="btn ghost" id="rcBc">⬇ CSV</button>'+
+      '<div class="spacer" style="flex:1"></div><span class="sub" style="font-size:12.5px">the full list lives in ⚙ Catalog</span></div></div>';
+  }
+  h+='<div class="card" style="margin-top:14px"><div class="eyebrow">Totals</div><table><thead><tr><th>Item</th><th class="num">Qty</th></tr></thead><tbody>'+
+    tot.map(t=>'<tr><td>'+esc(t.name)+(t.variation?' <span class="sub">· '+esc(t.variation)+'</span>':'')+'</td><td class="num">'+t.qty+'</td></tr>').join('')+
+    '</tbody></table></div>';
+  h+='<div class="rcrow" style="margin-top:18px">';
+  if(!s.finished){
+    h+='<button class="btn ghost" id="rcRepBack">← Back to counting</button><div class="spacer" style="flex:1"></div>'+
+      '<button class="btn primary lg" id="rcFinish">✔ Finish the receiving</button>';
+  }else{
+    h+='<button class="btn ghost" id="rcRepHome">← Receiving home</button>';
+  }
+  h+='</div>';
+  return h;
+}
+function rcWireReport(){
+  const s=rcCur();
+  $('#rcCopy').onclick=async()=>{
+    const txt=rcSlackReport(s);
+    try{ await navigator.clipboard.writeText(txt); toast('Report copied','ok'); }
+    catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); toast('Report copied','ok'); }catch(_){ toast('Could not copy — select the text manually','warn',3200); }
+      ta.remove(); }
+  };
+  $('#rcXlsx').onclick=()=>rcExportXlsx(s);
+  $('#rcCsv').onclick=()=>rcExportCsv(s);
+  const bcName='new_barcodes_'+clean(s.supplier||'shipment')+'_'+s.dateStr.replace(/\//g,'-');
+  const bc=$('#rcBc');  if(bc)  bc.onclick=()=>rcExportBarcodes(rcAssignedIn(s), bcName, s, false);
+  const bcx=$('#rcBcX'); if(bcx) bcx.onclick=()=>rcExportBarcodes(rcAssignedIn(s), bcName, s, true);
+  const bk=$('#rcRepBack'); if(bk) bk.onclick=()=>{
+    if(s.method==='package' && s.palletize.use){ s.stage='palletize'; rcSave(); rcGo('pallets'); }
+    else { s.stage='units'; rcSave(); rcGo('units'); } };
+  const hm=$('#rcRepHome'); if(hm) hm.onclick=()=>{ rcActiveId=null; rcGo('home'); };
+  const fn=$('#rcFinish'); if(fn) fn.onclick=()=>{
+    if(!confirm('Finish this receiving? It moves to the finished list and can no longer be counted into.\nExport the Excel file first if you have not.')) return;
+    s.finished=true; s.finishedAt=Date.now();
+    const fin=RC.sessions.filter(x=>x.finished);
+    if(fin.length>RC_ARCHIVE_MAX){                       // keep only the newest finished ones
+      const drop=fin.slice(RC_ARCHIVE_MAX).map(x=>x.id);
+      RC.sessions=RC.sessions.filter(x=>drop.indexOf(x.id)<0);
+    }
+    rcActiveId=null; rcSave(); toast('Receiving finished','ok',3000); rcGo('home');
+  };
+}
+
+/* ---------- wiring ---------- */
+$('#rcBack').onclick=goMenu;
+$('#rcCatBtn').onclick=()=>{ rcBcFilter=''; rcGo('catalog'); };
+/* leave the current receiving at any moment — everything is already saved */
+$('#rcList').onclick=()=>{ if(rcDraft){ rcDraft=null; } rcActiveId=null; rcGo('home'); };
+$('#packMenuBtn').onclick=goMenu;
+$('#seedMenuBtn').onclick=goMenu;
+rcLoad(); rcLoadCat(); rcBuildIdx();
 
 /* ---------- boot ---------- */
 (function boot(){
@@ -1881,7 +3216,7 @@ $('#guideSeries').addEventListener('change',e=>{ guideF.series=e.target.value; r
   if(saved) $('#nameInput').value=saved;
   applyLogo(); applyScanOnly();
   const bt=$('#buildTag'); if(bt) bt.textContent='v'+BUILD;
-  const gsub=$('.gatesub'); if(gsub) gsub.textContent='Calipokehouse · shared packing · v'+BUILD;
+  const gsub=$('.gatesub'); if(gsub) gsub.textContent='Calipokehouse · warehouse station · v'+BUILD;
   if(!configReady()) showSetupNote();
 })();
 </script>
