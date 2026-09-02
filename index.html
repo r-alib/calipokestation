@@ -792,7 +792,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-08-31 · calipoke station';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-01b · inventory live';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1092,8 +1092,8 @@ const MODES=[
   {icon:'📖', name:'PRODUCT GUIDEBOOK', desc:'Look up any product — photo, location, stock', go:()=>enterGuide('menu')},
   {icon:'📦', name:'PICK &amp; PACK',   desc:'Pick and pack customer orders', bar:true, go:goPlatforms},
   {icon:'🚚', name:'NEW SHIPMENT',      desc:'Receive and count new stock', go:enterReceiving},
-  {icon:'🏷️', name:'BARCODE LABELS',    desc:'Print 2.25 × 1.25 in barcode labels', ext:'labels'},
-  {icon:'🔢', name:'INVENTORY',         desc:'Count inventory', ext:'inventory'},
+  {icon:'🏷️', name:'LABEL PRINT',       desc:'Print name and barcode labels', ext:'labels', ready:true},
+  {icon:'🔢', name:'INVENTORY',         desc:'Count inventory by shelf and compare with SOH', ext:'inventory', ready:true},
   {icon:'📈', name:'STOCK UP REPORT',   desc:'Build restock reports', ext:'stockup'},
   {icon:'📊', name:'ANALYZER',          desc:'Sales analysis', ext:'analyzer'},
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
@@ -1108,7 +1108,7 @@ function renderMenu(){
   const g=$('#modeGrid'); if(!g) return;
   const st=globalStats();
   g.innerHTML=MODES.map((m,i)=>{
-    const soon=!!m.ext;
+    const soon=!!m.ext && !m.ready;         // external but already built → no SOON badge
     let extra='';
     if(m.bar){
       const pct=st.all?Math.round(st.done/st.all*100):0;
@@ -1117,7 +1117,7 @@ function renderMenu(){
         : '<div class="mbar"><span>no shift loaded</span></div>';
     }
     return '<button class="modetile'+(soon?' soon':'')+'" data-mode="'+i+'">'+
-      (soon?'<span class="soonbadge">SOON ↗</span>':'')+
+      (soon?'<span class="soonbadge">SOON ↗</span>':(m.ext?'<span class="newtab">↗</span>':''))+
       '<div class="micon">'+m.icon+'</div>'+
       '<div><div class="mname">'+m.name+'</div><div class="mdesc">'+m.desc+'</div>'+extra+'</div>'+
       '<div class="mgo">→</div></button>';

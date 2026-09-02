@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
-<title>BARCODE LABELS — CALIPOKE STATION</title>
+<title>LABEL PRINT — CALIPOKE STATION</title>
+<style id="pageStyle"></style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
@@ -79,6 +80,41 @@ body{
 .namegate p{color:var(--muted);font-size:13.5px;margin:0 0 14px}
 .namegate input{width:100%;text-align:center;font-size:17px;margin-bottom:12px}
 .namegate .print-btn{margin-top:0}
+
+/* ---------- job chooser ---------- */
+.jobgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:6px}
+.jobcard{
+  display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;text-align:left;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:20px;color:var(--ink);cursor:pointer;transition:.14s;font:inherit;
+}
+.jobcard:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-2px)}
+.jobcard:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.jobcard .jic{
+  width:54px;height:54px;border-radius:15px;background:var(--panel2);border:1px solid var(--border);
+  display:grid;place-items:center;font-size:26px;flex:0 0 auto;
+}
+.jobcard:hover .jic{border-color:var(--accent)}
+.jobcard > span:last-child{display:block;min-width:0}
+.jobcard .jnm{display:block;font-family:var(--disp);font-size:16px;font-weight:700;letter-spacing:.02em}
+.jobcard .jsz{
+  display:inline-block;font-family:var(--mono);font-size:11px;font-weight:500;color:var(--muted);
+  background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;margin-top:7px;
+}
+.jobcard .jds{display:block;font-size:13px;color:var(--muted);margin-top:8px;line-height:1.45}
+.backbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+
+/* ---------- 6x4 preview ---------- */
+.bigwrap{
+  width:calc(6in * .72);height:calc(4in * .72);overflow:hidden;flex:0 0 auto;
+  background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--shadow);
+}
+.bigwrap .biglabel{
+  width:6in;height:4in;padding:.22in;background:#fff;color:#000;
+  transform:scale(.72);transform-origin:top left;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;
+}
+.bigwrap .biglabel.empty .fittxt{color:#8A94A3;font-weight:600}
 
 /* ---------- company catalog picker ---------- */
 .catrow{
@@ -379,31 +415,44 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
   border-radius:5px;padding:1px 5px;color:var(--ink);
 }
 
-/* ---------- print ---------- */
-#printArea{display:none}
+/* ---------- print ----------
+   The sheet is built off-screen (not display:none) so label text can be
+   measured and auto-fitted before printing. The paper size itself lives in
+   the #pageStyle tag and is set per job. */
+#printArea{position:fixed;left:-10000px;top:0;visibility:hidden;z-index:-1}
+.plabel{
+  background:#fff;color:#000;display:flex;flex-direction:column;overflow:hidden;
+  page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;
+}
+.plabel:last-child{page-break-after:auto;break-after:auto}
+.plabel.sm{width:2.25in;height:1.25in;padding:.09in}
+.plabel.lg{width:6in;height:4in;padding:.22in}
+.plabel .top{
+  font-family:'Inter',system-ui,sans-serif;font-size:.115in;font-weight:700;line-height:1.2;
+  text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.03in;
+}
+.plabel .bars{flex:1 1 auto;min-height:0;display:flex;align-items:center}
+.plabel .bars svg{display:block;width:100%;height:100%}
+.plabel .hr{
+  font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:.125in;font-weight:600;
+  line-height:1.15;letter-spacing:.05em;text-align:center;margin-top:.035in;
+  white-space:nowrap;overflow:hidden;
+}
+/* 6x4: big auto-fitted name, and the pallet layout (same as NEW SHIPMENT) */
+.fitbox{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.fittxt{font-family:'Inter',system-ui,sans-serif;font-weight:900;line-height:1.05;width:100%;
+  text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none}
+.fittxt.brk{overflow-wrap:break-word;word-break:break-word}
+.plabel.pallet{align-items:center;justify-content:center;text-align:center}
+.pallet .ptop{font-family:'Inter',system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:.02em}
+.pallet .pbc{width:100%;height:1.5in;margin:.10in 0 .04in}
+.pallet .pbc svg{width:100%;height:100%;display:block}
+.pallet .pcode{font-family:'Courier New',monospace;font-weight:700;font-size:26px;letter-spacing:.06em}
+.pallet .pbig{font-family:'Inter',system-ui,sans-serif;font-size:40px;font-weight:900;margin-top:.06in}
 @media print{
-  @page{size:2.25in 1.25in;margin:0}
   html,body{background:#fff!important;color:#000!important;margin:0!important;padding:0!important}
   .wrap,.stationbar,.namegate{display:none!important}
-  #printArea{display:block!important}
-  .plabel{
-    width:2.25in;height:1.25in;padding:.09in;background:#fff;color:#000;
-    display:flex;flex-direction:column;overflow:hidden;
-    page-break-after:always;break-after:page;
-    page-break-inside:avoid;break-inside:avoid;
-  }
-  .plabel:last-child{page-break-after:auto;break-after:auto}
-  .plabel .top{
-    font-family:'Inter',system-ui,sans-serif;font-size:.115in;font-weight:700;line-height:1.2;
-    text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.03in;
-  }
-  .plabel .bars{flex:1 1 auto;min-height:0;display:flex;align-items:center}
-  .plabel .bars svg{display:block;width:100%;height:100%}
-  .plabel .hr{
-    font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:.125in;font-weight:600;
-    line-height:1.15;letter-spacing:.05em;text-align:center;margin-top:.035in;
-    white-space:nowrap;overflow:hidden;
-  }
+  #printArea{position:static!important;left:auto!important;visibility:visible!important;z-index:auto!important}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -433,18 +482,176 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
   </div>
   <div class="spacer"></div>
   <div class="pill" id="catPill" title="Products cached from the company catalog">📚 <b id="catPillN">0</b> catalog</div>
-  <div class="pill">🏷️ <b>2.25 × 1.25 in</b></div>
+  <div class="pill" id="barSize">🏷️ <b id="barSizeTxt">3 label jobs</b></div>
   <button class="btn" id="backBtn" type="button">← Main menu</button>
 </header>
 
 <div class="wrap">
   <header>
     <div>
-      <h1>Barcode Labels</h1>
-      <p class="sub">Code 128 · thermal label printer · one label per page</p>
+      <h1 id="jobTitle">Label Print</h1>
+      <p class="sub" id="jobSub">Names and barcodes · thermal label printer · one label per page</p>
     </div>
-    <div class="stock"><span class="swatch"></span>2.25 × 1.25 in</div>
+    <div class="stock" id="jobSize" hidden><span class="swatch"></span><span id="jobSizeTxt">2.25 × 1.25 in</span></div>
   </header>
+
+  <!-- ============ JOB CHOOSER ============ -->
+  <div id="jobChooser">
+    <div class="jobgrid">
+      <button class="jobcard" type="button" data-job="1">
+        <span class="jic">🏷️</span>
+        <span>
+          <span class="jnm">ITEM BARCODES</span>
+          <span class="jsz">2.25 × 1.25 in</span>
+          <span class="jds">Code 128 labels for confirmed items — one code, or a whole pasted list.</span>
+        </span>
+      </button>
+      <button class="jobcard" type="button" data-job="2">
+        <span class="jic">📦</span>
+        <span>
+          <span class="jnm">ITEM NAMES</span>
+          <span class="jsz">6 × 4 in</span>
+          <span class="jds">Big name labels for storage boxes. Find the item by name or barcode.</span>
+        </span>
+      </button>
+      <button class="jobcard" type="button" data-job="3">
+        <span class="jic">🟫</span>
+        <span>
+          <span class="jnm">PALLET BARCODES</span>
+          <span class="jsz">6 × 4 in</span>
+          <span class="jds">Generate a new pallet code, or reprint one that is already on a pallet.</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ JOB 2 — ITEM NAMES 6x4 ============ -->
+  <div id="job2" hidden>
+    <div class="backbar"><button class="btn" type="button" data-back>← Label Print</button></div>
+    <div class="grid">
+      <section>
+        <div class="card">
+          <p class="eyebrow"><span>Find the item</span><span class="count" id="nmCount"></span></p>
+          <div class="field" style="margin-bottom:0">
+            <label for="nmSearch">Search <span class="hint">— type a name or scan a barcode</span></label>
+            <input id="nmSearch" class="small" type="search" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. Charizard, or scan a code">
+          </div>
+          <div class="slist" id="nmList" hidden style="margin-top:11px"></div>
+          <p class="empty-note" id="nmNote" hidden style="margin-top:11px"></p>
+        </div>
+
+        <div class="card">
+          <p class="eyebrow"><span>Label text</span></p>
+          <div class="field">
+            <label for="nmText">Printed on the box <span class="hint">— edit freely</span></label>
+            <textarea id="nmText" spellcheck="false" style="min-height:76px;white-space:pre-wrap;font-family:var(--body);font-size:14px"
+                      placeholder="Pick an item above, or just type a name"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="eyebrow"><span>Print</span></p>
+          <div class="row">
+            <div class="field qty-wrap" style="margin-bottom:0">
+              <label for="nmQty">Copies</label>
+              <input id="nmQty" class="small" type="number" min="1" max="500" step="1" value="1">
+            </div>
+            <div class="chips" id="nmChips" style="padding-bottom:1px">
+              <button class="chip" type="button" data-q="1">1</button>
+              <button class="chip" type="button" data-q="2">2</button>
+              <button class="chip" type="button" data-q="4">4</button>
+              <button class="chip" type="button" data-q="6">6</button>
+              <button class="chip" type="button" data-q="12">12</button>
+            </div>
+          </div>
+          <button class="print-btn" id="nmPrint">Print <span class="n" id="nmBtnN">1 label</span></button>
+        </div>
+      </section>
+
+      <section>
+        <div class="card">
+          <p class="eyebrow"><span>Preview</span></p>
+          <div class="stage">
+            <div class="bigwrap"><div class="biglabel empty" id="nmLabel"><div class="fitbox"><div class="fittxt" id="nmFit">PICK AN ITEM</div></div></div></div>
+            <p class="scale-note">6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label</p>
+          </div>
+        </div>
+        <div class="card">
+          <p class="eyebrow"><span>Printer settings</span></p>
+          <ul class="tips">
+            <li>Paper size <strong>6 × 4 in</strong> (landscape), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.</li>
+            <li>Words are never broken in half — a very long single word is the only exception.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ JOB 3 — PALLET BARCODES 6x4 ============ -->
+  <div id="job3" hidden>
+    <div class="backbar"><button class="btn" type="button" data-back>← Label Print</button></div>
+    <div class="grid">
+      <section>
+        <div class="card">
+          <p class="eyebrow"><span>Pallet code</span></p>
+          <div class="field">
+            <label for="plCode">Code <span class="hint">— scan or type an existing one, or generate a new one</span></label>
+            <div class="row">
+              <input id="plCode" type="text" autocomplete="off" spellcheck="false" placeholder="PLT260901-7K3Q-P01" style="flex:1 1 220px">
+              <button class="btn primary" id="plGen" type="button">⚡ Generate</button>
+            </div>
+            <div class="err" id="plErr"></div>
+          </div>
+          <div class="field">
+            <label for="plTop">Top line <span class="hint">— supplier and date, optional</span></label>
+            <input id="plTop" class="small" type="text" autocomplete="off" placeholder="e.g. tentoy · 09/01/26">
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label for="plNo">Pallet number <span class="hint">— printed big at the bottom</span></label>
+            <input id="plNo" class="small" type="number" min="1" max="99" step="1" value="1" style="max-width:120px">
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="eyebrow"><span>Print</span></p>
+          <div class="row">
+            <div class="field qty-wrap" style="margin-bottom:0">
+              <label for="plQty">Copies</label>
+              <input id="plQty" class="small" type="number" min="1" max="100" step="1" value="4">
+            </div>
+            <div class="chips" id="plChips" style="padding-bottom:1px">
+              <button class="chip" type="button" data-q="1">1</button>
+              <button class="chip" type="button" data-q="2">2</button>
+              <button class="chip" type="button" data-q="4">4</button>
+              <button class="chip" type="button" data-q="8">8</button>
+            </div>
+          </div>
+          <button class="print-btn" id="plPrint">Print <span class="n" id="plBtnN">4 labels</span></button>
+          <p class="print-note">A pallet code is unique: it carries the date it was made and the pallet number.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="card">
+          <p class="eyebrow"><span>Preview</span><span class="count" id="plSpec"></span></p>
+          <div class="stage">
+            <div class="bigwrap"><div class="biglabel" id="plLabel"></div></div>
+            <p class="scale-note">6 × 4 in, landscape · shown at 72 % · same layout as NEW SHIPMENT prints</p>
+          </div>
+        </div>
+        <div class="card">
+          <p class="eyebrow"><span>Recent pallet codes</span><span class="count" id="plRecentN"></span></p>
+          <div class="slist" id="plRecent"></div>
+          <p class="empty-note" id="plRecentNote" hidden>Codes you generate here are remembered so you can reprint them later.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="job1" hidden>
+
+  <div class="backbar"><button class="btn" type="button" data-back>← Label Print</button></div>
 
   <div class="seg mode" id="mode" role="group" aria-label="Input mode">
     <button type="button" data-m="single" aria-pressed="true">One code</button>
@@ -630,6 +837,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
       <span class="note">Saved in this browser on this computer. Export to move the list elsewhere.</span>
     </div>
   </div>
+  </div><!-- /#job1 -->
 </div>
 
 <div id="printArea" aria-hidden="true"></div>
@@ -1470,20 +1678,20 @@ function importList(file){
 }
 
 /* ================= printing ================= */
-function buildPrintArea(){
+function buildJob1Pages(){
   var out = "", n = 0, i;
   if (mode === "single"){
     if (!current) return false;
     var one = buildLabelHtml(current, hrEl.checked);
     n = getQty();
-    for (i = 0; i < n; i++) out += '<div class="plabel">' + one + "</div>";
+    for (i = 0; i < n; i++) out += '<div class="plabel sm">' + one + "</div>";
   } else {
     var list = printableItems();
     if (!list.length) return false;
     for (var k = 0; k < list.length; k++){
       var html = buildLabelHtml(list[k], hrEl.checked);
       var c = copiesFor(list[k]);
-      for (i = 0; i < c; i++){ out += '<div class="plabel">' + html + "</div>"; n++; }
+      for (i = 0; i < c; i++){ out += '<div class="plabel sm">' + html + "</div>"; n++; }
       if (n > MAX_PAGES) return false;
     }
   }
@@ -1494,6 +1702,297 @@ function buildPrintArea(){
 function doPrint(){
   if (!buildPrintArea()) return;
   window.print();
+}
+
+/* ================= LABEL PRINT — three jobs =================
+   1  item barcodes   2.25 x 1.25 in  (the original tool)
+   2  item names      6 x 4 in        (box labels, as in NEW SHIPMENT)
+   3  pallet barcodes 6 x 4 in        (new code, or reprint one already in use)
+   ============================================================ */
+var JOB = 0;                                  // 0 = the chooser
+var JOB_META = {
+  1: { title: "Item barcodes",   sub: "Code 128 · thermal label printer · one label per page",
+       size: "2.25 × 1.25 in",   page: "2.25in 1.25in" },
+  2: { title: "Item names",      sub: "Storage-box labels · the name is sized to fill the label",
+       size: "6 × 4 in",         page: "6in 4in" },
+  3: { title: "Pallet barcodes", sub: "Code 128 · unique per pallet · print all four sides",
+       size: "6 × 4 in",         page: "6in 4in" }
+};
+var LS_PALLETS = "lp_pallets_v1";
+
+function setPageSize(p){
+  document.getElementById("pageStyle").textContent = "@media print{@page{size:" + p + ";margin:0}}";
+}
+function setJob(j){
+  JOB = j;
+  $("jobChooser").hidden = j !== 0;
+  $("job1").hidden = j !== 1;
+  $("job2").hidden = j !== 2;
+  $("job3").hidden = j !== 3;
+  var m = JOB_META[j];
+  $("jobTitle").textContent = m ? m.title : "Label Print";
+  $("jobSub").textContent   = m ? m.sub : "Names and barcodes · thermal label printer · one label per page";
+  $("jobSize").hidden = !m;
+  if (m){ $("jobSizeTxt").textContent = m.size; setPageSize(m.page); }
+  $("barSizeTxt").textContent = m ? m.size : "3 label jobs";
+  if (j === 1){ setMode(mode); codeEl.focus(); codeEl.select(); }
+  if (j === 2){ refreshProducts(); renderNmSearch(); renderNamePreview(); $("nmSearch").focus(); }
+  if (j === 3){ renderPalletRecent(); renderPalletPreview(); $("plCode").focus(); }
+  window.scrollTo({ top: 0 });
+}
+
+/* ---- text that grows to fill a 6x4 label; words are not broken unless a
+       single word cannot fit at all (same rule as NEW SHIPMENT) ---- */
+function fitText(t, box){
+  function search(){
+    var lo = 6, hi = 300, i, mid;
+    for (i = 0; i < 26; i++){
+      mid = (lo + hi) / 2;
+      t.style.fontSize = mid + "px";
+      if (t.scrollHeight <= box.clientHeight && t.scrollWidth <= box.clientWidth) lo = mid; else hi = mid;
+    }
+    t.style.fontSize = Math.floor(lo) + "px";
+    return lo;
+  }
+  t.classList.remove("brk");
+  var size = search();
+  if (size < 40 && t.textContent.trim().indexOf(" ") < 0){ t.classList.add("brk"); size = search(); }
+  return size;
+}
+
+/* ================= job 2 — item names ================= */
+var PRODUCTS = [];
+function productRows(){
+  var out = [], seen = {};
+  function push(name, variation, codes, loc, tag){
+    if (!name) return;
+    var k = (name + "||" + (variation || "")).toLowerCase();
+    if (seen[k]){ seen[k].codes = seen[k].codes.concat(codes || []); return; }
+    var row = { name: name, variation: variation || "", codes: codes || [], loc: loc || "", tag: tag || "" };
+    seen[k] = row; out.push(row);
+  }
+  var cat = lsJson(LS_CATALOG) || {};
+  (cat.main || []).forEach(function(e){ push(e.name, e.variation, splitCodes(e.barcode), e.location, ""); });
+  (cat.pending || []).forEach(function(e){ push(e.name, e.variation, splitCodes(e.barcode), "", "pending"); });
+  var learned = (lsJson(LS_RECV) || {}).learned || {};
+  Object.keys(learned).forEach(function(b){ var e = learned[b] || {}; push(e.name, e.variation, [b], "", "new"); });
+  out.sort(function(a, b){ return a.name.localeCompare(b.name); });
+  return out;
+}
+function refreshProducts(){
+  PRODUCTS = productRows();
+  var c = $("nmCount");
+  if (c) c.textContent = PRODUCTS.length ? PRODUCTS.length + (PRODUCTS.length === 1 ? " item" : " items") : "";
+}
+function renderNmSearch(){
+  var box = $("nmList"), note = $("nmNote");
+  var q = ($("nmSearch").value || "").trim().toLowerCase();
+  box.innerHTML = "";
+  if (!PRODUCTS.length){
+    box.hidden = true; note.hidden = false;
+    note.textContent = "No catalog on this device yet. Open NEW SHIPMENT → ⚙ Catalog on the station once, " +
+                       "or just type the name below.";
+    return;
+  }
+  if (!q){ box.hidden = true; note.hidden = false; note.textContent = "Start typing to search " + PRODUCTS.length + " items."; return; }
+  var hits = PRODUCTS.filter(function(r){
+    if (r.name.toLowerCase().indexOf(q) > -1 || r.variation.toLowerCase().indexOf(q) > -1) return true;
+    return r.codes.some(function(c){ return c.toLowerCase().indexOf(q) > -1; });
+  });
+  // a scan lands on exactly one product
+  var exact = hits.filter(function(r){ return r.codes.some(function(c){ return c.toLowerCase() === q; }); });
+  if (exact.length) hits = exact;
+  if (!hits.length){ box.hidden = true; note.hidden = false; note.textContent = "Nothing in the catalog matches that."; return; }
+  note.hidden = true; box.hidden = false;
+  hits.slice(0, 40).forEach(function(r){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "catrow";
+    b.innerHTML = '<span class="cinfo"><span class="cnm">' + esc(r.name) +
+      (r.variation ? " · " + esc(r.variation) : "") + "</span>" +
+      '<span class="ccd">' + (r.codes.length ? esc(r.codes.join(" · ")) : "no barcode") +
+      (r.loc ? " · 📍 " + esc(r.loc) : "") + "</span></span>" +
+      (r.tag ? '<span class="ctag ' + r.tag + '">' + r.tag + "</span>" : "");
+    b.addEventListener("click", function(){
+      $("nmText").value = r.variation ? (r.name + " " + r.variation) : r.name;
+      renderNamePreview();
+    });
+    box.appendChild(b);
+  });
+}
+function nmQty(){
+  var n = Math.round(+$("nmQty").value);
+  if (!isFinite(n) || n < 1) n = 1;
+  if (n > MAX_PAGES) n = MAX_PAGES;
+  return n;
+}
+function renderNamePreview(){
+  var t = ($("nmText").value || "").trim();
+  var lbl = $("nmLabel"), fit = $("nmFit");
+  lbl.className = t ? "biglabel" : "biglabel empty";
+  fit.textContent = t || "PICK AN ITEM";
+  fitText(fit, fit.parentNode);
+  var n = t ? nmQty() : 0;
+  $("nmBtnN").textContent = n + (n === 1 ? " label" : " labels");
+  $("nmPrint").disabled = !t;
+  var chips = $("nmChips").children;
+  for (var i = 0; i < chips.length; i++)
+    chips[i].setAttribute("aria-pressed", (+chips[i].dataset.q === nmQty()) ? "true" : "false");
+}
+function buildNamePages(){
+  var t = ($("nmText").value || "").trim();
+  if (!t) return false;
+  var n = nmQty(), out = "";
+  for (var i = 0; i < n; i++)
+    out += '<div class="plabel lg"><div class="fitbox"><div class="fittxt">' + esc(t) + "</div></div></div>";
+  $("printArea").innerHTML = out;
+  var boxes = $("printArea").querySelectorAll(".fitbox");
+  for (var k = 0; k < boxes.length; k++){
+    var el = boxes[k].querySelector(".fittxt");
+    if (el) fitText(el, boxes[k]);
+  }
+  return true;
+}
+
+/* ================= job 3 — pallet barcodes ================= */
+function pad2(v){ return String(v).length < 2 ? "0" + v : String(v); }
+function newPalletCode(no){
+  var d = new Date();
+  var ymd = String(d.getFullYear()).slice(2) + pad2(d.getMonth() + 1) + pad2(d.getDate());
+  var suf = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return "PLT" + ymd + "-" + suf + "-P" + pad2(no || 1);
+}
+function palletNoFromCode(c){
+  var m = /-P(\d{1,3})\s*$/i.exec(String(c || ""));
+  return m ? parseInt(m[1], 10) : null;
+}
+function readLocalPallets(){
+  var a = lsJson(LS_PALLETS);
+  return Array.isArray(a) ? a : [];
+}
+function rememberPallet(rec){
+  var list = readLocalPallets().filter(function(x){ return x.code !== rec.code; });
+  list.unshift(rec);
+  if (list.length > 40) list.length = 40;
+  try { localStorage.setItem(LS_PALLETS, JSON.stringify(list)); } catch (e) {}
+}
+/* pallet codes that NEW SHIPMENT already put on real pallets — this is the reprint list */
+function stationPallets(){
+  var recv = lsJson(LS_RECV) || {}, out = [];
+  (recv.sessions || []).forEach(function(s){
+    var top = [s.supplier || "", s.dateStr || ""].filter(Boolean).join(" · ");
+    (s.units || []).forEach(function(u){
+      if (u.code) out.push({ code: u.code, top: top, no: u.n, at: s.startedAt || 0, src: "shipment" });
+    });
+    (((s.palletize || {}).pallets) || []).forEach(function(pl){
+      if (pl.code) out.push({ code: pl.code, top: top, no: pl.n, at: s.startedAt || 0, src: "shipment" });
+    });
+  });
+  return out;
+}
+function allPallets(){
+  var out = [], seen = {};
+  readLocalPallets().concat(stationPallets()).forEach(function(r){
+    if (!r.code || seen[r.code]) return;
+    seen[r.code] = 1; out.push(r);
+  });
+  out.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
+  return out;
+}
+function renderPalletRecent(){
+  var box = $("plRecent"), note = $("plRecentNote"), list = allPallets();
+  box.innerHTML = "";
+  $("plRecentN").textContent = list.length ? list.length + (list.length === 1 ? " code" : " codes") : "";
+  note.hidden = list.length > 0;
+  list.slice(0, 20).forEach(function(r){
+    var row = document.createElement("div");
+    row.className = "sitem";
+    var main = document.createElement("button");
+    main.type = "button"; main.className = "main"; main.title = "Load this code";
+    main.innerHTML = '<div class="nm">' + esc(r.code) + "</div><div class=\"cd\">" +
+      (r.top ? esc(r.top) + " · " : "") + "pallet " + (r.no || "?") +
+      (r.src === "shipment" ? " · from NEW SHIPMENT" : "") + "</div>";
+    main.addEventListener("click", function(){
+      $("plCode").value = r.code;
+      $("plTop").value = r.top || "";
+      $("plNo").value = r.no || palletNoFromCode(r.code) || 1;
+      renderPalletPreview();
+    });
+    row.appendChild(main);
+    if (r.src !== "shipment"){
+      var db = document.createElement("button");
+      db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
+      db.title = "Forget this code";
+      db.addEventListener("click", function(){
+        var keep = readLocalPallets().filter(function(x){ return x.code !== r.code; });
+        try { localStorage.setItem(LS_PALLETS, JSON.stringify(keep)); } catch (e) {}
+        renderPalletRecent();
+      });
+      row.appendChild(db);
+    }
+    box.appendChild(row);
+  });
+}
+function plQty(){
+  var n = Math.round(+$("plQty").value);
+  if (!isFinite(n) || n < 1) n = 1;
+  if (n > 100) n = 100;
+  return n;
+}
+function palletLabelHtml(code, top, no){
+  return (top ? '<div class="ptop">' + esc(top) + "</div>" : '<div class="ptop">&nbsp;</div>') +
+         '<div class="pbc">' + barcodeSvg(code).svg + "</div>" +
+         '<div class="pcode">' + esc(code) + "</div>" +
+         (no ? '<div class="pbig">PALLET ' + no + "</div>" : "");
+}
+function renderPalletPreview(){
+  var code = ($("plCode").value || "").trim();
+  var top = ($("plTop").value || "").trim();
+  var no = parseInt($("plNo").value, 10) || null;
+  var lbl = $("plLabel"), err = $("plErr"), spec = $("plSpec");
+
+  var problem = code ? validate(code) : "Enter or generate a pallet code.";
+  err.textContent = code && problem ? problem : "";
+  err.classList.toggle("on", !!(code && problem));
+  $("plCode").classList.toggle("invalid", !!(code && problem));
+
+  if (!code || problem){
+    lbl.className = "biglabel pallet";
+    lbl.innerHTML = '<div class="fitbox"><div class="fittxt" style="color:#8A94A3;font-weight:600">' +
+                    (code ? "INVALID CODE" : "NO CODE YET") + "</div></div>";
+    var f = lbl.querySelector(".fittxt"); if (f) fitText(f, f.parentNode);
+    spec.textContent = "";
+    $("plPrint").disabled = true;
+    $("plBtnN").textContent = "0 labels";
+    return;
+  }
+  lbl.className = "biglabel pallet";
+  lbl.innerHTML = palletLabelHtml(code, top, no);
+  var bc = barcodeSvg(code);
+  spec.textContent = "CODE 128 " + bc.sets + " · " + bc.modules + " modules";
+  $("plPrint").disabled = false;
+  var n = plQty();
+  $("plBtnN").textContent = n + (n === 1 ? " label" : " labels");
+  var chips = $("plChips").children;
+  for (var i = 0; i < chips.length; i++)
+    chips[i].setAttribute("aria-pressed", (+chips[i].dataset.q === n) ? "true" : "false");
+}
+function buildPalletPages(){
+  var code = ($("plCode").value || "").trim();
+  if (!code || validate(code)) return false;
+  var top = ($("plTop").value || "").trim();
+  var no = parseInt($("plNo").value, 10) || null;
+  var one = palletLabelHtml(code, top, no), n = plQty(), out = "";
+  for (var i = 0; i < n; i++) out += '<div class="plabel lg pallet">' + one + "</div>";
+  $("printArea").innerHTML = out;
+  rememberPallet({ code: code, top: top, no: no, at: Date.now(), src: "local" });
+  return true;
+}
+
+/* the print sheet is built for whichever job is open (also on Ctrl+P) */
+function buildPrintArea(){
+  if (JOB === 2) return buildNamePages();
+  if (JOB === 3) return buildPalletPages();
+  return buildJob1Pages();
 }
 
 /* ================= events ================= */
@@ -1563,6 +2062,45 @@ $("importFile").addEventListener("change", function(){
 });
 window.addEventListener("beforeprint", buildPrintArea);
 
+/* ---- Label Print wiring ---- */
+document.querySelectorAll("[data-job]").forEach(function(b){
+  b.addEventListener("click", function(){ setJob(+b.dataset.job); });
+});
+document.querySelectorAll("[data-back]").forEach(function(b){
+  b.addEventListener("click", function(){ setJob(0); });
+});
+$("nmSearch").addEventListener("input", renderNmSearch);
+$("nmText").addEventListener("input", renderNamePreview);
+$("nmQty").addEventListener("input", renderNamePreview);
+$("nmChips").addEventListener("click", function(e){
+  var b = e.target.closest(".chip"); if (!b) return;
+  $("nmQty").value = b.dataset.q; renderNamePreview();
+});
+$("nmPrint").addEventListener("click", doPrint);
+
+$("plCode").addEventListener("input", function(){
+  var no = palletNoFromCode($("plCode").value);
+  if (no) $("plNo").value = no;                 // a scanned code carries its own pallet number
+  renderPalletPreview();
+});
+$("plTop").addEventListener("input", renderPalletPreview);
+$("plNo").addEventListener("input", renderPalletPreview);
+$("plQty").addEventListener("input", renderPalletPreview);
+$("plChips").addEventListener("click", function(e){
+  var b = e.target.closest(".chip"); if (!b) return;
+  $("plQty").value = b.dataset.q; renderPalletPreview();
+});
+$("plGen").addEventListener("click", function(){
+  var no = parseInt($("plNo").value, 10) || 1;
+  $("plCode").value = newPalletCode(no);
+  renderPalletPreview();
+  $("plCode").focus(); $("plCode").select();
+});
+$("plCode").addEventListener("keydown", function(e){
+  if (e.key === "Enter" && !$("plPrint").disabled){ e.preventDefault(); doPrint(); }
+});
+$("plPrint").addEventListener("click", function(){ doPrint(); renderPalletRecent(); });
+
 /* ================= boot ================= */
 applyStationLogo();
 document.getElementById("backBtn").addEventListener("click", backToStation);
@@ -1602,8 +2140,11 @@ Array.prototype.forEach.call($("barh").children, function(x){
 });
 renderSingle();
 renderSaved();
-codeEl.focus();
-codeEl.select();
+setJob(0);                       // always start on the three-way chooser
+/* web fonts change how wide the text is — refit once they are ready */
+if (document.fonts && document.fonts.ready){
+  document.fonts.ready.then(function(){ if (JOB === 2) renderNamePreview(); });
+}
 </script>
 
 </body>
