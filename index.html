@@ -927,7 +927,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09 · packing mode + KPI + shared receiving';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09 · packing mode + KPI + shared receiving fix';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -3256,6 +3256,44 @@ function rcDeleteSession(id){
    keeps the screen usable if the connection drops mid-count.
    Writes are per receiving — two people on two shipments never overwrite each
    other — and they are debounced so a fast scanner does not hammer the wire. */
+
+/* Firebase does not store empty arrays or objects: an uncounted pallet is saved
+   without its `items` key, and a session read back from the wire then has
+   `u.items === undefined`. rcTotals iterates it, throws, and the whole receiving
+   screen renders as blank. Everything that arrives from the database goes
+   through here first so the shapes are always what the UI expects. */
+function rcArr(v){
+  if(Array.isArray(v)) return v.filter(x=>x!=null);
+  if(v && typeof v==='object') return Object.keys(v).sort((a,b)=>(+a)-(+b)).map(k=>v[k]).filter(x=>x!=null);
+  return [];
+}
+function rcNormalizeSession(raw){
+  if(!raw || typeof raw!=='object' || !raw.id) return null;
+  const s=Object.assign({}, raw);
+  s.supplier = s.supplier||''; s.carrier = s.carrier||''; s.dateStr = s.dateStr||'';
+  s.method = s.method||''; s.stage = s.stage||'setup';
+  s.startedAt = +s.startedAt || 0;
+  s.finished = !!s.finished;
+  s.units = rcArr(raw.units).map(u=>{
+    const x=Object.assign({}, u||{});
+    x.items = rcArr(x.items).map(i=>Object.assign({name:'', variation:'', qty:0}, i||{}));
+    x.n = (+x.n)||0;
+    x.type = x.type||(s.method==='package'?'package':'pallet');
+    x.counted = !!x.counted; x.code = x.code||'';
+    x.tracking = x.tracking||''; x.noTracking = !!x.noTracking;
+    return x;
+  });
+  const pz = Object.assign({asked:false, use:false}, raw.palletize||{});
+  pz.asked=!!pz.asked; pz.use=!!pz.use;
+  pz.pallets = rcArr(pz.pallets).map(pl=>{
+    const y=Object.assign({n:0, code:'', confirmed:false}, pl||{});
+    y.items = rcArr(y.items).map(i=>Object.assign({name:'', variation:'', qty:0}, i||{}));
+    return y;
+  });
+  s.palletize = pz;
+  return s;
+}
+
 let rcRef=null;                 // packstation/receiving
 let _rcPush={};                 // id -> pending write timer
 let _rcDirty={};                // id -> this device has unsent or unconfirmed changes
@@ -3317,7 +3355,7 @@ function rcConnect(){
   rcRef = root.child('receiving');
   rcRef.child('sessions').once('value')
     .then(snap=>{
-      const remote={}; snap.forEach(c=>{ const v=c.val(); if(v&&v.id) remote[v.id]=v; });
+      const remote={}; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote[v.id]=v; });
       /* Anything this device has locally that is not on the wire goes up now —
          receivings counted offline, or started on an older build, used to stay
          invisible to everyone else and were then wiped by the first feed. */
@@ -3352,7 +3390,7 @@ function rcMergeSession(local, remote){
 function rcAttachFeed(){
   rcRef.child('sessions').on('value', snap=>{
     const remote=[];
-    snap.forEach(c=>{ const v=c.val(); if(v && v.id) remote.push(v); });
+    snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
     const seen={};
     const merged=remote.map(r=>{
       seen[r.id]=true;
@@ -3412,8 +3450,9 @@ function rcRenderKeepingFocus(){
 function rcLoad(){
   try{ const raw=localStorage.getItem(RC_LS_STATE); if(!raw) return;
     const o=JSON.parse(raw)||{}; RC.learned=o.learned||{};
-    if(Array.isArray(o.sessions)) RC.sessions=o.sessions;
-    else { RC.sessions=[]; if(o.session) RC.sessions.push(o.session); (o.archive||[]).forEach(a=>RC.sessions.push(a)); }  // migrate v1
+    const list = Array.isArray(o.sessions) ? o.sessions
+               : [].concat(o.session?[o.session]:[], o.archive||[]);          // migrate v1
+    RC.sessions = list.map(rcNormalizeSession).filter(Boolean);
   }catch(e){}
 }
 function rcSaveCat(){ try{ localStorage.setItem(RC_LS_CAT, JSON.stringify(RCCAT)); }catch(e){ toast('Catalog too large for local storage','warn',3500); } }
