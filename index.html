@@ -927,7 +927,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09 · packing mode + KPI';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09 · packing mode + KPI + shared receiving';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -3217,7 +3217,7 @@ const RC_LS_CAT   = 'rc_catalog_v1';
 const RC_ARCHIVE_MAX = 30;
 
 let RC = { sessions:[], learned:{} };   // every receiving, open and finished, newest first
-let RCCAT = { main:[], pending:[], at:0, source:'' };
+let RCCAT = { main:[], pending:[], at:0, sharedAt:0, source:'' };
 let rcIdx = {};                 // barcode -> [catalog entries]
 let rcView = 'home';
 let rcUnitN = null;             // pallet/package being counted
@@ -3259,7 +3259,11 @@ function rcDeleteSession(id){
 let rcRef=null;                 // packstation/receiving
 let _rcPush={};                 // id -> pending write timer
 let _rcDirty={};                // id -> this device has unsent or unconfirmed changes
+let _rcSent={};                 // id -> JSON of the last state this device put on the wire
 let _rcSuppressRender=false;
+
+const RC_TOP_FIELDS=['id','startedAt','dateStr','supplier','method','carrier','stage','palletize','finished','finishedAt','finishedBy'];
+const _j = v => JSON.stringify(v===undefined?null:v);
 
 function rcSaveLocal(){
   try{ localStorage.setItem(RC_LS_STATE, JSON.stringify({v:2, sessions:RC.sessions, learned:RC.learned})); }
@@ -3272,16 +3276,32 @@ function rcSave(session){
   if(s && !rcDraft) rcPushSession(s.id);      // a draft is not a receiving yet
   else if(s && rcDraft && s.id===rcDraft.id){ /* nothing to publish yet */ }
 }
+
+/* Only the parts this device actually changed go on the wire. Two people on the
+   same receiving touch different pallets, so their writes never collide — the
+   old whole-session write made the last one win and threw the other's count away. */
+function rcSessionDiff(s){
+  const sent = _rcSent[s.id] ? JSON.parse(_rcSent[s.id]) : null;
+  if(!sent) return null;                                  // never sent → write it whole
+  if((sent.units||[]).length !== (s.units||[]).length) return null;   // list rebuilt → write it whole
+  const up={};
+  RC_TOP_FIELDS.forEach(f=>{ if(_j(s[f])!==_j(sent[f])) up[f]=(s[f]===undefined?null:s[f]); });
+  (s.units||[]).forEach((u,i)=>{ if(_j(u)!==_j((sent.units||[])[i])) up['units/'+i]=u; });
+  return up;
+}
 function rcPushSession(id){
   if(!rcRef || !id) return;
-  _rcDirty[id]=true;                       // hold the local copy until the write lands
+  _rcDirty[id]=true;                       // hold this device's edits until the write lands
   clearTimeout(_rcPush[id]);
   _rcPush[id]=setTimeout(()=>{
     const s=RC.sessions.find(x=>x.id===id);
     if(!s){ delete _rcDirty[id]; return; }
-    rcRef.child('sessions/'+safeKey(id)).set(s)
-      .then(()=>{ if(!_rcPush[id]) delete _rcDirty[id]; })
-      .catch(()=>{});
+    const snapshot=JSON.parse(JSON.stringify(s));
+    const diff=rcSessionDiff(s);
+    const ref=rcRef.child('sessions/'+safeKey(id));
+    const done=()=>{ _rcSent[id]=JSON.stringify(snapshot); if(!_rcPush[id]) delete _rcDirty[id]; };
+    if(diff && Object.keys(diff).length===0){ done(); return; }
+    (diff ? ref.update(diff) : ref.set(s)).then(done).catch(()=>{});
     _rcPush[id]=null;
   }, 350);
 }
@@ -3291,42 +3311,62 @@ function rcPushLearned(code, rec){
 }
 function rcRemoveLearned(code){ if(rcRef&&code) rcRef.child('learned/'+safeKey(code)).remove().catch(()=>{}); }
 
-/* live feed — merges what other devices write without disturbing this one.
-   The listener is attached only after this device's own receivings are on the
-   wire, so an empty shared node can never wipe a count in progress. */
+/* live feed — merges what other devices write without disturbing this one. */
 function rcConnect(){
   if(!root) return;
   rcRef = root.child('receiving');
   rcRef.child('sessions').once('value')
-    .then(snap=>{ if(snap.exists()) return; return rcPublishLocal(); })
+    .then(snap=>{
+      const remote={}; snap.forEach(c=>{ const v=c.val(); if(v&&v.id) remote[v.id]=v; });
+      /* Anything this device has locally that is not on the wire goes up now —
+         receivings counted offline, or started on an older build, used to stay
+         invisible to everyone else and were then wiped by the first feed. */
+      return rcPublishMissing(remote);
+    })
     .catch(()=>{})
     .then(rcAttachFeed, rcAttachFeed);
 }
-function rcPublishLocal(){
-  const local=(RC.sessions||[]).filter(s=>s && s.id);
-  const learned=RC.learned||{};
-  if(!local.length && !Object.keys(learned).length) return Promise.resolve();
+function rcPublishMissing(remote){
   const up={};
-  local.forEach(s=>up['sessions/'+safeKey(s.id)]=s);
+  (RC.sessions||[]).forEach(s=>{ if(s && s.id && !remote[s.id]) up['sessions/'+safeKey(s.id)]=s; });
+  const learned=RC.learned||{};
   for(const code in learned) up['learned/'+safeKey(code)]=Object.assign({code}, learned[code]);
+  for(const id in remote) _rcSent[id]=JSON.stringify(remote[id]);
+  (RC.sessions||[]).forEach(s=>{ if(s&&s.id&&!remote[s.id]) _rcSent[s.id]=JSON.stringify(s); });
+  if(!Object.keys(up).length) return Promise.resolve();
   return rcRef.update(up).catch(()=>{});
+}
+/* remote wins, except for the parts this device changed and has not sent yet */
+function rcMergeSession(local, remote){
+  const sent = _rcSent[remote.id] ? JSON.parse(_rcSent[remote.id]) : null;
+  if(!sent) return local;                                  // nothing confirmed yet — trust this device
+  const out = JSON.parse(JSON.stringify(remote));
+  RC_TOP_FIELDS.forEach(f=>{ if(_j(local[f])!==_j(sent[f])) out[f]=local[f]; });
+  const lu=local.units||[], ru=out.units||[];
+  if(lu.length===(sent.units||[]).length){
+    lu.forEach((u,i)=>{ if(_j(u)!==_j((sent.units||[])[i])) ru[i]=u; });   // this device edited it — keep it
+  }
+  out.units=ru;
+  return out;
 }
 function rcAttachFeed(){
   rcRef.child('sessions').on('value', snap=>{
     const remote=[];
     snap.forEach(c=>{ const v=c.val(); if(v && v.id) remote.push(v); });
-    /* A receiving this device is still writing keeps its local copy — otherwise
-       an echo of the previous write would undo the scan just made. Everything
-       else comes straight from the shared database. */
+    const seen={};
     const merged=remote.map(r=>{
-      if(!_rcDirty[r.id]) return r;
-      return RC.sessions.find(s=>s.id===r.id) || r;
+      seen[r.id]=true;
+      const local=RC.sessions.find(s=>s.id===r.id);
+      if(!local) { _rcSent[r.id]=JSON.stringify(r); return r; }
+      if(!_rcDirty[r.id]){ _rcSent[r.id]=JSON.stringify(r); return r; }
+      return rcMergeSession(local, r);
     });
-    for(const id in _rcDirty){
-      if(merged.some(s=>s.id===id)) continue;
-      const local=RC.sessions.find(s=>s.id===id);
-      if(local) merged.push(local);                       // created here, not on the wire yet
-    }
+    /* a receiving that lives only on this device is kept and pushed up, never dropped */
+    (RC.sessions||[]).forEach(l=>{
+      if(!l || !l.id || seen[l.id]) return;
+      merged.push(l);
+      if(rcRef && !rcDraft) rcPushSession(l.id);
+    });
     RC.sessions=merged.sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
     rcSaveLocal();
     if(!_rcSuppressRender && curScreen==='recv') rcRenderKeepingFocus();
@@ -3337,6 +3377,21 @@ function rcAttachFeed(){
     RC.learned=m; rcSaveLocal(); rcBuildIdx();
     if(!_rcSuppressRender && curScreen==='recv' && (rcView==='catalog'||rcView==='home')) rcRenderKeepingFocus();
   });
+  /* the product catalog (inventory + Pending) is shared too, so a second person
+     does not have to load the workbook on their own device before they can scan */
+  rcRef.child('catalog').on('value', snap=>{
+    const v=snap.val(); if(!v || !v.at) return;
+    if((RCCAT.sharedAt||0) >= v.at) return;                       // already applied this one
+    RCCAT={main:v.main||[], pending:v.pending||[], at:v.at, sharedAt:v.at, source:v.source||'shared'};
+    rcSaveCat(); rcBuildIdx();
+    if(!_rcSuppressRender && curScreen==='recv') rcRenderKeepingFocus();
+  });
+}
+function rcPushCatalog(){
+  if(!rcRef) return;
+  RCCAT.sharedAt=RCCAT.at||Date.now();
+  if(!RCCAT.main.length && !RCCAT.pending.length) return;
+  rcRef.child('catalog').set({main:RCCAT.main, pending:RCCAT.pending, at:RCCAT.at||Date.now(), source:RCCAT.source||''}).catch(()=>{});
 }
 /* A live update from another device must never disturb what this one is doing:
    half-typed fields keep their text and the scan box keeps the caret. The
@@ -3362,7 +3417,7 @@ function rcLoad(){
   }catch(e){}
 }
 function rcSaveCat(){ try{ localStorage.setItem(RC_LS_CAT, JSON.stringify(RCCAT)); }catch(e){ toast('Catalog too large for local storage','warn',3500); } }
-function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,source:o.source||''}; } }catch(e){} }
+function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,sharedAt:o.sharedAt||0,source:o.source||''}; } }catch(e){} }
 
 /* ---------- catalog ---------- */
 function rcBuildIdx(){
@@ -3419,8 +3474,8 @@ function rcParseCatalog(buf){
 }
 async function rcLoadCatalogFromBuf(buf, source){
   let cat; try{ cat=rcParseCatalog(buf); }catch(e){ gstatus('rcCat', e.message, 'err'); return; }
-  RCCAT={main:cat.main, pending:cat.pending, at:Date.now(), source:source||'file'};
-  rcSaveCat(); rcBuildIdx(); rcRender();
+  RCCAT={main:cat.main, pending:cat.pending, at:Date.now(), sharedAt:0, source:source||'file'};
+  rcSaveCat(); rcBuildIdx(); rcPushCatalog(); rcRender();
   if(!cat.pending.length){
     gstatus('rcCat','✓ '+cat.main.length+' inventory items — but NO Pending rows were read. Tabs found: '+
       (cat.sheets||[]).join(', ')+'. The Pending tab must be named "Pending" and have an item-name column.','err');
