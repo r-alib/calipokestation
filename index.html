@@ -928,7 +928,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09b · receiving diagnostics';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09d · partial label match + duplicate guard';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1699,7 +1699,10 @@ function scanFx(kind, item, statusText, raw){
 
 function reasonLabel(s){ return {out_of_stock:'Out of stock',damaged:'Damaged',other:'Other'}[s]||s; }
 
-function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) return esc(t); for(let i=0;i<t.length;i++){ if(clean(t.slice(i))===c) return esc(t.slice(0,i))+'<b style="color:var(--accent)">'+esc(t.slice(i))+'</b>'; } return esc(t); }
+function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) return esc(t);
+  for(let i=0;i<t.length;i++){ if(clean(t.slice(i))===c) return esc(t.slice(0,i))+'<b style="color:var(--accent)">'+esc(t.slice(i))+'</b>'; }
+  for(let i=t.length;i>0;i--){ if(clean(t.slice(0,i))===c) return '<b style="color:var(--accent)">'+esc(t.slice(0,i))+'</b>'+esc(t.slice(i)); }
+  return esc(t); }
 
 function updateKbdHint(){
   const el=$('#kbdHint'); if(!el) return;
@@ -2955,7 +2958,7 @@ function pgStart(){
   const now=Date.now();
   PG={ sid:(crypto.randomUUID?crypto.randomUUID():'s'+now+Math.random().toString(36).slice(2,7)),
        packer:MY_NAME||'—', startedAt:now, anchor:now, anchorKind:'start',
-       count:0, units:0, cycles:[], pauses:[], paused:null, feed:[], device:(navigator.userAgent||'').slice(0,80) };
+       count:0, units:0, cycles:[], pauses:[], paused:null, feed:[], done:{}, device:(navigator.userAgent||'').slice(0,80) };
   pgWrite('packing/sessions/'+PG.sid, {packer:PG.packer, startedAt:now, device:PG.device, shiftId:CUR_SHIFT||null});
   pgSave(); pgWakeOn(); beep('ok'); pgRender();
 }
@@ -2996,38 +2999,77 @@ document.addEventListener('keydown', e=>{
   if(e.key && e.key.length===1){ pgBuf+=e.key; pgPaint(); }
 });
 
+/* A shipping label does not always come back byte-for-byte: scanners and label
+   printers truncate, and the order file sometimes carries a couple of extra
+   characters. So the match is a ladder — exact first, then a long common start
+   or end. One hit is taken as the same parcel; several hits are shown so the
+   packer picks the right one. */
+const PG_MIN_PARTIAL = 8;      // characters that must line up for a partial match
+function pgMatchOrders(cv){
+  const all=allOrdersFlat();
+  const ct=x=>clean(x.order.trackingId);
+  const exact=all.filter(x=>ct(x)===cv);
+  if(exact.length) return {tier:'exact', list:exact};
+  if(cv.length>=PG_MIN_PARTIAL){
+    const head=all.filter(x=>{ const t=ct(x); if(!t||t.length<PG_MIN_PARTIAL) return false;
+      return t.indexOf(cv)===0 || cv.indexOf(t)===0; });                 // one is the start of the other
+    if(head.length) return {tier:'partial', list:head};
+    const tail=all.filter(x=>{ const t=ct(x); if(!t||t.length<PG_MIN_PARTIAL) return false;
+      return t.endsWith(cv) || cv.endsWith(t); });                       // one is the end of the other
+    if(tail.length) return {tier:'partial', list:tail};
+  }
+  const last4=all.filter(x=>{ const t=ct(x); if(!t) return false;        // typed last digits
+    return cv.length>=t.length ? (t.length>=4 && cv.endsWith(t)) : (cv.length>=4 && t.endsWith(cv)); });
+  if(last4.length) return {tier:'suffix', list:last4};
+  return {tier:'none', list:[]};
+}
+
+let _pgLastCode='', _pgLastAt=0;
 function pgResolve(raw){
   const val=(raw||'').trim(); if(!val) return;
   pgChoice=null;
   const cv=clean(val);
   if(cv.length<3){ flash('err'); beep('err'); toast('Scan the shipping label','err',2600); return; }
-  const all=allOrdersFlat();
-  const exact=all.filter(x=>clean(x.order.trackingId)===cv);
-  let matches = exact.length ? exact : all.filter(x=>{ const ct=clean(x.order.trackingId); if(!ct) return false;
-      return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=4 && ct.endsWith(cv)); });
-  if(matches.length===0){
+  /* a scanner beam can fire twice on one label — ignore the echo silently */
+  if(cv===_pgLastCode && Date.now()-_pgLastAt<1500) return;
+  _pgLastCode=cv; _pgLastAt=Date.now();
+
+  const m=pgMatchOrders(cv);
+  if(!m.list.length){
     beep('err'); toast('No order with label '+val,'err',3400);
-    pgWrite('packing/misscans', {at:Date.now(), code:val, packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
+    pgWrite('packing/misscans', {at:Date.now(), kind:'unknown', code:val, packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
     pgRender(); return;
   }
-  if(matches.length>1){ pgChoice=matches; beep('warn'); pgRender(); return; }
-  pgTake(matches[0]);
+  if(m.list.length>1){ pgChoice={list:m.list, code:val, tier:m.tier}; beep('warn'); pgRender(); return; }
+  pgTake(m.list[0], {scanned:val, match:m.tier});
 }
-
-function pgTake(x){
+function pgTake(x, how){
   const o=x.order, now=Date.now();
+  how = how || {};
+  /* 1. this session, on this device — catches a second scan before the database
+        has echoed the first one back, and works offline */
+  const mine = PG.done && PG.done[o._key];
+  if(mine){
+    flash('err'); beep('err');
+    toast('Already scanned at '+pgClock(mine)+' — this parcel is counted','warn',3800);
+    pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
+      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
+    pgRender(); return;
+  }
+  /* 2. anyone, any session — the stamp written on the order itself */
   if(o.packing && o.packing.at){
-    beep('err');
+    flash('err'); beep('err');
     toast('Already packed at '+pgClock(o.packing.at)+' by '+(o.packing.by||'—'),'warn',3800);
+    pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
+      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null, alreadyBy:o.packing.by||''}, 'push');
     pgRender(); return;
   }
   const gap=now-PG.anchor;
-  if(gap>PG_CFG.longGapMs){ pgOpenAsk(x, now, gap); return; }
-  pgCommit(x, now, gap, []);
+  if(gap>PG_CFG.longGapMs){ pgOpenAsk(x, now, gap, how); return; }
+  pgCommit(x, now, gap, [], how);
 }
-
-function pgCommit(x, at, cycleMs, flags){
-  const o=x.order;
+function pgCommit(x, at, cycleMs, flags, how){
+  const o=x.order; how = how || {};
   const items=(o.items||[]).map(it=>{
     const iv=S.inventory[it.invKey]||{};
     return {name:it.name, variation:it.variation||'', qty:+it.qty||1, packClass:(iv.packClass||'').toUpperCase()||null};
@@ -3035,10 +3077,11 @@ function pgCommit(x, at, cycleMs, flags){
   const units=items.reduce((n,i)=>n+i.qty,0);
   if(o.status==='pending') flags=flags.concat(['not-picked']);
   if(items.some(i=>!i.packClass)) flags=flags.concat(['no-class']);
+  if(how.match && how.match!=='exact') flags=flags.concat(['partial-match']);
 
   pgWrite('packing/events', {
     at, sid:PG.sid, packer:PG.packer,
-    tracking:o.trackingId, platform:x.platform,
+    tracking:o.trackingId, scanned:how.scanned||null, match:how.match||'exact', platform:x.platform,
     shiftId:CUR_SHIFT||null, orderKey:o._key,
     cycleMs:(cycleMs==null?null:Math.round(cycleMs)), since:PG.anchorKind,
     lines:items.length, units, items,
@@ -3049,6 +3092,7 @@ function pgCommit(x, at, cycleMs, flags){
   if(CUR_SHIFT) pgWrite('shifts/'+CUR_SHIFT+'/orders/'+o._key+'/packing',
     {at, by:PG.packer, sid:PG.sid, cycleMs:(cycleMs==null?null:Math.round(cycleMs))});
 
+  PG.done = PG.done || {}; PG.done[o._key]=at;      // local duplicate guard, survives a reload
   PG.count++; PG.units+=units;
   if(cycleMs!=null) PG.cycles.push(Math.round(cycleMs));
   PG.feed.unshift({at, trk:o.trackingId, platform:x.platform, cycleMs:(cycleMs==null?null:Math.round(cycleMs)), units, lines:items.length});
@@ -3060,8 +3104,8 @@ function pgCommit(x, at, cycleMs, flags){
 }
 
 /* ---------- "were you packing?" prompt ---------- */
-function pgOpenAsk(x, at, gap){
-  pgAsk={x, at, gap};
+function pgOpenAsk(x, at, gap, how){
+  pgAsk={x, at, gap, how:how||{}};
   try{ if(navigator.vibrate) navigator.vibrate([200,120,200]); }catch(e){}
   clearInterval(pgAskBeep); beep('warn');
   pgAskBeep=setInterval(()=>beep('warn'), 2200);
@@ -3070,12 +3114,12 @@ function pgOpenAsk(x, at, gap){
 function pgAnswer(worked){
   clearInterval(pgAskBeep); pgAskBeep=null;
   const a=pgAsk; pgAsk=null; if(!a) return;
-  if(worked){ pgCommit(a.x, a.at, a.gap, ['long-cycle']); return; }
+  if(worked){ pgCommit(a.x, a.at, a.gap, ['long-cycle'], a.how); return; }
   const p={from:PG.anchor, to:a.at, kind:'auto'};
   PG.pauses.push(p);
   pgWrite('packing/sessions/'+PG.sid+'/pauses', p, 'push');
   PG.anchor=a.at; PG.anchorKind='resume';
-  pgCommit(a.x, a.at, null, ['gap-discarded']);
+  pgCommit(a.x, a.at, null, ['gap-discarded'], a.how);
 }
 
 /* ---------- render ---------- */
@@ -3098,11 +3142,17 @@ function pgRender(){
     pgPaint(); return;
   }
   if(pgChoice){
-    let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pgChoice.length+' orders match — choose one</div><div class="choices scroll">';
-    pgChoice.forEach((x,i)=>{ h+='<button class="choice" data-pg-pick="'+i+'"><span class="choicetop"><span class="trk">'+esc(x.order.trackingId)+'</span><span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(x.order.items||[]).length+' item(s)</span></button>'; });
+    let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pgChoice.list.length+' orders match — choose one</div>'+
+      '<p class="sub" style="margin:0 0 10px">Scanned <span class="mono" style="color:var(--ink)">'+esc(pgChoice.code)+'</span> — the label is not a full match, pick the right parcel.</p>'+
+      '<div class="choices scroll">';
+    pgChoice.list.forEach((x,i)=>{ const done=x.order.packing&&x.order.packing.at;
+      h+='<button class="choice" data-pg-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(x.order.trackingId, clean(pgChoice.code))+'</span>'+
+      '<span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(x.order.items||[]).length+' item(s)'+
+      (done?' · <span style="color:var(--warn)">already packed '+pgClock(x.order.packing.at)+'</span>':'')+'</span></button>'; });
     h+='</div><div class="orderfoot"><button class="btn ghost" id="pgChoiceCancel">Cancel</button></div></div>';
     host.innerHTML=h;
-    $$('#pgWrap [data-pg-pick]').forEach(b=>b.onclick=()=>{ const x=pgChoice[+b.dataset.pgPick]; pgChoice=null; pgTake(x); });
+    $$('#pgWrap [data-pg-pick]').forEach(b=>b.onclick=()=>{ const c=pgChoice; const x=c.list[+b.dataset.pgPick]; pgChoice=null;
+      pgTake(x, {scanned:c.code, match:c.tier}); });
     $('#pgChoiceCancel').onclick=()=>{ pgChoice=null; pgRender(); };
     return;
   }
@@ -3458,6 +3508,21 @@ function rcLoad(){
 }
 function rcSaveCat(){ try{ localStorage.setItem(RC_LS_CAT, JSON.stringify(RCCAT)); }catch(e){ toast('Catalog too large for local storage','warn',3500); } }
 function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,sharedAt:o.sharedAt||0,source:o.source||''}; } }catch(e){} }
+
+/* Manual re-read: answers "is my screen out of date, or is nothing there?" */
+function rcReloadFromCloud(){
+  if(!rcRef){ toast('Not connected to the shared database — this device is offline','err',4200); return; }
+  toast('Reading the shared database…','info',1800);
+  rcRef.child('sessions').once('value').then(snap=>{
+    const remote=[]; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
+    const seen={}; remote.forEach(r=>seen[r.id]=true);
+    const keep=(RC.sessions||[]).filter(l=>l&&l.id&&!seen[l.id]);
+    RC.sessions=remote.concat(keep).sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
+    remote.forEach(r=>{ _rcSent[r.id]=JSON.stringify(r); });
+    rcSaveLocal(); rcRender();
+    toast(remote.length+' receiving(s) in the shared database'+(keep.length?(' · '+keep.length+' only on this device'):''),'ok',4200);
+  }).catch(e=>toast('Could not read: '+((e&&e.message)||e),'err',5000));
+}
 
 /* ---------- catalog ---------- */
 function rcBuildIdx(){
@@ -4010,13 +4075,30 @@ function rcViewHome(){
        '<div class="rcarch">'+done.map(rcSessionRow).join('')+'</div>'+
        (IS_ADMIN?'':'<p class="sub" style="font-size:12.5px;margin-top:11px">Deleting a receiving is an admin action.</p>')+'</div>';
   }
+  h+='<div class="rcrow" style="margin-top:14px"><button class="btn ghost" id="rcReload">⟳ Reload from the shared database</button></div>';
   return h;
 }
 function rcWireHome(){
   const n=$('#rcNew'); if(n) n.onclick=()=>{ rcDraft=rcNewSession(); rcActiveId=null; rcGo('setup'); };
+  const rl=$('#rcReload'); if(rl) rl.onclick=rcReloadFromCloud;
   $$('#rcArea [data-open]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.open));
   $$('#rcArea [data-report]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.report));
   $$('#rcArea [data-del]').forEach(b=>b.onclick=()=>rcDeleteSession(b.dataset.del));
+}
+
+/* Manual re-read: answers "is my screen out of date, or is nothing there?" */
+function rcReloadFromCloud(){
+  if(!rcRef){ toast('Not connected to the shared database — this device is offline','err',4200); return; }
+  toast('Reading the shared database…','info',1800);
+  rcRef.child('sessions').once('value').then(snap=>{
+    const remote=[]; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
+    const seen={}; remote.forEach(r=>seen[r.id]=true);
+    const keep=(RC.sessions||[]).filter(l=>l&&l.id&&!seen[l.id]);
+    RC.sessions=remote.concat(keep).sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
+    remote.forEach(r=>{ _rcSent[r.id]=JSON.stringify(r); });
+    rcSaveLocal(); rcRender();
+    toast(remote.length+' receiving(s) in the shared database'+(keep.length?(' · '+keep.length+' only on this device'):''),'ok',4200);
+  }).catch(e=>toast('Could not read: '+((e&&e.message)||e),'err',5000));
 }
 
 /* ---------- catalog ---------- */

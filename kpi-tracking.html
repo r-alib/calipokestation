@@ -487,6 +487,8 @@ function viewOverview(root_){
     {label:'Units', n:true, render:r=>fmt(r.units)},
     {label:'Box', render:r=>{ const c=maxClass(r.items); return c?'<span class="chip">'+c+'</span>':'<span class="chip warn">no class</span>'; }},
     {label:'Cycle', n:true, render:r=>r.cycleMs==null?'<span style="color:var(--faint)">not counted</span>':dur(r.cycleMs)},
+    {label:'Match', render:r=>(!r.match||r.match==='exact')?'<span class="chip ok">exact</span>'
+        :'<span class="chip warn" title="scanned '+esc(r.scanned||'')+'">partial</span>'},
     {label:'Flags', render:r=>(r.flags||[]).map(f=>'<span class="chip warn">'+esc(f)+'</span>').join(' ')}
   ], ev.slice().reverse().slice(0,300), {emptyText:'No scans yet'});
   root_.appendChild(card('Every scanned box', 'Newest first · up to 300 rows', tb));
@@ -658,7 +660,9 @@ function viewQuality(root_){
   const scanned=confirmed.filter(o=>o.packing && o.packing.at);
   const rate=confirmed.length? scanned.length/confirmed.length*100 : null;
   const flagged=ev.filter(e=>(e.flags||[]).length);
-  const miss=DATA.misscans.filter(m=>inRange(m.at)&&packerOk(m.packer));
+  const allMiss=DATA.misscans.filter(m=>inRange(m.at)&&packerOk(m.packer));
+  const miss=allMiss.filter(m=>m.kind!=='duplicate');
+  const dups=allMiss.filter(m=>m.kind==='duplicate');
 
   const k=el('div',{class:'kpis'});
   k.appendChild(kpi('Boxes scanned after packing', rate==null?'—':fmt(rate)+'%',
@@ -667,6 +671,7 @@ function viewQuality(root_){
   k.appendChild(kpi('Missed scans', fmt(confirmed.length-scanned.length), 'picked but never scanned by a packer',
     (confirmed.length-scanned.length)?'warn':'good'));
   k.appendChild(kpi('Unknown labels', fmt(miss.length), 'scanned, matched no order', miss.length?'warn':''));
+  k.appendChild(kpi('Duplicate scans blocked', fmt(dups.length), 'same parcel scanned twice', ''));
   k.appendChild(kpi('Flagged cycles', fmt(flagged.length), 'long gaps, missing class, not picked', flagged.length?'warn':''));
   root_.appendChild(k);
 
@@ -692,6 +697,15 @@ function viewQuality(root_){
     {label:'Scanned code', render:r=>'<span class="mono">'+esc(r.code||'')+'</span>'}
   ], miss.slice().reverse().slice(0,200), {emptyText:'No unknown labels'});
   root_.appendChild(card('Labels that matched no order', 'Usually a box from another shift, or a scan of the wrong barcode', t2));
+
+  const t2b=el('div');
+  table(t2b, [
+    {label:'Time', render:r=>stamp(r.at)},
+    {label:'Packer', k:'packer'},
+    {label:'Label', render:r=>'<span class="mono">'+esc(r.tracking||r.code||'')+'</span>'},
+    {label:'Note', render:r=>r.alreadyBy?('already packed by '+esc(r.alreadyBy)):'already scanned in this session'}
+  ], dups.slice().reverse().slice(0,200), {emptyText:'No parcel was scanned twice'});
+  root_.appendChild(card('Duplicate scans that were blocked', 'The count was not incremented — the parcel was already recorded', t2b));
 
   const t3=el('div');
   table(t3, [
@@ -724,7 +738,7 @@ function exportCSV(){
   ev.forEach(e=>lines.push([
     new Date(e.at).toISOString(), e.packer, e.tracking, e.platform, e.lines, e.units,
     maxClass(e.items)||'', orderVolume(e.items),
-    e.cycleMs==null?'':e.cycleMs, e.cycleMs==null?'':Math.round(e.cycleMs/1000), e.since||'',
+    e.cycleMs==null?'':e.cycleMs, e.cycleMs==null?'':Math.round(e.cycleMs/1000), e.since||'', e.scanned||'', e.match||'exact',
     e.addedAt?new Date(e.addedAt).toISOString():'', e.pickStartedAt?new Date(e.pickStartedAt).toISOString():'',
     e.pickConfirmedAt?new Date(e.pickConfirmedAt).toISOString():'', e.orderStatus||'',
     (e.flags||[]).join(' '),
