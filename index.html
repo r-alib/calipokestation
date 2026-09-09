@@ -848,6 +848,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn ghost" id="rcList">☰ Receivings</button>
       <button class="btn ghost" id="rcCatBtn">⚙ Catalog</button>
     </div>
+    <div class="pill" id="rcDiag" style="margin-bottom:12px"></div>
     <div id="rcArea" class="rcwrap"></div>
   </section>
 </main>
@@ -927,7 +928,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09 · packing mode + KPI + shared receiving fix';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09b · receiving diagnostics';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -3538,13 +3539,13 @@ function rcMakeUnits(s,count){
   s.units=[]; for(let i=1;i<=count;i++) s.units.push({n:i, type:s.method, tracking:'', noTracking:false, counted:false, code:'', items:[]});
 }
 function rcUnit(n){ const s=rcCur(); return s?s.units.find(u=>u.n===n)||null:null; }
-function rcAllCounted(){ const s=rcCur(); return !!s && s.units.length>0 && s.units.every(u=>u.counted); }
+function rcAllCounted(){ const s=rcCur(); return !!s && (s.units||[]).length>0 && s.units.every(u=>u.counted); }
 function rcUnitWord(s,cap){ const w = s.method==='pallet' ? 'pallet' : 'package'; return cap ? w[0].toUpperCase()+w.slice(1) : w; }
 
 /* totals across the whole shipment, aggregated by product */
 function rcTotals(s){
   const m=new Map();
-  for(const u of s.units) for(const it of u.items){
+  for(const u of (s.units||[])) for(const it of (u.items||[])){
     const k=norm(it.name)+'||'+norm(it.variation||'');
     if(!m.has(k)) m.set(k,{name:it.name, variation:it.variation||'', qty:0});
     m.get(k).qty += (+it.qty||0);
@@ -3923,6 +3924,35 @@ function rcStepBar(active){
 }
 const RC_VIEWS_NEEDING_SESSION = ['setup','units','unit','palletask','pallets','pallet','report'];
 function rcRender(){
+  try{ rcRenderInner(); }
+  catch(e){
+    /* a warehouse screen must never go blank and silent — say what broke */
+    const a=$('#rcArea');
+    if(a) a.innerHTML='<div class="card" style="border-color:#4a2128">'+
+      '<div class="eyebrow" style="color:var(--err)">Receiving screen error</div>'+
+      '<p class="sub" style="color:var(--err)">'+esc((e&&e.message)||String(e))+'</p>'+
+      '<p class="sub" style="font-size:12.5px">Your counts are safe in the database. Send this line to the developer.</p>'+
+      '<div class="rcrow" style="margin-top:12px"><button class="btn" id="rcErrHome">☰ Receivings</button>'+
+      '<button class="btn ghost" id="rcErrReload">⟳ Reload</button></div></div>';
+    const h=$('#rcErrHome'); if(h) h.onclick=()=>{ rcActiveId=null; rcDraft=null; rcView='home'; rcRender(); };
+    const r=$('#rcErrReload'); if(r) r.onclick=()=>location.reload();
+    try{ console.error('rcRender', e); }catch(_){}
+  }
+  rcDiagPaint();
+}
+/* a one-line answer to "why is it empty?" — connection, count, last update */
+function rcDiagPaint(){
+  const d=$('#rcDiag'); if(!d) return;
+  const n=(RC.sessions||[]).length, open=(RC.sessions||[]).filter(s=>!s.finished).length;
+  const on = !!rcRef;
+  d.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;display:inline-block;background:'+
+      (on?'var(--ok)':'var(--err)')+'"></span>'+
+      (on?'shared':'offline — this device only')+' · <b>'+n+'</b> receiving'+(n===1?'':'s')+
+      (n?(' · <b>'+open+'</b> in progress'):'')+
+      ' · catalog <b>'+(RCCAT.main.length+RCCAT.pending.length)+'</b>';
+}
+function rcRenderInner(){
+
   const cc=$('#rcCatCount'); if(cc) cc.textContent=(RCCAT.main.length+RCCAT.pending.length);
   const a=$('#rcArea'); if(!a) return;
   /* the open receiving can disappear under us — a manager deleted it, or it was
@@ -3944,7 +3974,7 @@ function rcRender(){
 /* ---------- home ---------- */
 function rcSessionRow(s){
   const fin=!!s.finished;
-  const counted=s.units.filter(u=>u.counted).length;
+  const counted=(s.units||[]).filter(u=>u.counted).length;
   const units=rcTotals(s).reduce((n,t)=>n+t.qty,0);
   const how=(s.method==='pallet'?'pallets':(s.carrier||'packages'));
   const W=rcUnitWord(s,false);
@@ -4120,11 +4150,11 @@ function rcViewUnits(){
     '<div class="spacer" style="flex:1"></div><div class="pill">Counted <b>'+s.units.filter(u=>u.counted).length+'</b>/'+s.units.length+'</div></div>'+
     '<p class="sub">Pick a '+rcUnitWord(s,false)+' to count. Counted ones turn green.</p>';
   h+='<div class="rcunits">'+s.units.map(u=>{
-    const qty=u.items.reduce((n,i)=>n+(+i.qty||0),0);
+    const qty=(u.items||[]).reduce((n,i)=>n+(+i.qty||0),0);
     return '<button class="rcunit '+(u.counted?'done':'todo')+'" data-u="'+u.n+'">'+
       '<div class="ubadge">'+(u.counted?'✓ DONE':'TO COUNT')+'</div>'+
       '<div class="un">'+W+' '+u.n+'</div>'+
-      '<div class="us">'+(u.items.length? u.items.length+' items · '+qty+' units' : 'not counted')+
+      '<div class="us">'+((u.items||[]).length? u.items.length+' items · '+qty+' units' : 'not counted')+
       (u.tracking?'<br>trk …'+esc(u.tracking):(u.noTracking?'<br>no tracking':''))+
       (u.code?'<br><span class="mono" style="font-size:11px">'+esc(u.code)+'</span>':'')+'</div></button>';
   }).join('')+'</div>';
