@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>CALIPOKE STATION — KPI Tracking</title>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CALIPOKE STATION — KPI TRACKING
+   Same design tokens as index.html.
+   ============================================================ */
+:root{
+  color-scheme: dark;
+  --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --accent-d:#18742F;
+  --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  /* categorical series — validated for this surface (CVD + contrast) */
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --s5:#d55181; --s6:#22a022; --s7:#9085e9; --s8:#e66767;
+  --grid:#222936;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  -webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.hide{display:none !important}
+.mono{font-family:var(--mono)}
+
+.stickyhead{position:sticky;top:0;z-index:60;background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:rgba(14,17,22,.92);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(8px);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;letter-spacing:-.01em}
+.brand .dot{width:11px;height:11px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);flex:none}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase}
+.spacer{flex:1}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);
+  display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;white-space:nowrap;transition:.15s}
+.iconbtn:hover{border-color:var(--faint)}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;background:var(--panel);
+  border:1px solid var(--border);border-radius:99px;font-size:12.5px;color:var(--muted)}
+.pill b{color:var(--ink);font-family:var(--mono);font-weight:700}
+.pill .led{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.pill.ok .led{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.pill.err .led{background:var(--err)}
+
+.filterbar{background:var(--panel);border-bottom:1px solid var(--border);padding:9px 16px;
+  display:flex;flex-wrap:wrap;gap:9px 14px;align-items:center}
+.flabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);font-weight:600}
+.fgroup{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:3px}
+.seg button{background:none;border:0;padding:5px 10px;border-radius:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);font-weight:600}
+select,input[type=date]{background:var(--bg);border:1.5px solid var(--line);border-radius:9px;padding:6px 10px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}
+
+.nav{display:flex;gap:4px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.nav button{background:none;border:0;border-bottom:2px solid transparent;padding:12px 15px;color:var(--muted);
+  font-family:var(--disp);font-size:13.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.nav button:hover{color:var(--ink)}
+.nav button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+
+main{max-width:1500px;margin:0 auto;padding:20px 16px 90px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:16px}
+.card h3{font-family:var(--disp);margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.card .sub{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:1050px){.grid2{grid-template-columns:1fr}}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:15px 16px}
+.kpi .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);font-weight:600;margin-bottom:8px}
+.kpi .v{font-family:var(--mono);font-weight:700;font-size:28px;letter-spacing:-.02em;line-height:1.1}
+.kpi .d{font-size:12.5px;color:var(--muted);margin-top:6px}
+.kpi.good .v{color:var(--ok)} .kpi.warn .v{color:var(--warn)} .kpi.bad .v{color:var(--err)}
+
+.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--panel2);max-height:560px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th{background:var(--raised);position:sticky;top:0;z-index:2;font-size:11px;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);font-weight:600}
+tbody tr:hover{background:var(--raised)}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.chip{font-size:11px;padding:3px 8px;border-radius:7px;background:var(--raised);color:var(--muted);border:1px solid var(--border)}
+.chip.warn{color:var(--warn);border-color:#473a1c;background:#2b2412}
+.chip.err{color:var(--err);border-color:#4a2128;background:#311518}
+.chip.ok{color:var(--ok);border-color:#1d4530;background:#13301f}
+
+svg.chart{display:block;width:100%;overflow:visible}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.legend .sw{width:10px;height:10px;border-radius:3px}
+.legend .li{display:inline-flex;align-items:center;gap:7px}
+.tip{position:fixed;z-index:200;pointer-events:none;background:var(--raised);border:1px solid var(--line);
+  border-radius:11px;box-shadow:0 18px 40px -14px #000;padding:10px 12px;font-size:13px;max-width:280px}
+.tip .t{font-family:var(--disp);font-weight:600;margin-bottom:6px}
+.tip .l{display:flex;justify-content:space-between;gap:14px;color:var(--muted)}
+.tip .l b{font-family:var(--mono);color:var(--ink)}
+.empty{text-align:center;color:var(--muted);padding:38px 20px;border:1px dashed var(--line);border-radius:var(--r)}
+.note{font-size:12.5px;color:var(--faint);margin-top:10px;line-height:1.6}
+.loadwrap{padding:60px 20px;text-align:center;color:var(--muted)}
+.bar-row{margin-bottom:10px}
+.bar-row .t{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px}
+.bar-row .t b{font-family:var(--mono);color:var(--ink)}
+.bar-row .track{height:10px;background:var(--raised);border-radius:99px;overflow:hidden}
+.bar-row .track i{display:block;height:100%;border-radius:99px}
+.banner{background:#15233a;border:1px solid #23395c;color:var(--info);padding:13px 15px;border-radius:var(--r-sm);
+  margin-bottom:16px;font-size:13.5px;line-height:1.6}
+.banner b{color:var(--ink)}
+.errbox{background:#1f1417;border:1px solid #4a2128;color:var(--err);padding:13px 15px;border-radius:var(--r-sm);margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<div class="stickyhead">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><span>CALIPOKE STATION<small>KPI Tracking</small></span></div>
+    <div class="spacer"></div>
+    <span class="pill" id="statusPill"><span class="led"></span><span id="statusTxt">connecting…</span></span>
+    <button class="iconbtn" id="btnMenu">← Menu</button>
+  </div>
+  <div class="filterbar">
+    <div class="fgroup"><span class="flabel">Period</span>
+      <div class="seg" id="rangeSeg">
+        <button data-d="1">Today</button>
+        <button data-d="7" aria-pressed="true">7 days</button>
+        <button data-d="30">30 days</button>
+        <button data-d="0">All</button>
+      </div>
+    </div>
+    <div class="fgroup"><span class="flabel">Packer</span><select id="packerSel"><option value="">Everyone</option></select></div>
+    <div class="spacer"></div>
+    <span class="pill" id="rangePill"></span>
+    <button class="iconbtn" id="btnCsv">⤓ Export CSV</button>
+  </div>
+  <div class="nav" role="tablist">
+    <button role="tab" data-view="overview" aria-selected="true">Overview</button>
+    <button role="tab" data-view="packers">Packers</button>
+    <button role="tab" data-view="lifecycle">Order lifecycle</button>
+    <button role="tab" data-view="calib">Calibration</button>
+    <button role="tab" data-view="quality">Data quality</button>
+  </div>
+</div>
+
+<main>
+  <div class="loadwrap" id="boot">Loading packing data…</div>
+  <div id="views" class="hide"></div>
+</main>
+<div class="tip hide" id="tip"></div>
+
+<script>
+/* ============================================================================
+   CALIPOKE STATION — KPI TRACKING
+   Reads the same Firebase project as the station:
+     packstation/packing/sessions   — one per Start Packing
+     packstation/packing/events     — one per scanned box
+     packstation/packing/misscans   — labels that matched no order
+     packstation/shifts/<id>/orders — to measure how many shipped boxes were scanned
+   Observation phase: it reports facts and prepares the numbers we need to set
+   the packing standard. No performance score until the standard is calibrated.
+   ========================================================================== */
+const FB_CFG = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+const STATION = 'packstation';
+const CLASS_ORDER = ['XS','S','M','L','XL'];
+const CLASS_VOL   = {XS:1, S:4, M:12, L:40, XL:100};   // used only to name the box size
+
+/* ------------------------------- helpers ---------------------------------- */
+const $  = (s,r)=>(r||document).querySelector(s);
+const $$ = (s,r)=>Array.prototype.slice.call((r||document).querySelectorAll(s));
+const el = (t,a,k)=>{ const n=document.createElement(t);
+  if(a) for(const x in a){ if(x==='class')n.className=a[x]; else if(x==='html')n.innerHTML=a[x];
+    else if(x==='text')n.textContent=a[x]; else if(x.slice(0,2)==='on')n.addEventListener(x.slice(2),a[x]);
+    else if(a[x]!=null)n.setAttribute(x,a[x]); }
+  (k||[]).forEach(c=>n.appendChild(typeof c==='string'?document.createTextNode(c):c)); return n; };
+const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n,d)=> (n==null||!isFinite(n))?'—':Number(d?n.toFixed(d):Math.round(n)).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});
+const pad = n=>String(n).padStart(2,'0');
+const dayKey = ts=>{ const d=new Date(ts); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const dayLabel = k=>{ const a=k.split('-'); return new Date(+a[0],+a[1]-1,+a[2]).toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+const clock = ts=>{ const d=new Date(ts); return pad(d.getHours())+':'+pad(d.getMinutes()); };
+const stamp = ts=>{ const d=new Date(ts); return dayLabel(dayKey(ts))+' '+pad(d.getHours())+':'+pad(d.getMinutes()); };
+function dur(ms){ if(ms==null||!isFinite(ms)) return '—';
+  const s=Math.max(0,Math.round(ms/1000)), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), r=s%60;
+  return h? h+'h '+pad(m)+'m' : (m? m+':'+pad(r) : r+'s'); }
+function durMin(ms){ if(ms==null||!isFinite(ms)) return '—'; const m=ms/60000;
+  return m>=60 ? (m/60).toFixed(1)+' h' : m.toFixed(m<10?1:0)+' min'; }
+function median(a){ if(!a.length) return null; const b=a.slice().sort((x,y)=>x-y), i=b.length>>1;
+  return b.length%2? b[i] : (b[i-1]+b[i])/2; }
+function pctl(a,p){ if(!a.length) return null; const b=a.slice().sort((x,y)=>x-y);
+  return b[Math.min(b.length-1, Math.floor(p*(b.length-1)))]; }
+const cssVar = n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const S = i=>cssVar(['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'][i%8]);
+
+const TIP={ n:null,
+  show(h,x,y){ this.n=this.n||$('#tip'); this.n.innerHTML=h; this.n.classList.remove('hide');
+    const r=this.n.getBoundingClientRect(); let l=x+14,t=y+14;
+    if(l+r.width>innerWidth-10) l=x-r.width-14; if(t+r.height>innerHeight-10) t=y-r.height-14;
+    this.n.style.left=Math.max(6,l)+'px'; this.n.style.top=Math.max(6,t)+'px'; },
+  hide(){ this.n=this.n||$('#tip'); this.n.classList.add('hide'); } };
+
+/* -------------------------------- state ----------------------------------- */
+const DATA = {sessions:[], events:[], misscans:[], orders:[], shifts:{}, loaded:false};
+const F = {days:7, packer:''};
+let VIEW='overview';
+
+/* ------------------------------- firebase --------------------------------- */
+let root=null;
+function setStatus(txt, kind){ const p=$('#statusPill'); p.className='pill '+(kind||''); $('#statusTxt').textContent=txt; }
+
+function connect(){
+  if(typeof firebase==='undefined'||!firebase.initializeApp){ fail('Firebase library did not load — check the connection.'); return; }
+  try{
+    const app=(firebase.apps&&firebase.apps.length)?firebase.app():firebase.initializeApp(FB_CFG);
+    root=firebase.database(app).ref(STATION);
+  }catch(e){ fail(e.message); return; }
+  setStatus('loading…');
+  const need=['packing/sessions','packing/events','packing/misscans','shiftIndex'];
+  Promise.all(need.map(p=>root.child(p).once('value').then(s=>s.val()||{}).catch(()=>({}))))
+    .then(async ([sess, ev, ms, idx])=>{
+      DATA.sessions = Object.keys(sess).map(k=>Object.assign({id:k}, sess[k]||{}));
+      DATA.events   = Object.keys(ev).map(k=>Object.assign({id:k}, ev[k]||{})).filter(e=>e.at);
+      DATA.misscans = Object.keys(ms).map(k=>Object.assign({id:k}, ms[k]||{}));
+      DATA.shifts   = idx||{};
+      // orders are only needed for the "was every box scanned?" check
+      const ids=Object.keys(DATA.shifts).sort((a,b)=>(DATA.shifts[b].createdAt||0)-(DATA.shifts[a].createdAt||0)).slice(0,12);
+      for(const id of ids){
+        try{
+          const snap=await root.child('shifts/'+id+'/orders').once('value');
+          const v=snap.val()||{};
+          for(const k in v) DATA.orders.push(Object.assign({_key:k, shiftId:id}, v[k]));
+        }catch(e){}
+      }
+      DATA.loaded=true;
+      buildPackerList();
+      setStatus(DATA.events.length+' scans · '+DATA.sessions.length+' sessions','ok');
+      $('#boot').classList.add('hide'); $('#views').classList.remove('hide');
+      render();
+      // live updates
+      root.child('packing/events').on('child_added', snap=>{
+        const v=snap.val(); if(!v||!v.at) return;
+        if(DATA.events.some(e=>e.id===snap.key)) return;
+        DATA.events.push(Object.assign({id:snap.key}, v)); buildPackerList(); render();
+      });
+    })
+    .catch(e=>fail(e.message));
+}
+function fail(msg){
+  setStatus('not connected','err');
+  $('#boot').innerHTML='<div class="errbox">Could not read the database: '+esc(msg)+'</div>';
+}
+
+/* ------------------------------ derivation -------------------------------- */
+function rangeFrom(){
+  if(!F.days) return 0;
+  const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-(F.days-1));
+  return d.getTime();
+}
+function inRange(ts){ const f=rangeFrom(); return ts && ts>=f; }
+function packerOk(p){ return !F.packer || p===F.packer; }
+
+function buildPackerList(){
+  const set=new Set();
+  DATA.events.forEach(e=>{ if(e.packer) set.add(e.packer); });
+  DATA.sessions.forEach(s=>{ if(s.packer) set.add(s.packer); });
+  const sel=$('#packerSel'), cur=sel.value;
+  sel.innerHTML='<option value="">Everyone</option>'+Array.from(set).sort()
+    .map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('');
+  sel.value=cur && set.has(cur) ? cur : '';
+  F.packer=sel.value;
+}
+
+function pausedMs(s){ const p=s.pauses||{};
+  return Object.keys(p).reduce((a,k)=>{ const x=p[k]||{}; return a + Math.max(0,(x.to||x.from||0)-(x.from||0)); },0); }
+
+/* one derived record per session, with its own events attached */
+function sessionRows(){
+  const byId={};
+  DATA.sessions.forEach(s=>{ byId[s.id]={s, events:[]}; });
+  DATA.events.forEach(e=>{ if(byId[e.sid]) byId[e.sid].events.push(e); });
+  const out=[];
+  for(const id in byId){
+    const {s,events}=byId[id];
+    if(!inRange(s.startedAt) || !packerOk(s.packer)) continue;
+    events.sort((a,b)=>a.at-b.at);
+    const last = events.length? events[events.length-1].at : s.startedAt;
+    const ended = s.endedAt || last;
+    const paused = pausedMs(s);
+    const span = Math.max(0, ended - s.startedAt);
+    const active = Math.max(0, span - paused);
+    const cycles = events.filter(e=>e.cycleMs!=null).map(e=>e.cycleMs);
+    out.push({id, packer:s.packer||'—', startedAt:s.startedAt, endedAt:s.endedAt||null, autoClosed:!!s.autoClosed,
+      open:!s.endedAt, span, paused, active, events, orders:events.length,
+      units:events.reduce((a,e)=>a+(e.units||0),0),
+      lines:events.reduce((a,e)=>a+(e.lines||0),0),
+      cycles, med:median(cycles)});
+  }
+  return out.sort((a,b)=>b.startedAt-a.startedAt);
+}
+function filteredEvents(){
+  return DATA.events.filter(e=>inRange(e.at)&&packerOk(e.packer)).sort((a,b)=>a.at-b.at);
+}
+function maxClass(items){
+  let best=-1;
+  (items||[]).forEach(i=>{ const k=CLASS_ORDER.indexOf((i.packClass||'').toUpperCase()); if(k>best) best=k; });
+  return best<0? null : CLASS_ORDER[best];
+}
+function orderVolume(items){
+  return (items||[]).reduce((a,i)=>a+((CLASS_VOL[(i.packClass||'').toUpperCase()]||0)*(i.qty||1)),0);
+}
+
+/* ================================ charts ================================== */
+function svgEl(t,a){ const n=document.createElementNS('http://www.w3.org/2000/svg',t);
+  for(const k in a) if(a[k]!=null) n.setAttribute(k,a[k]); return n; }
+function ticks(max,c){ if(max<=0) return [0,1];
+  const raw=max/(c||4), mag=Math.pow(10,Math.floor(Math.log10(raw))), nn=raw/mag;
+  const st=(nn<=1?1:nn<=2?2:nn<=5?5:10)*mag; const o=[];
+  for(let v=0; v<=max+st*0.001; v+=st) o.push(v);
+  if(o[o.length-1]<max) o.push(o[o.length-1]+st);
+  return o; }
+
+const PEND=[];
+function chart(host,opts){ host.style.minHeight=(opts.height||240)+'px'; PEND.push([host,opts]); }
+function flush(){ while(PEND.length){ const p=PEND.shift(); draw(p[0],p[1]); } }
+function draw(host,o){
+  host.innerHTML='';
+  const labels=o.labels||[], vals=o.values||[];
+  if(!labels.length || !vals.some(v=>v)){ host.appendChild(el('div',{class:'empty',text:o.emptyText||'No data yet'})); return; }
+  const W=Math.max(host.clientWidth||600,300), H=o.height||240;
+  const p={l:52,r:12,t:12,b:34}, iw=W-p.l-p.r, ih=H-p.t-p.b;
+  const mx=Math.max.apply(null,vals.concat([1])), tk=ticks(mx,4), top=tk[tk.length-1]||1;
+  const y=v=>p.t+ih-(v/top)*ih;
+  const svg=svgEl('svg',{class:'chart',viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',height:H});
+  const grid=cssVar('--grid'), muted=cssVar('--faint');
+  tk.forEach(t=>{ svg.appendChild(svgEl('line',{x1:p.l,x2:W-p.r,y1:y(t),y2:y(t),stroke:grid,'stroke-width':1}));
+    const lb=svgEl('text',{x:p.l-8,y:y(t)+4,'text-anchor':'end',fill:muted,'font-size':11});
+    lb.textContent=o.fmtAxis?o.fmtAxis(t):fmt(t); svg.appendChild(lb); });
+  const bw=iw/labels.length, barW=Math.max(3,Math.min(46,bw*0.62));
+  labels.forEach((lb,i)=>{
+    const v=vals[i]||0, cx=p.l+bw*i+bw/2;
+    if(v){ svg.appendChild(svgEl('rect',{x:cx-barW/2,y:y(v),width:barW,height:Math.max(1,y(0)-y(v)),
+      fill:o.color||S(0),rx:3})); }
+    const band=svgEl('rect',{x:p.l+bw*i,y:p.t,width:bw,height:ih,fill:'transparent'});
+    band.style.cursor='crosshair';
+    band.addEventListener('mousemove',ev=>TIP.show('<div class="t">'+esc(o.tipTitle?o.tipTitle(i):lb)+'</div>'+
+      '<div class="l"><span>'+esc(o.unit||'value')+'</span><b>'+(o.fmtTip?o.fmtTip(v,i):fmt(v))+'</b></div>', ev.clientX, ev.clientY));
+    band.addEventListener('mouseleave',()=>TIP.hide());
+    svg.appendChild(band);
+  });
+  const every=Math.ceil(labels.length/Math.max(3,Math.floor(iw/62)));
+  labels.forEach((lb,i)=>{ if(i%every) return;
+    const t=svgEl('text',{x:p.l+bw*i+bw/2,y:H-10,'text-anchor':'middle',fill:muted,'font-size':11});
+    t.textContent=lb; svg.appendChild(t); });
+  svg.appendChild(svgEl('line',{x1:p.l,x2:W-p.r,y1:y(0),y2:y(0),stroke:cssVar('--line'),'stroke-width':1}));
+  host.appendChild(svg);
+}
+function barList(host, rows, opts){
+  opts=opts||{}; host.innerHTML='';
+  const use=rows.filter(r=>r.value!=null);
+  if(!use.length){ host.appendChild(el('div',{class:'empty',text:opts.emptyText||'No data yet'})); return; }
+  const mx=Math.max.apply(null,use.map(r=>Math.abs(r.value)).concat([1]));
+  use.forEach((r,i)=>{
+    const w=Math.max(1.5, Math.abs(r.value)/mx*100);
+    const d=el('div',{class:'bar-row'});
+    d.innerHTML='<div class="t"><span>'+esc(r.label)+'</span><b>'+(r.text!=null?esc(r.text):fmt(r.value))+
+      (r.note?' <span style="color:var(--faint);font-family:var(--body);font-weight:400">'+esc(r.note)+'</span>':'')+'</b></div>'+
+      '<div class="track"><i style="width:'+w+'%;background:'+(r.color||S(i))+'"></i></div>';
+    host.appendChild(d);
+  });
+}
+function kpi(label, value, detail, kind){
+  return el('div',{class:'kpi'+(kind?' '+kind:'')},[
+    el('div',{class:'k',text:label}), el('div',{class:'v',html:value}),
+    el('div',{class:'d',html:detail||'&nbsp;'})]);
+}
+function card(title, sub, body, tools){
+  const c=el('div',{class:'card'});
+  const h=el('div',{style:'display:flex;align-items:flex-start;gap:10px;margin-bottom:12px'});
+  const l=el('div',{style:'flex:1'}); l.appendChild(el('h3',{text:title}));
+  if(sub) l.appendChild(el('p',{class:'sub',text:sub}));
+  h.appendChild(l); if(tools) h.appendChild(tools);
+  c.appendChild(h); if(body) c.appendChild(body); return c;
+}
+function table(host, cols, rows, opts){
+  opts=opts||{}; host.innerHTML='';
+  const w=el('div',{class:'tablewrap'}), t=el('table');
+  t.innerHTML='<thead><tr>'+cols.map(c=>'<th'+(c.n?' class="n"':'')+'>'+esc(c.label)+'</th>').join('')+'</tr></thead>';
+  const tb=el('tbody');
+  if(!rows.length) tb.innerHTML='<tr><td colspan="'+cols.length+'" style="color:var(--muted);text-align:center;padding:26px">'+esc(opts.emptyText||'Nothing recorded yet')+'</td></tr>';
+  rows.forEach(r=>{ const tr=el('tr');
+    cols.forEach(c=>{ const td=el('td',{class:c.n?'n':''}); const v=c.render?c.render(r):r[c.k];
+      if(typeof v==='string'||typeof v==='number') td.innerHTML=v==null?'':String(v); else if(v) td.appendChild(v);
+      tr.appendChild(td); });
+    tb.appendChild(tr); });
+  t.appendChild(tb); w.appendChild(t); host.appendChild(w);
+}
+
+/* ================================= views ================================== */
+function rangeText(){
+  const f=rangeFrom();
+  return (f? dayLabel(dayKey(f)) : 'all time') + ' → ' + dayLabel(dayKey(Date.now()));
+}
+
+function viewOverview(root_){
+  const sess=sessionRows(), ev=filteredEvents();
+  const cycles=ev.filter(e=>e.cycleMs!=null).map(e=>e.cycleMs);
+  const active=sess.reduce((a,s)=>a+s.active,0);
+  const paused=sess.reduce((a,s)=>a+s.paused,0);
+  const units=ev.reduce((a,e)=>a+(e.units||0),0);
+
+  const k=el('div',{class:'kpis'});
+  k.appendChild(kpi('Orders packed', fmt(ev.length), rangeText()));
+  k.appendChild(kpi('Units packed', fmt(units), fmt(ev.length?units/ev.length:0,1)+' per order'));
+  k.appendChild(kpi('Active packing time', dur(active), dur(paused)+' paused'));
+  k.appendChild(kpi('Median per order', dur(median(cycles)), cycles.length+' measured cycles'));
+  k.appendChild(kpi('Orders / active hour', fmt(active? ev.length/(active/36e5):0,1), 'excludes pauses'));
+  k.appendChild(kpi('Units / active hour', fmt(active? units/(active/36e5):0,1), 'excludes pauses'));
+  root_.appendChild(k);
+
+  if(!ev.length){
+    root_.appendChild(el('div',{class:'banner',html:'No packing scans in this period yet. As soon as a packer runs '+
+      '<b>Pick &amp; Pack → Packing mode</b>, every scanned box lands here.'}));
+  }
+
+  // per-day
+  const days={}; ev.forEach(e=>{ const d=dayKey(e.at); (days[d]=days[d]||{n:0,u:0,c:[]}); days[d].n++; days[d].u+=e.units||0;
+    if(e.cycleMs!=null) days[d].c.push(e.cycleMs); });
+  const dk=Object.keys(days).sort();
+  const g=el('div',{class:'grid2'});
+  const c1=el('div');
+  chart(c1,{labels:dk.map(dayLabel), values:dk.map(d=>days[d].n), color:S(0), unit:'orders', height:240,
+    tipTitle:i=>dayLabel(dk[i])});
+  g.appendChild(card('Orders packed per day', rangeText(), c1));
+  const c2=el('div');
+  chart(c2,{labels:dk.map(dayLabel), values:dk.map(d=>median(days[d].c)||0), color:S(2), unit:'median cycle', height:240,
+    fmtAxis:v=>Math.round(v/60000)+'m', fmtTip:v=>dur(v), tipTitle:i=>dayLabel(dk[i]),
+    emptyText:'No measured cycles yet'});
+  g.appendChild(card('Median time per order, by day', 'Lower is faster — pauses are not counted', c2));
+  root_.appendChild(g);
+
+  const g2=el('div',{class:'grid2'});
+  // cycle histogram
+  const buckets=[[0,60,'< 1 min'],[60,120,'1–2'],[120,180,'2–3'],[180,300,'3–5'],[300,480,'5–8'],
+                 [480,720,'8–12'],[720,1e9,'> 12 min']];
+  const hist=buckets.map(b=>cycles.filter(c=>c/1000>=b[0] && c/1000<b[1]).length);
+  const c3=el('div');
+  chart(c3,{labels:buckets.map(b=>b[2]), values:hist, color:S(3), unit:'orders', height:230,
+    emptyText:'No measured cycles yet'});
+  g2.appendChild(card('How long an order takes', 'Spread of measured cycles — a wide spread means the mix of orders varies a lot', c3));
+  // by hour of day
+  const hrs=new Array(24).fill(0); ev.forEach(e=>hrs[new Date(e.at).getHours()]++);
+  const from=Math.max(0,hrs.findIndex(v=>v>0)), to=24-[...hrs].reverse().findIndex(v=>v>0);
+  const idx=hrs.map((_,i)=>i).slice(from, Math.max(from+1,to));
+  const c4=el('div');
+  chart(c4,{labels:idx.map(h=>pad(h)+':00'), values:idx.map(h=>hrs[h]), color:S(1), unit:'orders', height:230});
+  g2.appendChild(card('When boxes get packed', 'Orders scanned by hour of day', c4));
+  root_.appendChild(g2);
+
+  // recent scans
+  const tb=el('div');
+  table(tb, [
+    {label:'Time', render:r=>stamp(r.at)},
+    {label:'Packer', k:'packer'},
+    {label:'Label', render:r=>'<span class="mono">'+esc(r.tracking||'')+'</span>'},
+    {label:'Platform', k:'platform'},
+    {label:'Lines', n:true, render:r=>fmt(r.lines)},
+    {label:'Units', n:true, render:r=>fmt(r.units)},
+    {label:'Box', render:r=>{ const c=maxClass(r.items); return c?'<span class="chip">'+c+'</span>':'<span class="chip warn">no class</span>'; }},
+    {label:'Cycle', n:true, render:r=>r.cycleMs==null?'<span style="color:var(--faint)">not counted</span>':dur(r.cycleMs)},
+    {label:'Flags', render:r=>(r.flags||[]).map(f=>'<span class="chip warn">'+esc(f)+'</span>').join(' ')}
+  ], ev.slice().reverse().slice(0,300), {emptyText:'No scans yet'});
+  root_.appendChild(card('Every scanned box', 'Newest first · up to 300 rows', tb));
+}
+
+function viewPackers(root_){
+  const sess=sessionRows();
+  const byP={};
+  sess.forEach(s=>{ const p=byP[s.packer]=byP[s.packer]||{packer:s.packer,sessions:0,orders:0,units:0,active:0,paused:0,cycles:[]};
+    p.sessions++; p.orders+=s.orders; p.units+=s.units; p.active+=s.active; p.paused+=s.paused;
+    p.cycles=p.cycles.concat(s.cycles); });
+  const rows=Object.values(byP).map(p=>Object.assign(p,{
+    med:median(p.cycles), p90:pctl(p.cycles,0.9),
+    oph:p.active? p.orders/(p.active/36e5):null,
+    uph:p.active? p.units/(p.active/36e5):null,
+    util:(p.active+p.paused)? p.active/(p.active+p.paused)*100 : null
+  })).sort((a,b)=>b.orders-a.orders);
+
+  const tb=el('div');
+  table(tb, [
+    {label:'Packer', k:'packer'},
+    {label:'Sessions', n:true, render:r=>fmt(r.sessions)},
+    {label:'Orders', n:true, render:r=>fmt(r.orders)},
+    {label:'Units', n:true, render:r=>fmt(r.units)},
+    {label:'Active', n:true, render:r=>dur(r.active)},
+    {label:'Paused', n:true, render:r=>dur(r.paused)},
+    {label:'Active share', n:true, render:r=>r.util==null?'—':fmt(r.util)+'%'},
+    {label:'Median / order', n:true, render:r=>dur(r.med)},
+    {label:'Slowest 10%', n:true, render:r=>dur(r.p90)},
+    {label:'Orders / h', n:true, render:r=>fmt(r.oph,1)},
+    {label:'Units / h', n:true, render:r=>fmt(r.uph,1)}
+  ], rows, {emptyText:'No sessions in this period'});
+  root_.appendChild(card('Packers', rangeText()+' · active time excludes breaks and pauses', tb));
+
+  const g=el('div',{class:'grid2'});
+  const b1=el('div');
+  barList(b1, rows.map((r,i)=>({label:r.packer, value:r.uph||0, text:fmt(r.uph,1)+' u/h', color:S(i)})));
+  g.appendChild(card('Units per active hour', 'Speed, with pauses taken out', b1));
+  const b2=el('div');
+  barList(b2, rows.map((r,i)=>({label:r.packer, value:r.util||0, text:fmt(r.util)+'%',
+    note:dur(r.paused)+' paused', color:r.util>=80?cssVar('--ok'):r.util>=60?cssVar('--warn'):cssVar('--err')})));
+  g.appendChild(card('Share of the session actually packing', 'Low numbers usually mean waiting for work, not slow packing', b2));
+  root_.appendChild(g);
+
+  const st=el('div');
+  table(st, [
+    {label:'Started', render:r=>stamp(r.startedAt)},
+    {label:'Ended', render:r=>r.endedAt?stamp(r.endedAt):(r.open?'<span class="chip warn">still open</span>':'—')},
+    {label:'Packer', k:'packer'},
+    {label:'Orders', n:true, render:r=>fmt(r.orders)},
+    {label:'Units', n:true, render:r=>fmt(r.units)},
+    {label:'Session length', n:true, render:r=>dur(r.span)},
+    {label:'Active', n:true, render:r=>dur(r.active)},
+    {label:'Paused', n:true, render:r=>dur(r.paused)},
+    {label:'Median / order', n:true, render:r=>dur(r.med)}
+  ], sess, {emptyText:'No sessions in this period'});
+  root_.appendChild(card('Sessions', 'One row per Start Packing', st));
+}
+
+function viewLifecycle(root_){
+  const ev=filteredEvents();
+  const legs={queueToPick:[], picking:[], pickToPack:[], total:[]};
+  ev.forEach(e=>{
+    const a=e.addedAt, ps=e.pickStartedAt, pc=e.pickConfirmedAt, pk=e.at;
+    if(a&&ps&&ps>a) legs.queueToPick.push(ps-a);
+    if(ps&&pc&&pc>ps) legs.picking.push(pc-ps);
+    if(pc&&pk>pc)     legs.pickToPack.push(pk-pc);
+    if(a&&pk>a)       legs.total.push(pk-a);
+  });
+  const k=el('div',{class:'kpis'});
+  k.appendChild(kpi('Order → picking starts', durMin(median(legs.queueToPick)), 'median wait in the queue'));
+  k.appendChild(kpi('Picking itself', durMin(median(legs.picking)), 'scan first item → confirm'));
+  k.appendChild(kpi('Picked → packed', durMin(median(legs.pickToPack)), 'wait + packing'));
+  k.appendChild(kpi('Whole cycle', durMin(median(legs.total)), 'upload → box closed'));
+  root_.appendChild(k);
+
+  const b=el('div');
+  barList(b, [
+    {label:'Waiting to be picked', value:median(legs.queueToPick)||0, text:durMin(median(legs.queueToPick)), color:S(3)},
+    {label:'Being picked', value:median(legs.picking)||0, text:durMin(median(legs.picking)), color:S(0)},
+    {label:'Waiting to be packed + packing', value:median(legs.pickToPack)||0, text:durMin(median(legs.pickToPack)), color:S(1)}
+  ], {emptyText:'Needs orders that were uploaded, picked and packed with the new build'});
+  root_.appendChild(card('Where an order spends its time', 'Median of each leg — the queue legs belong to the process, not to a person', b));
+
+  root_.appendChild(el('div',{class:'banner',html:
+    'The leg <b>picked → packed</b> mixes waiting with real packing. The packer\'s own speed is the '+
+    '<b>cycle</b> measured in Packing mode, which starts at the previous box, not at the pick confirmation.'}));
+
+  const rows=ev.slice().reverse().slice(0,300);
+  const tb=el('div');
+  table(tb, [
+    {label:'Label', render:r=>'<span class="mono">'+esc(r.tracking||'')+'</span>'},
+    {label:'Platform', k:'platform'},
+    {label:'Uploaded', render:r=>r.addedAt?stamp(r.addedAt):'—'},
+    {label:'Pick start', render:r=>r.pickStartedAt?clock(r.pickStartedAt):'—'},
+    {label:'Pick done', render:r=>r.pickConfirmedAt?clock(r.pickConfirmedAt):'—'},
+    {label:'Packed', render:r=>clock(r.at)},
+    {label:'In queue', n:true, render:r=>(r.addedAt&&r.pickStartedAt)?durMin(r.pickStartedAt-r.addedAt):'—'},
+    {label:'Picking', n:true, render:r=>(r.pickStartedAt&&r.pickConfirmedAt)?durMin(r.pickConfirmedAt-r.pickStartedAt):'—'},
+    {label:'Pick→pack', n:true, render:r=>r.pickConfirmedAt?durMin(r.at-r.pickConfirmedAt):'—'},
+    {label:'Pack cycle', n:true, render:r=>r.cycleMs==null?'—':dur(r.cycleMs)}
+  ], rows, {emptyText:'No scans yet'});
+  root_.appendChild(card('Order by order', 'Newest first · up to 300 rows', tb));
+}
+
+function viewCalib(root_){
+  const ev=filteredEvents().filter(e=>e.cycleMs!=null && !(e.flags||[]).includes('long-cycle'));
+  const n=ev.length;
+  root_.appendChild(el('div',{class:'banner',html:
+    'This tab prepares the packing standard. Nothing here is a target yet — it is what your own data says. '+
+    'With <b>'+n+'</b> clean cycles recorded; around <b>300+</b> is where the numbers get stable enough to set a norm.'}));
+
+  if(!n){ root_.appendChild(el('div',{class:'empty',text:'No measured cycles yet.'})); return; }
+
+  // by biggest class in the order
+  const byClass={}; CLASS_ORDER.forEach(c=>byClass[c]=[]);
+  const noClass=[];
+  ev.forEach(e=>{ const c=maxClass(e.items); if(c) byClass[c].push(e.cycleMs); else noClass.push(e.cycleMs); });
+  const g=el('div',{class:'grid2'});
+  const b1=el('div');
+  barList(b1, CLASS_ORDER.map((c,i)=>({label:c+'  ('+byClass[c].length+' orders)',
+    value:median(byClass[c])||0, text:dur(median(byClass[c])), color:S(i)})).filter(r=>r.value));
+  g.appendChild(card('Median cycle by biggest item class', 'This is what the base coefficient per box size will come from', b1));
+
+  // by line count
+  const lineB=[[1,1,'1 line'],[2,2,'2'],[3,4,'3–4'],[5,99,'5+']];
+  const b2=el('div');
+  barList(b2, lineB.map((b,i)=>{ const a=ev.filter(e=>(e.lines||0)>=b[0]&&(e.lines||0)<=b[1]).map(e=>e.cycleMs);
+    return {label:b[2]+'  ('+a.length+')', value:median(a)||0, text:dur(median(a)), color:S(i)}; }).filter(r=>r.value));
+  g.appendChild(card('Median cycle by number of lines', 'The cost of each extra position in the order', b2));
+  root_.appendChild(g);
+
+  const g2=el('div',{class:'grid2'});
+  const unitB=[[1,1,'1 unit'],[2,3,'2–3'],[4,6,'4–6'],[7,12,'7–12'],[13,999,'13+']];
+  const b3=el('div');
+  barList(b3, unitB.map((b,i)=>{ const a=ev.filter(e=>(e.units||0)>=b[0]&&(e.units||0)<=b[1]).map(e=>e.cycleMs);
+    return {label:b[2]+'  ('+a.length+')', value:median(a)||0, text:dur(median(a)), color:S(i)}; }).filter(r=>r.value));
+  g2.appendChild(card('Median cycle by units in the order', 'The cost of each extra unit', b3));
+
+  const volB=[[0,2,'Mailer  (≤2)'],[2,6,'Small  (≤6)'],[6,20,'Medium  (≤20)'],[20,60,'Large  (≤60)'],[60,1e9,'XL  (>60)']];
+  const b4=el('div');
+  barList(b4, volB.map((b,i)=>{ const a=ev.filter(e=>{ const v=orderVolume(e.items); return v>b[0]&&v<=b[1]; }).map(e=>e.cycleMs);
+    return {label:b[2]+'  ('+a.length+')', value:median(a)||0, text:dur(median(a)), color:S(i)}; }).filter(r=>r.value));
+  g2.appendChild(card('Median cycle by box size (volume points)', 'Checks whether the volume model predicts better than the biggest item alone', b4));
+  root_.appendChild(g2);
+
+  // simple table of the medians we will turn into coefficients
+  const rows=CLASS_ORDER.map(c=>{
+    const single=ev.filter(e=>(e.lines===1)&&(e.units===1)&&maxClass(e.items)===c).map(e=>e.cycleMs);
+    return {cls:c, all:byClass[c].length, allMed:median(byClass[c]), single:single.length, singleMed:median(single)};
+  });
+  const tb=el('div');
+  table(tb, [
+    {label:'Class', k:'cls'},
+    {label:'Orders containing it', n:true, render:r=>fmt(r.all)},
+    {label:'Median cycle', n:true, render:r=>dur(r.allMed)},
+    {label:'Single-item orders', n:true, render:r=>fmt(r.single)},
+    {label:'Median (1 line, 1 unit)', n:true, render:r=>dur(r.singleMed)}
+  ], rows);
+  root_.appendChild(card('Base times per class', 'A single-item order is the cleanest read on the base time for that box size', tb));
+  if(noClass.length) root_.appendChild(el('div',{class:'note',
+    text:noClass.length+' cycle(s) came from orders where at least one item has no pack class — fill column L in the inventory sheet and re-sync.'}));
+}
+
+function viewQuality(root_){
+  const ev=filteredEvents();
+  // compliance: orders the picker confirmed vs orders that got a pack scan
+  const confirmed=DATA.orders.filter(o=>o.packedAt && inRange(o.packedAt) && (o.status==='packed'||o.status==='partial'));
+  const scanned=confirmed.filter(o=>o.packing && o.packing.at);
+  const rate=confirmed.length? scanned.length/confirmed.length*100 : null;
+  const flagged=ev.filter(e=>(e.flags||[]).length);
+  const miss=DATA.misscans.filter(m=>inRange(m.at)&&packerOk(m.packer));
+
+  const k=el('div',{class:'kpis'});
+  k.appendChild(kpi('Boxes scanned after packing', rate==null?'—':fmt(rate)+'%',
+    scanned.length+' of '+confirmed.length+' picked orders',
+    rate==null?'':(rate>=95?'good':rate>=80?'warn':'bad')));
+  k.appendChild(kpi('Missed scans', fmt(confirmed.length-scanned.length), 'picked but never scanned by a packer',
+    (confirmed.length-scanned.length)?'warn':'good'));
+  k.appendChild(kpi('Unknown labels', fmt(miss.length), 'scanned, matched no order', miss.length?'warn':''));
+  k.appendChild(kpi('Flagged cycles', fmt(flagged.length), 'long gaps, missing class, not picked', flagged.length?'warn':''));
+  root_.appendChild(k);
+
+  if(rate!=null && rate<95) root_.appendChild(el('div',{class:'banner',html:
+    'Until this rate is above <b>95%</b> the speed numbers are biased — the boxes nobody scanned are simply missing from them. '+
+    'Worth fixing before any target is set.'}));
+
+  const missing=confirmed.filter(o=>!(o.packing&&o.packing.at)).sort((a,b)=>(b.packedAt||0)-(a.packedAt||0));
+  const t1=el('div');
+  table(t1, [
+    {label:'Label', render:r=>'<span class="mono">'+esc(r.trackingId||'')+'</span>'},
+    {label:'Platform', k:'platform'},
+    {label:'Picked at', render:r=>stamp(r.packedAt)},
+    {label:'Picked by', k:'packedBy'},
+    {label:'Status', render:r=>'<span class="chip">'+esc(r.status||'')+'</span>'}
+  ], missing.slice(0,200), {emptyText:'Every picked order was scanned by a packer 👍'});
+  root_.appendChild(card('Picked but never scanned by a packer', missing.length+' order(s) in this period', t1));
+
+  const t2=el('div');
+  table(t2, [
+    {label:'Time', render:r=>stamp(r.at)},
+    {label:'Packer', k:'packer'},
+    {label:'Scanned code', render:r=>'<span class="mono">'+esc(r.code||'')+'</span>'}
+  ], miss.slice().reverse().slice(0,200), {emptyText:'No unknown labels'});
+  root_.appendChild(card('Labels that matched no order', 'Usually a box from another shift, or a scan of the wrong barcode', t2));
+
+  const t3=el('div');
+  table(t3, [
+    {label:'Time', render:r=>stamp(r.at)},
+    {label:'Packer', k:'packer'},
+    {label:'Label', render:r=>'<span class="mono">'+esc(r.tracking||'')+'</span>'},
+    {label:'Cycle', n:true, render:r=>r.cycleMs==null?'not counted':dur(r.cycleMs)},
+    {label:'Flags', render:r=>(r.flags||[]).map(f=>'<span class="chip warn">'+esc(f)+'</span>').join(' ')}
+  ], flagged.slice().reverse().slice(0,200), {emptyText:'No flagged cycles'});
+  root_.appendChild(card('Flagged cycles', 'gap-discarded = the packer said they stepped away · not-picked = packed before the picker confirmed · no-class = an item has no pack class', t3));
+}
+
+/* ------------------------------- render ----------------------------------- */
+function render(){
+  const host=$('#views'); host.innerHTML='';
+  PEND.length=0;
+  $('#rangePill').textContent=rangeText();
+  const r=el('div');
+  ({overview:viewOverview, packers:viewPackers, lifecycle:viewLifecycle, calib:viewCalib, quality:viewQuality}[VIEW]||viewOverview)(r);
+  host.appendChild(r);
+  requestAnimationFrame(flush);
+}
+
+function exportCSV(){
+  const ev=filteredEvents();
+  const cols=['at','packer','tracking','platform','lines','units','boxClass','volume','cycleMs','cycleSec','since',
+              'addedAt','pickStartedAt','pickConfirmedAt','orderStatus','flags','items'];
+  const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const lines=[cols.map(q).join(',')];
+  ev.forEach(e=>lines.push([
+    new Date(e.at).toISOString(), e.packer, e.tracking, e.platform, e.lines, e.units,
+    maxClass(e.items)||'', orderVolume(e.items),
+    e.cycleMs==null?'':e.cycleMs, e.cycleMs==null?'':Math.round(e.cycleMs/1000), e.since||'',
+    e.addedAt?new Date(e.addedAt).toISOString():'', e.pickStartedAt?new Date(e.pickStartedAt).toISOString():'',
+    e.pickConfirmedAt?new Date(e.pickConfirmedAt).toISOString():'', e.orderStatus||'',
+    (e.flags||[]).join(' '),
+    (e.items||[]).map(i=>i.name+(i.variation?' / '+i.variation:'')+' ×'+i.qty+' ['+(i.packClass||'?')+']').join(' | ')
+  ].map(q).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=el('a',{href:URL.createObjectURL(blob), download:'packing-kpi-'+dayKey(Date.now())+'.csv'});
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* --------------------------------- boot ----------------------------------- */
+(function boot(){
+  $$('.nav button').forEach(b=>b.addEventListener('click',()=>{
+    $$('.nav button').forEach(x=>x.setAttribute('aria-selected', x===b));
+    VIEW=b.dataset.view; render(); scrollTo({top:0});
+  }));
+  $$('#rangeSeg button').forEach(b=>b.addEventListener('click',()=>{
+    $$('#rangeSeg button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    F.days=+b.dataset.d; render();
+  }));
+  $('#packerSel').addEventListener('change',e=>{ F.packer=e.target.value; render(); });
+  $('#btnCsv').addEventListener('click', exportCSV);
+  $('#btnMenu').addEventListener('click',()=>{ if(history.length>1) history.back(); else location.href='index.html'; });
+  addEventListener('resize',()=>{ clearTimeout(boot._t); boot._t=setTimeout(render,220); });
+  connect();
+})();
+</script>
+</body>
+</html>

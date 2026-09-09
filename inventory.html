@@ -9,6 +9,8 @@
 <title>CALIPOKE STATION · INVENTORY</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -511,6 +513,9 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   .rcitem img{width:48px;height:48px}
   .rccard img{width:72px;height:72px}
 }
+
+.dbnote{font-size:12px; color:var(--ok)}
+.dbnote.warn{color:var(--warn)}
 </style>
 <style>
 /* ---------- inventory module ---------- */
@@ -682,6 +687,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div class="rcrow" style="margin-top:24px">
       <button class="btn danger" id="resetBtn">↺ Reset counts</button>
       <span class="mini" id="saveInfo"></span>
+      <span class="dbnote" id="dbNote" hidden></span>
     </div>
   </section>
 
@@ -764,7 +770,7 @@ const INVENTORY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/13vYpuca93GK
        Leave empty and paste it once in Setup, or hard-code it here. <<< */
 const COUNT_SHEET_URL = '';
 
-const BUILD = '2026-09-01 · inventory v1 · station';
+const BUILD = '2026-09-08 · inventory · shared count';
 const LS = { state:'cpsInv.state.v2', cat:'cpsInv.cat.v2', name:'cpsInv.who' };
 
 /* ================= CALIPOKE STATION integration =================
@@ -855,6 +861,100 @@ let WB = null;                    // last fetched counting workbook
 let totMode='all', totQuery='', exportZeros=false, locQuery='', locOnly=false;
 let camScanner=null, camLast={code:'',t:0};
 
+/* ============================================================
+   SHARED DATABASE
+   The count is a team job: one person loads the sheet, everyone else joins
+   the same count and takes different shelves. Counted lines are written per
+   shelf and per item, so two people never overwrite each other, and the
+   running total is the same on every screen.
+   localStorage stays as the offline mirror — if the connection drops the
+   count keeps going on this device and syncs when it comes back.
+   >>> keep firebaseConfig identical to the one in index.html <<<
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+const INV_PATH='packstation/inventoryCount';
+let invRoot=null, invCountsRef=null, invBaseRef=null;
+let DB_ON=false;
+function dbKey(s){ return String(s==null?'':s).replace(/[.#$/\[\]]/g,'_').slice(0,300)||'_'; }
+function dbNote(txt,cls){ const el=$('#dbNote'); if(!el) return;
+  el.textContent=txt||''; el.hidden=!txt; el.className='dbnote'+(cls?' '+cls:''); }
+
+function connectDB(){
+  if(typeof firebase==='undefined' || !firebase.database){ dbNote('Offline — this count stays on this device.','warn'); return; }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    invRoot=firebase.database().ref(INV_PATH);
+    invCountsRef=invRoot.child('counts');
+    invBaseRef=invRoot.child('base');
+  }catch(e){ dbNote('Offline — this count stays on this device.','warn'); return; }
+
+  /* the loaded sheet — whoever loads it shares it with everyone */
+  invBaseRef.on('value', snap=>{
+    const b=snap.val(); if(!b || !b.items) return;
+    DB_ON=true;
+    if((b.loadedAt||0) <= (ST.loadedAt||0)) return;          // ours is the newer one
+    ST.sheet=b.sheet||''; ST.tab=b.tab||''; ST.loadedAt=b.loadedAt||0;
+    ST.items=b.items||[]; ST.rows=b.rows||[]; ST.locations=b.locations||[]; ST.tabs=b.tabs||[];
+    saveLocal(); buildIdx();
+    dbNote('Counting together — sheet “'+(ST.tab||'—')+'” loaded by '+(b.by||'a teammate')+'.');
+    if(curScreen==='locs') renderLocs();
+    else if(curScreen==='loc') renderLoc();
+    else if(curScreen==='totals') renderTotals();
+    else if(curScreen==='setup' && ST.items.length){ $('#setupBack').classList.remove('hide'); show('locs'); renderLocs(); }
+  }, ()=>dbNote('Offline — this count stays on this device.','warn'));
+
+  /* Counted lines, shelf by shelf. Whatever this device already counted goes
+     up first, so joining a fresh database never throws a count away; only
+     after that does the shared copy become the single source of truth. */
+  invRoot.once('value')
+    .then(snap=>{ if(snap.exists()) return; return publishLocalCount(); })
+    .catch(()=>{})
+    .then(attachCountFeed, attachCountFeed);
+}
+function publishLocalCount(){
+  if(!ST.items.length && !Object.keys(ST.counts||{}).length) return Promise.resolve();
+  const up={};
+  for(const lk in ST.counts) for(const ik in ST.counts[lk]) up['counts/'+dbKey(lk)+'/'+dbKey(ik)]=ST.counts[lk][ik];
+  if(ST.items.length) publishBase();
+  return Object.keys(up).length ? invRoot.update(up).catch(()=>{}) : Promise.resolve();
+}
+function attachCountFeed(){
+  invCountsRef.on('value', snap=>{
+    DB_ON=true;
+    const m={};
+    snap.forEach(l=>{ const loc={}; let n=0;
+      l.forEach(i=>{ const v=i.val(); if(v){ loc[i.key]=v; n++; } });
+      if(n) m[l.key]=loc; });
+    ST.counts=m; saveLocal();
+    if(curScreen==='locs') renderLocs();
+    else if(curScreen==='loc') renderLoc();
+    else if(curScreen==='totals') renderTotals();
+    else refreshHeader();
+  }, ()=>dbNote('Offline — this count stays on this device.','warn'));
+}
+function publishBase(){
+  if(!invBaseRef) return;
+  invBaseRef.set({ sheet:ST.sheet||'', tab:ST.tab||'', loadedAt:ST.loadedAt||Date.now(),
+    items:ST.items||[], rows:ST.rows||[], locations:ST.locations||[], tabs:ST.tabs||[],
+    by:WHO||'' }).catch(()=>{ dbNote('The sheet was too large to share — teammates must load it themselves.','warn'); });
+}
+/* one counted line — the smallest thing two people can disagree about */
+function pushCell(loc, key, val){
+  if(!invCountsRef) return;
+  const ref=invCountsRef.child(dbKey(loc)+'/'+dbKey(key));
+  (val ? ref.set(val) : ref.remove()).catch(()=>{});
+}
+function pushCountsCleared(){ if(invCountsRef) invCountsRef.remove().catch(()=>{}); }
+
+function saveLocal(){ try{ localStorage.setItem(LS.state, JSON.stringify(ST)); }catch(e){} stamp(); }
 function save(){ try{ localStorage.setItem(LS.state, JSON.stringify(ST)); }catch(e){ toast('Storage is full — export your report','err',5000); } stamp(); }
 function saveCat(){ try{ localStorage.setItem(LS.cat, JSON.stringify(CAT)); }catch(e){} }
 function loadAll(){
@@ -862,7 +962,9 @@ function loadAll(){
   try{ const c=JSON.parse(localStorage.getItem(LS.cat)||'null'); if(c&&c.items) CAT=c; }catch(e){}
   WHO = localStorage.getItem(LS_STATION_NAME) || localStorage.getItem(LS.name) || '';
 }
-function stamp(){ const el=$('#saveInfo'); if(el) el.textContent = 'Saved on this device · '+ST.items.length+' items · sheet loaded '+(ST.loadedAt?new Date(ST.loadedAt).toLocaleString():'—'); }
+function stamp(){ const el=$('#saveInfo'); if(!el) return;
+  el.textContent = (DB_ON ? 'Shared with the team' : 'Saved on this device')+
+    ' · '+ST.items.length+' items · sheet loaded '+(ST.loadedAt?new Date(ST.loadedAt).toLocaleString():'—'); }
 
 /* ============================================================
    SOUND / TOAST / FLASH
@@ -1143,7 +1245,7 @@ async function loadTab(keepCounts){
       } else orphans++;
     }
   }
-  save(); buildIdx();
+  save(); buildIdx(); publishBase();
 
   const sohChanged = ST.items.filter(i=>prevSoh[i.key]!==undefined && prevSoh[i.key]!==i.soh).length;
   let info='<div class="warnbox okbox" style="margin-top:16px">'+
@@ -1251,6 +1353,7 @@ function renderLoc(){
   $$('#locItems [data-edit]').forEach(b=>b.onclick=()=>openEntry(b.dataset.edit));
   $$('#locItems [data-del]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.del; delete ST.counts[curLoc][k]; if(!Object.keys(ST.counts[curLoc]).length) delete ST.counts[curLoc];
+    pushCell(curLoc, k, null);
     save(); renderLoc(); toast('Removed','warn');
   });
   refreshHeader();
@@ -1302,9 +1405,11 @@ function openEntry(key, scannedCode){
   function saveEntry(){
     const v=readEntry();
     ST.counts[curLoc]=ST.counts[curLoc]||{};
+    let cellVal=null;
     if(!v.s&&!v.b&&!v.d&&!v.c) delete ST.counts[curLoc][key];
-    else ST.counts[curLoc][key]={...v, n:it.name, by:WHO, at:Date.now()};
+    else { cellVal={...v, n:it.name, by:WHO, at:Date.now()}; ST.counts[curLoc][key]=cellVal; }
     if(ST.counts[curLoc] && !Object.keys(ST.counts[curLoc]).length) delete ST.counts[curLoc];
+    pushCell(curLoc, key, cellVal);
     save(); closeModal(); renderLoc(); beep('ok');
     toast(it.name+' → '+lineTotal(it,v)+' units','ok',1800);
   }
@@ -1533,7 +1638,7 @@ function openReset(){
       '<div class="rcrow" style="margin-top:12px"><button class="btn ghost danger" id="rsAll">Clear everything (counts + sheet data)</button></div>'+
     '</div></div>';
   $('#rsCancel').onclick=closeModal;
-  $('#rsCounts').onclick=()=>{ ST.counts={}; save(); closeModal(); renderLocs(); toast('Counts cleared','warn'); };
+  $('#rsCounts').onclick=()=>{ ST.counts={}; pushCountsCleared(); save(); closeModal(); renderLocs(); toast('Counts cleared','warn'); };
   $('#rsAll').onclick=()=>{ const sheet=ST.sheet; ST=blankState(); ST.sheet=sheet; save(); buildIdx(); closeModal();
     $('#setupInfo').innerHTML=''; show('setup'); toast('Everything cleared','warn'); };
 }
@@ -1604,6 +1709,7 @@ function afterGate(){
   else show('setup');
 }
 loadAll();
+connectDB();
 applyStationLogo();
 setWho(WHO);
 /* the station (or another module tab) may sign in while this one is open */

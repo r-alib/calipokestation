@@ -3,58 +3,945 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>STOCK UP REPORT — CALIPOKE STATION</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>CALIPOKE STATION — Stock Up Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
+/* ============================================================
+   CALIPOKE STATION — STOCK UP REPORT
+   Same tokens as index.html.
+   ============================================================ */
 :root{
+  color-scheme: dark;
   --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
-  --border:#262D38; --line:#2C3543; --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
-  --accent:#21C063; --r:14px;
-  --disp:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --accent-d:#18742F;
+  --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --tab:#3987e5;            /* per-tab accent, set from JS */
+  --tab-soft:#15233a;
 }
-*{box-sizing:border-box} html,body{margin:0;height:100%}
-body{background:var(--bg); color:var(--ink); font-family:var(--body); display:grid; place-items:center; padding:24px}
-.box{width:min(560px,94vw); text-align:center}
-.logo{height:96px; width:auto; max-width:70vw; object-fit:contain; margin:0 auto 6px; display:block; mix-blend-mode:screen}
-.dot{width:16px;height:16px;border-radius:5px;background:var(--accent);box-shadow:0 0 14px var(--accent);display:inline-block}
-.station{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; color:var(--muted); margin:10px 0 26px}
-.icon{width:92px;height:92px;border-radius:26px;background:var(--panel); border:1px solid var(--border);
-  display:grid; place-items:center; font-size:44px; margin:0 auto 20px}
-h1{font-family:var(--disp); font-weight:700; font-size:29px; letter-spacing:.03em; margin:0 0 8px}
-.desc{color:var(--muted); font-size:15px; margin:0 0 26px}
-.tag{display:inline-block; font-family:var(--disp); font-weight:700; font-size:12px; letter-spacing:.18em;
-  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:8px 20px}
-.note{margin-top:30px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r);
-  padding:15px 18px; font-size:13px; color:var(--muted); text-align:left; line-height:1.55}
-.note b{color:var(--ink)}
-.note code{font-family:ui-monospace,Menlo,monospace; color:var(--ink); background:var(--bg); padding:1px 6px; border-radius:5px}
-.back{display:inline-block; margin-top:22px; color:var(--muted); font-size:13.5px; text-decoration:none;
-  border:1px solid var(--line); border-radius:11px; padding:11px 18px}
-.back:hover{color:var(--ink); border-color:var(--faint)}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  -webkit-font-smoothing:antialiased}
+button,input,select,textarea{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.hide{display:none !important}
+.mono{font-family:var(--mono)}
+
+/* ---------- chrome ---------- */
+.stickyhead{position:sticky;top:0;z-index:60;background:var(--bg)}
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:rgba(14,17,22,.92);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;letter-spacing:-.01em}
+.brand .dot{width:11px;height:11px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);flex:none}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase}
+.spacer{flex:1}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;
+  color:var(--ink);display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;
+  white-space:nowrap;transition:.15s}
+.iconbtn:hover{border-color:var(--faint)}
+.iconbtn.primary{background:var(--accent);border-color:var(--accent);color:#06210F}
+.iconbtn.primary:hover{filter:brightness(1.07)}
+.iconbtn:disabled{opacity:.45;cursor:not-allowed}
+.iconbtn.danger{color:var(--err);border-color:#3a2730;background:transparent}
+.iconbtn.danger:hover{background:#1f1417}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;background:var(--panel);
+  border:1px solid var(--border);border-radius:99px;font-size:12.5px;color:var(--muted)}
+.pill b{color:var(--ink);font-family:var(--mono);font-weight:700}
+
+.nav{display:flex;gap:4px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto}
+.nav button{background:none;border:0;border-bottom:2px solid transparent;padding:13px 16px;color:var(--muted);
+  font-family:var(--disp);font-size:13.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  white-space:nowrap;transition:.12s;display:inline-flex;align-items:center;gap:9px}
+.nav button:hover{color:var(--ink)}
+.nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--tabc)}
+.nav .swatch{width:9px;height:9px;border-radius:3px;background:var(--tabc)}
+.nav .cnt{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+main{max-width:1500px;margin:0 auto;padding:20px 16px 90px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:16px}
+.card > h3{font-family:var(--disp);margin:0 0 3px;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.card > .sub{margin:0 0 14px;font-size:13px;color:var(--muted)}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:10px}
+
+/* ---------- editor split ---------- */
+.split{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
+@media(max-width:1000px){.split{grid-template-columns:1fr}}
+textarea#paste{width:100%;height:240px;min-height:160px;max-height:70vh;resize:vertical;overflow:auto;background:var(--bg);border:1.5px solid var(--line);
+  border-radius:11px;padding:12px 13px;font-family:var(--mono);font-size:13.5px;line-height:1.6;outline:none;transition:.15s}
+textarea#paste:focus{border-color:var(--tab)}
+.hint{font-size:12px;color:var(--faint);margin-top:9px;line-height:1.55}
+.arow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+.gridwrap{border:1px solid var(--border);border-radius:var(--r-sm);overflow:auto;max-height:520px;background:var(--panel2)}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px}
+table.grid th,table.grid td{padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.grid thead th{position:sticky;top:0;z-index:3;background:var(--raised);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;text-align:center}
+table.grid thead th.left{text-align:left}
+table.grid tbody tr:hover{background:var(--raised)}
+table.grid tbody tr.on{background:#11211a;box-shadow:inset 2px 0 0 var(--accent)}
+table.grid tbody tr.dup td.iname{color:var(--warn)}
+td.iname{white-space:normal;min-width:180px;max-width:340px}
+td.cbx,th.cbx{width:34px;text-align:center}
+td.cbx input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
+td.del{width:34px;text-align:center}
+td.del button{background:none;border:0;color:var(--faint);font-size:16px;line-height:1;padding:2px 5px;border-radius:6px}
+td.del button:hover{color:var(--err);background:#1f1417}
+input.q{width:74px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;
+  font-family:var(--mono);font-weight:700;font-size:14px;text-align:right;outline:none;transition:.12s}
+input.q:focus{border-color:var(--tab);background:#0b0e13}
+input.q.filled{color:var(--ink)}
+input.q::placeholder{color:#3d4552;font-weight:500}
+input.q::-webkit-outer-spin-button,input.q::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input.q[type=number]{-moz-appearance:textfield}
+
+/* ---------- controls ---------- */
+.ctrls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.fgroup{display:flex;align-items:center;gap:9px}
+.flabel{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--faint);font-weight:600}
+input[type=range]{-webkit-appearance:none;appearance:none;width:230px;height:6px;border-radius:99px;
+  background:var(--raised);outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;
+  background:var(--tab);border:3px solid var(--panel);cursor:pointer;box-shadow:0 0 0 1px var(--tab)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--tab);
+  border:3px solid var(--panel);cursor:pointer}
+input.thr{width:74px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:6px 9px;
+  font-family:var(--mono);font-weight:700;font-size:15px;text-align:center;outline:none}
+input.thr:focus{border-color:var(--tab)}
+select{background:var(--bg);border:1.5px solid var(--line);border-radius:9px;padding:7px 10px;outline:none}
+select:focus{border-color:var(--tab)}
+.statchips{display:flex;gap:8px;flex-wrap:wrap}
+.statchip{font-size:12px;padding:5px 11px;border-radius:99px;background:var(--raised);border:1px solid var(--border);color:var(--muted)}
+.statchip b{font-family:var(--mono);color:var(--ink)}
+
+/* ============================================================
+   REPORT — rendered on paper so the exported PNG reads well
+   ============================================================ */
+.reportcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.rephead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rephead h3{font-family:var(--disp);margin:0;font-size:17px;font-weight:600}
+.reportcard > .paperwrap{overflow-x:auto}
+.paper{background:#FFFFFF;color:#101317;border-radius:10px;padding:16px 18px 13px;
+  display:inline-block;min-width:620px;max-width:100%;vertical-align:top}
+.paper .ptitle{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  border-bottom:2px solid var(--tab);padding-bottom:7px}
+.paper .ptitle h2{font-family:var(--disp);margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;color:#101317}
+.paper .ptitle .pmeta{font-size:11.5px;color:#5B6472;text-align:right;line-height:1.35}
+.paper .ptitle .pmeta b{color:#101317;font-weight:700}
+.paper .ptitle .pmeta i{font-style:normal;color:#8A93A0}
+table.rep{border-collapse:collapse;width:auto;max-width:100%;margin-top:10px;font-size:12px;line-height:1.25}
+table.rep th,table.rep td{border-right:1px solid #E4E9F0;padding:3px 8px}
+table.rep th:last-child,table.rep td:last-child{border-right:0}
+table.rep tbody td{border-top:1px solid #EDF1F6}
+table.rep thead tr.groups th{background:var(--tab-soft);color:var(--tab-ink);font-family:var(--disp);
+  font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;text-align:center;
+  padding:3px 8px;border-right-color:#fff}
+table.rep thead tr.groups th.blank{background:#fff;border-right-color:#fff}
+table.rep thead tr.cols th{background:var(--tab);color:#fff;font-size:9.5px;letter-spacing:.06em;
+  text-transform:uppercase;font-weight:700;text-align:center;padding:5px 8px;border-right-color:rgba(255,255,255,.28);
+  white-space:nowrap}
+table.rep thead tr.cols th.left{text-align:left}
+table.rep tbody td{background:#fff;font-variant-numeric:tabular-nums;text-align:center;white-space:nowrap;
+  font-family:var(--mono);font-weight:500;color:#242A33}
+table.rep tbody td.item{text-align:left;font-family:var(--body);font-weight:500;color:#101317;
+  white-space:normal;width:auto;min-width:150px}
+table.rep tbody tr:nth-child(even) td{background:#F6F8FB}
+table.rep tbody tr.flag td{background:#FFF5D6}
+table.rep tbody tr.flag td.item{font-weight:700}
+table.rep tbody tr.flag td.item::before{content:"\2605\00a0";color:#C58A00;font-size:10px}
+table.rep td.total{font-weight:700;background:#E9F0F9 !important;color:#101317}
+table.rep tbody tr.flag td.total{background:#FBE7B4 !important}
+table.rep td.lvl0{color:#B3261E;font-weight:700}
+table.rep td.lvl1{color:#B26A00;font-weight:700}
+table.rep td.zeroish{color:#A8B0BC}
+table.rep tfoot td{background:#E7EDF5;font-family:var(--mono);font-weight:700;color:#101317;text-align:center;
+  border-top:2px solid var(--tab);padding:4px 8px;white-space:nowrap}
+table.rep tfoot td.item{text-align:left;font-family:var(--body)}
+.paper .pfoot{margin-top:8px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  font-size:10.5px;color:#7C8593}
+.paper .pfoot .legend{display:flex;gap:11px;flex-wrap:wrap}
+.paper .pfoot .lg{display:inline-flex;align-items:center;gap:5px}
+.paper .pfoot .sw{width:9px;height:9px;border-radius:2px;border:1px solid #CFD7E2;display:inline-block}
+
+/* sync banner */
+.syncbar{display:flex;align-items:center;gap:12px;background:#2c2413;border:1px solid #473a1c;color:var(--warn);
+  border-radius:var(--r-sm);padding:10px 14px;margin-bottom:14px;font-size:13.5px;flex-wrap:wrap}
+.syncbar .spacer{flex:1}
+#syncPill{cursor:pointer}
+#syncPill .led{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+#syncPill.ok .led{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#syncPill.busy .led{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+#syncPill.err .led,#syncPill.off .led{background:var(--err)}
+.empty{text-align:center;color:var(--muted);padding:38px 20px;border:1px dashed var(--line);border-radius:var(--r)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;background:var(--panel2);
+  border:1px solid var(--border);border-radius:12px;padding:13px 18px;box-shadow:0 16px 40px -16px #000;font-size:14px}
+.toast.err{border-color:#4a2128;color:var(--err)}
+.toast.ok{border-color:#1d4530}
+@media print{.stickyhead,.editor,.rephead{display:none}.reportcard{border:0;padding:0}}
 </style>
 </head>
 <body>
-  <div class="box">
-    <img class="logo" src="https://i.postimg.cc/VkfXDqWf/images.jpg" alt="" onerror="this.style.display='none';document.getElementById('d').style.display='inline-block'">
-    <span class="dot" id="d" style="display:none"></span>
-    <div class="station">CALIPOKE STATION</div>
-    <div class="icon">📈</div>
-    <h1>STOCK UP REPORT</h1>
-    <p class="desc">Build restock reports</p>
-    <span class="tag">COMING SOON</span>
-    <div class="note">
-      <b>Placeholder.</b> Replace this file with the real module when it is ready —
-      keep the file name <code>stock-up-report.html</code> and keep it next to <code>index.html</code>,
-      and the tile in the main menu will open it with no other change.
-      The file name is set in <code>EXTERNAL_MODES</code> at the top of the index.html script.
-      <br><br><b>What the station already gives you:</b> the signed-in name is in
-      <code>localStorage.ps_name</code> (the literal <code>admin</code> means the manager),
-      the company inventory workbook is the one link in <code>INVENTORY_SHEET_URL</code>,
-      and the receiving module caches that catalog in <code>localStorage.rc_catalog_v1</code>
-      (<code>{main:[], pending:[]}</code>) plus assigned barcodes in <code>localStorage.rc_state_v1</code>.
-    </div>
-    <a class="back" href="javascript:window.close()">✕ Close this tab</a>
+
+<div class="stickyhead">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><span>CALIPOKE STATION<small>Stock Up Report</small></span></div>
+    <div class="spacer"></div>
+    <span class="pill off" id="syncPill" title="Sync status — click to rename this device"><span class="led"></span><span id="syncTxt">starting…</span></span>
+    <span class="pill" id="datePill"></span>
+    <button class="iconbtn" id="btnMenu" title="Back to the CALIPOKE STATION menu">← Menu</button>
   </div>
+  <div class="nav" id="nav" role="tablist"></div>
+</div>
+
+<main>
+  <div id="syncbarHost"></div>
+  <div class="card editor" id="editor"></div>
+  <div class="reportcard" id="reportCard"></div>
+</main>
+
+<script>
+/* ============================================================================
+   CALIPOKE STATION — STOCK UP REPORT
+   Fully offline: paste item names, type the counts, get a formatted report
+   you can save as a PNG. Everything is kept in localStorage per tab, so a
+   half-finished count survives a refresh or an accidental tab close.
+   ========================================================================== */
+
+const TABS = [
+  {
+    id: 'op', name: 'OP Japanese', accent: '#d95926', soft: '#FBE7DD', softInk: '#8A3410',
+    threshold: false,
+    fields: [
+      {k: 'lsCase',    label: 'LS Case',         group: 'Live Stream / Store'},
+      {k: 'lsLoose',   label: 'LS Loose',        group: 'Live Stream / Store'},
+      {k: 'whLoose',   label: 'WH Loose',        group: 'Arcadia WH'},
+      {k: 'whDamaged', label: 'WH Damaged',      group: 'Arcadia WH'},
+      {k: 'cannot',    label: 'Cannot Pack',     group: ''},
+      {k: 'deliver',   label: 'To be delivered', group: ''}
+    ]
+  },
+  {
+    id: 'pj', name: 'Pokemon Japanese', accent: '#3987e5', soft: '#E3EEFB', softInk: '#134079',
+    threshold: true, totalOf: ['wh', 'ls'],
+    fields: [
+      {k: 'wh',      label: 'WH QTY'},
+      {k: 'ls',      label: 'LS QTY'},
+      {k: 'cannot',  label: 'Cannot Pack'},
+      {k: 'deliver', label: 'To be delivered'}
+    ]
+  },
+  {
+    id: 'pc', name: 'Pokemon Chinese', accent: '#8b64d6', soft: '#EDE6FA', softInk: '#4B2A87',
+    threshold: true, totalOf: ['wh', 'ls'],
+    fields: [
+      {k: 'wh',      label: 'WH QTY'},
+      {k: 'ls',      label: 'LS QTY'},
+      {k: 'cannot',  label: 'Cannot Pack'},
+      {k: 'deliver', label: 'To be delivered'}
+    ]
+  }
+];
+const TAB = {}; TABS.forEach(t => TAB[t.id] = t);
+/* what "quantity" means per tab for the "hide zero" filter — stock actually on hand */
+const STOCK_KEYS = {
+  op: ['lsCase', 'lsLoose', 'whLoose', 'whDamaged'],
+  pj: ['wh', 'ls'],
+  pc: ['wh', 'ls']
+};
+const STORE_KEY = 'cps-stockup-v1';
+
+/* ------------------------------- helpers ---------------------------------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[, ]/g, '')); return isFinite(n) ? n : 0; };
+const fmtN = n => Number(n || 0).toLocaleString('en-US');
+function todayLong() {
+  return new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'});
+}
+function todayFile() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+let toastT = null;
+function toast(msg, kind) {
+  const old = $('.toast'); if (old) old.remove();
+  const n = document.createElement('div');
+  n.className = 'toast' + (kind ? ' ' + kind : '');
+  n.textContent = msg;
+  document.body.appendChild(n);
+  clearTimeout(toastT); toastT = setTimeout(() => n.remove(), 2600);
+}
+
+/* -------------------------------- state ----------------------------------- */
+/* ST[tabId] = {text, items:[{name, checked, v:{field:value}}], threshold, sort} */
+let ST = {};
+let CUR = 'op';
+
+const SORTS = {
+  'name-asc'  : {label: 'Item name  A → Z',        by: 'name',  dir:  1},
+  'name-desc' : {label: 'Item name  Z → A',        by: 'name',  dir: -1},
+  'total-asc' : {label: 'Total QTY  low → high',   by: 'total', dir:  1},
+  'total-desc': {label: 'Total QTY  high → low',   by: 'total', dir: -1}
+};
+function blankTab(t) {
+  return {text: '', items: [], threshold: 30, sort: 'name-asc', hideZero: false};
+}
+function normTabState(s) {
+  s = s || {};
+  return {
+    text: typeof s.text === 'string' ? s.text : '',
+    items: Array.isArray(s.items) ? s.items.map(i => ({
+      name: String((i && i.name) || ''), checked: !!(i && i.checked),
+      v: (i && i.v && typeof i.v === 'object') ? i.v : {}
+    })).filter(i => i.name) : [],
+    threshold: isFinite(+s.threshold) ? +s.threshold : 30,
+    sort: SORTS[s.sort] ? s.sort : (s.sort === 'total' ? 'total-asc' : 'name-asc'),
+    hideZero: !!s.hideZero
+  };
+}
+function hasAnyData() { return TABS.some(t => ST[t.id].items.length || ST[t.id].text.trim()); }
+
+function loadState() {
+  ST = {}; TABS.forEach(t => ST[t.id] = blankTab(t));
+  let raw = null;
+  try { raw = localStorage.getItem(STORE_KEY); } catch (e) {}
+  if (!raw) return;
+  try {
+    const j = JSON.parse(raw);
+    TABS.forEach(t => { if (j[t.id]) ST[t.id] = normTabState(j[t.id]); });
+    if (j.__cur && TAB[j.__cur]) CUR = j.__cur;
+    LOCAL_AT = +j.__at || 0;
+  } catch (e) {}
+}
+function writeLocal() {
+  const o = {__cur: CUR, __at: LOCAL_AT};
+  TABS.forEach(t => o[t.id] = ST[t.id]);
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(o)); } catch (e) {}
+}
+/* every user edit funnels through here: save locally now, push to the cloud shortly after */
+function saveState() {
+  LOCAL_AT = Date.now();
+  lastEditAt = LOCAL_AT;
+  writeLocal();
+  schedulePush();
+}
+
+/* ============================================================================
+   CLOUD SYNC — same Firebase project as the station, under packstation/stockup
+   Last write wins. If someone else saves while you are typing, the change is
+   held back and offered in a banner instead of overwriting your keystrokes.
+   ========================================================================== */
+const FB_CFG = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+const FB_PATH = 'packstation/stockup/v1';
+
+let LOCAL_AT = 0, lastEditAt = 0;
+let fbRef = null, firstSnap = true, pendingRemote = null;
+let pushTimer = null, lastPushedKey = '';
+
+const CLIENT_ID = (function () {
+  let v = null;
+  try { v = localStorage.getItem('cps-stockup-client'); } catch (e) {}
+  if (!v) {
+    v = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+    try { localStorage.setItem('cps-stockup-client', v); } catch (e) {}
+  }
+  return v;
+})();
+let DEVICE = (function () {
+  let v = null;
+  try { v = localStorage.getItem('cps-stockup-device'); } catch (e) {}
+  return v || ('Device ' + CLIENT_ID.slice(0, 4).toUpperCase());
+})();
+
+const hhmm = t => {
+  const d = new Date(t || Date.now()), n = new Date();
+  const time = d.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
+  const sameDay = d.toDateString() === n.toDateString();
+  return sameDay ? time : d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'}) + ' ' + time;
+};
+function setSync(kind, txt) {
+  const p = $('#syncPill'); if (!p) return;
+  p.className = 'pill ' + (kind || '');
+  $('#syncTxt').textContent = txt;
+  p.title = DEVICE + ' — click to rename this device';
+}
+
+function payload() {
+  const o = {client: CLIENT_ID, by: DEVICE, at: Date.now()};
+  TABS.forEach(t => o[t.id] = {
+    text: ST[t.id].text, threshold: ST[t.id].threshold, sort: ST[t.id].sort, hideZero: !!ST[t.id].hideZero,
+    items: ST[t.id].items.map(i => ({name: i.name, checked: !!i.checked, v: i.v || {}}))
+  });
+  return o;
+}
+const bodyKey = o => JSON.stringify(TABS.map(t => o[t.id] || null));
+
+function pushNow() {
+  if (!fbRef) return;
+  const p = payload();
+  lastPushedKey = bodyKey(p);
+  setSync('busy', 'saving…');
+  fbRef.set(p)
+    .then(() => setSync('ok', 'saved ' + hhmm(p.at)))
+    .catch(e => setSync('err', 'not saved: ' + e.message));
+}
+function schedulePush() {
+  if (!fbRef) { setSync('off', 'this browser only'); return; }
+  clearTimeout(pushTimer);
+  setSync('busy', 'saving…');
+  pushTimer = setTimeout(() => {
+    const p = payload();
+    if (bodyKey(p) === lastPushedKey) { setSync('ok', 'saved ' + hhmm(LOCAL_AT)); return; }
+    pushNow();
+  }, 900);
+}
+
+function editorFocused() {
+  const a = document.activeElement, ed = $('#editor');
+  return !!(a && ed && ed.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName));
+}
+const canApplyNow = () => (Date.now() - lastEditAt > 4000) && !editorFocused();
+
+function applyRemote(v) {
+  TABS.forEach(t => { ST[t.id] = normTabState(v[t.id]); reconcile(t.id); });
+  LOCAL_AT = +v.at || Date.now();
+  lastPushedKey = bodyKey(v);
+  writeLocal();
+  hideSyncBar();
+  renderAll();
+}
+function onRemote(v) {
+  if (!v || typeof v !== 'object') {
+    if (firstSnap) { firstSnap = false; if (hasAnyData()) pushNow(); else setSync('ok', 'synced'); }
+    return;
+  }
+  if (v.client === CLIENT_ID) {
+    lastPushedKey = bodyKey(v); LOCAL_AT = +v.at || LOCAL_AT;
+    setSync('ok', 'saved ' + hhmm(v.at)); firstSnap = false; return;
+  }
+  if (bodyKey(v) === bodyKey(payload())) {        // nothing actually differs — nothing to do
+    lastPushedKey = bodyKey(v); firstSnap = false;
+    setSync('ok', 'in sync · ' + hhmm(v.at)); return;
+  }
+  if (firstSnap) {
+    firstSnap = false;
+    if (!hasAnyData() || (+v.at || 0) >= LOCAL_AT) { applyRemote(v); setSync('ok', 'loaded · ' + esc(v.by || 'cloud')); }
+    else pushNow();
+    return;
+  }
+  if (canApplyNow()) { applyRemote(v); setSync('ok', 'updated by ' + esc(v.by || 'another device')); }
+  else { pendingRemote = v; showSyncBar(v); setSync('busy', 'update waiting'); }
+}
+function showSyncBar(v) {
+  const host = $('#syncbarHost');
+  host.innerHTML = '<div class="syncbar">' +
+    '<span>✱ <b>' + esc(v.by || 'Another device') + '</b> saved a newer version at ' + hhmm(v.at) +
+    '. Loading it will replace what is on this screen.</span>' +
+    '<span class="spacer"></span>' +
+    '<button class="iconbtn" id="sbLoad">↧ Load theirs</button>' +
+    '<button class="iconbtn" id="sbKeep">↥ Keep mine</button></div>';
+  $('#sbLoad').addEventListener('click', () => { if (pendingRemote) applyRemote(pendingRemote); pendingRemote = null; });
+  $('#sbKeep').addEventListener('click', () => { pendingRemote = null; hideSyncBar(); pushNow(); });
+}
+function hideSyncBar() { const h = $('#syncbarHost'); if (h) h.innerHTML = ''; }
+
+function initCloud() {
+  if (typeof firebase === 'undefined' || !firebase.initializeApp) {
+    setSync('off', 'offline · this browser only'); return;
+  }
+  try {
+    const app = (firebase.apps && firebase.apps.length) ? firebase.app() : firebase.initializeApp(FB_CFG);
+    const db = firebase.database(app);
+    fbRef = db.ref(FB_PATH);
+    setSync('busy', 'connecting…');
+    fbRef.on('value', snap => onRemote(snap.val()),
+                err => { fbRef = null; setSync('err', 'sync off: ' + err.message); });
+    db.ref('.info/connected').on('value', s => {
+      if (!s.val()) setSync('off', 'reconnecting…');
+    });
+  } catch (e) {
+    fbRef = null; setSync('err', 'sync off: ' + e.message);
+  }
+}
+
+/* --------------------------- item list from text -------------------------- */
+/* Names are pasted one per line. A line may also carry counts separated by
+   tabs / semicolons / multiple spaces (handy when copying out of a sheet):
+      black bolt <TAB> 12 <TAB> 4
+   fills the tab's numeric fields left to right.                              */
+function syncItemsFromText(tabId) {
+  const t = TAB[tabId], st = ST[tabId];
+  const prev = new Map();
+  st.items.forEach(i => { if (!prev.has(norm(i.name))) prev.set(norm(i.name), i); });
+
+  const seen = new Map();
+  const out = [];
+  st.text.split(/\r?\n/).forEach(rawLine => {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) return;
+    let parts = line.split(/\t|;/).map(x => x.trim());
+    let name = (parts[0] || '').trim();
+    // strip a list bullet, but never a number that is part of the name ("151 box")
+    name = name.replace(/^\s*(?:[-–—•*·]+|\d{1,3}[.)])\s+/, '').trim();
+    if (!name) return;
+    const key = norm(name);
+    const old = prev.get(key);
+    const item = {name, checked: old ? old.checked : false, v: old ? Object.assign({}, old.v) : {}};
+    if (parts.length > 1) {
+      t.fields.forEach((f, i) => {
+        const raw = parts[i + 1];
+        if (raw != null && raw !== '' && /^-?[\d., ]+$/.test(raw)) item.v[f.k] = String(num(raw));
+      });
+    }
+    if (seen.has(key)) { item.dup = true; }
+    seen.set(key, true);
+    out.push(item);
+  });
+  st.items = out;
+}
+function textFromItems(tabId) {
+  ST[tabId].text = ST[tabId].items.map(i => i.name).join('\n');
+}
+/* Keep the right-hand list in step with the pasted list on the left:
+   new lines appear as fresh rows, removed lines drop out, and every row that
+   is still in the list keeps the counts it already had. */
+function reconcile(tabId) {
+  const st = ST[tabId];
+  if (!st.text.trim() && st.items.length) { textFromItems(tabId); return; }  // self-heal
+  syncItemsFromText(tabId);
+}
+function totalOf(tabId, item) {
+  const t = TAB[tabId];
+  if (!t.totalOf) return null;
+  return t.totalOf.reduce((a, k) => a + num(item.v[k]), 0);
+}
+/* units actually on hand — WH + LS for Pokemon, the four stock columns for OP */
+function stockOf(tabId, item) {
+  return (STOCK_KEYS[tabId] || []).reduce((a, k) => a + num(item.v[k]), 0);
+}
+
+/* ============================================================================
+   NAV
+   ========================================================================== */
+function renderNav() {
+  const nav = $('#nav');
+  nav.innerHTML = TABS.map(t =>
+    '<button role="tab" data-tab="' + t.id + '" aria-selected="' + (t.id === CUR) + '" ' +
+      'style="--tabc:' + t.accent + '">' +
+      '<span class="swatch"></span>' + esc(t.name) +
+      '<span class="cnt" id="cnt_' + t.id + '"></span></button>').join('');
+  $$('#nav button').forEach(b => b.addEventListener('click', () => {
+    CUR = b.dataset.tab; saveState(); renderAll();
+  }));
+  TABS.forEach(t => {
+    const n = ST[t.id].items.length;
+    const c = $('#cnt_' + t.id); if (c) c.textContent = n ? n : '';
+  });
+}
+
+/* ============================================================================
+   EDITOR
+   ========================================================================== */
+function renderEditor() {
+  const t = TAB[CUR], st = ST[CUR];
+  document.documentElement.style.setProperty('--tab', t.accent);
+  document.documentElement.style.setProperty('--tab-soft', t.soft);
+  document.documentElement.style.setProperty('--tab-ink', t.softInk);
+
+  const host = $('#editor');
+  host.innerHTML =
+    '<h3>' + esc(t.name) + ' — enter the count</h3>' +
+    '<p class="sub">Paste the item names on the left, one per line. Fill the counts on the right. ' +
+      'Everything is saved in this browser automatically.</p>' +
+    '<div class="split">' +
+      '<div>' +
+        '<div class="eyebrow">Item names</div>' +
+        '<textarea id="paste" spellcheck="false" placeholder="black bolt&#10;white flare&#10;terastal festival&#10;…"></textarea>' +
+        '<div class="arow">' +
+          '<button class="iconbtn" id="btnSortNames">↕ Sort A→Z</button>' +
+          '<button class="iconbtn" id="btnDedupe">⧉ Remove duplicates</button>' +
+          '<button class="iconbtn danger" id="btnClearAll">🧹 Clear tab</button>' +
+        '</div>' +
+        '<p class="hint">You can also paste straight from a spreadsheet — a line like ' +
+          '<span class="mono">name ⇥ 12 ⇥ 4</span> fills the count columns left to right.<br>' +
+          'Tick the checkbox to ' + (t.threshold
+            ? 'keep an item in the report even when it is above the threshold.'
+            : 'highlight the row in the report.') + '</p>' +
+      '</div>' +
+      '<div>' +
+        '<div class="eyebrow">Counts <span style="color:var(--faint);text-transform:none;letter-spacing:0">' +
+          '· ↑ ↓ move between rows, Enter jumps down</span></div>' +
+        '<div class="gridwrap" id="gridwrap"></div>' +
+        '<div class="ctrls" id="ctrls"></div>' +
+      '</div>' +
+    '</div>';
+
+  const ta = $('#paste');
+  ta.value = st.text;
+  const autosize = () => {
+    const lines = (ta.value.match(/\n/g) || []).length + 2;
+    ta.style.height = Math.min(Math.max(160, lines * 22 + 26), Math.round(innerHeight * 0.7)) + 'px';
+  };
+  autosize();
+  let tmr = null;
+  ta.addEventListener('input', () => {
+    autosize();
+    st.text = ta.value;
+    clearTimeout(tmr);
+    tmr = setTimeout(() => { syncItemsFromText(CUR); saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav(); }, 220);
+  });
+  $('#btnSortNames').addEventListener('click', () => {
+    st.items.sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
+    textFromItems(CUR); ta.value = st.text; saveState(); renderGrid(); renderReport();
+  });
+  $('#btnDedupe').addEventListener('click', () => {
+    const seen = new Set(), out = [];
+    st.items.forEach(i => { const k = norm(i.name); if (seen.has(k)) return; seen.add(k); i.dup = false; out.push(i); });
+    const removed = st.items.length - out.length;
+    st.items = out; textFromItems(CUR); ta.value = st.text; saveState();
+    renderGrid(); renderCtrls(); renderReport(); renderNav();
+    toast(removed ? removed + ' duplicate row(s) removed' : 'No duplicates found', 'ok');
+  });
+  $('#btnClearAll').addEventListener('click', () => {
+    if (!st.items.length && !st.text) return;
+    if (!confirm('Clear every item and count on the ' + t.name + ' tab?')) return;
+    ST[CUR] = blankTab(t); saveState(); renderAll();
+  });
+
+  renderGrid(); renderCtrls();
+}
+
+function renderGrid() {
+  const t = TAB[CUR], st = ST[CUR], host = $('#gridwrap');
+  if (!st.items.length) {
+    host.innerHTML = '<div class="empty">Paste item names on the left and they show up here.</div>';
+    return;
+  }
+  let head = '<tr><th class="cbx" title="Include / highlight">✓</th><th class="left">Item</th>' +
+    t.fields.map(f => '<th>' + esc(f.label) + '</th>').join('') +
+    (t.totalOf ? '<th>Total</th>' : '') + '<th></th></tr>';
+  let body = st.items.map((it, r) => {
+    const tot = totalOf(CUR, it);
+    return '<tr class="' + (it.checked ? 'on' : '') + (it.dup ? ' dup' : '') + '" data-row="' + r + '">' +
+      '<td class="cbx"><input type="checkbox" data-chk="' + r + '"' + (it.checked ? ' checked' : '') + '></td>' +
+      '<td class="iname" title="' + esc(it.name) + (it.dup ? ' — duplicate line' : '') + '">' + esc(it.name) + '</td>' +
+      t.fields.map((f, c) => '<td><input class="q' + (it.v[f.k] !== undefined && it.v[f.k] !== '' ? ' filled' : '') +
+        '" type="number" inputmode="numeric" placeholder="0" data-r="' + r + '" data-c="' + c + '" data-k="' + f.k +
+        '" value="' + esc(it.v[f.k] == null ? '' : it.v[f.k]) + '"></td>').join('') +
+      (t.totalOf ? '<td class="mono" style="text-align:right;font-weight:700">' + fmtN(tot) + '</td>' : '') +
+      '<td class="del"><button data-del="' + r + '" title="Remove row">×</button></td>' +
+    '</tr>';
+  }).join('');
+  host.innerHTML = '<table class="grid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+
+  $$('input.q', host).forEach(inp => {
+    inp.addEventListener('input', () => {
+      const it = st.items[+inp.dataset.r]; if (!it) return;
+      it.v[inp.dataset.k] = inp.value;
+      inp.classList.toggle('filled', inp.value !== '');
+      if (t.totalOf) {
+        const tr = inp.closest('tr'), cell = tr.children[2 + t.fields.length];
+        if (cell) cell.textContent = fmtN(totalOf(CUR, it));
+      }
+      saveState(); scheduleReport();
+    });
+    inp.addEventListener('keydown', e => {
+      const r = +inp.dataset.r, c = +inp.dataset.c;
+      let nr = null;
+      if (e.key === 'ArrowDown' || e.key === 'Enter') nr = r + 1;
+      else if (e.key === 'ArrowUp') nr = r - 1;
+      if (nr == null) return;
+      const next = $('input.q[data-r="' + nr + '"][data-c="' + c + '"]', host);
+      if (next) { next.focus(); next.select(); e.preventDefault(); }
+    });
+    inp.addEventListener('focus', () => inp.select());
+  });
+  $$('input[data-chk]', host).forEach(cb => cb.addEventListener('change', () => {
+    const it = st.items[+cb.dataset.chk]; if (!it) return;
+    it.checked = cb.checked;
+    cb.closest('tr').classList.toggle('on', cb.checked);
+    saveState(); renderReport();
+  }));
+  $$('button[data-del]', host).forEach(b => b.addEventListener('click', () => {
+    st.items.splice(+b.dataset.del, 1);
+    textFromItems(CUR); const ta = $('#paste'); if (ta) ta.value = st.text;
+    saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav();
+  }));
+}
+
+function renderCtrls() {
+  const t = TAB[CUR], st = ST[CUR], host = $('#ctrls');
+  const rows = reportRows(CUR);
+  let html = '';
+  if (t.threshold) {
+    html +=
+      '<div class="fgroup"><span class="flabel">Show Total QTY ≤</span>' +
+        '<input type="range" id="thrRange" min="0" max="200" step="1" value="' + st.threshold + '">' +
+        '<input type="number" class="thr" id="thrNum" min="0" value="' + st.threshold + '"></div>' +
+      '<div class="fgroup"><span class="flabel">Sort by</span>' +
+        '<select id="sortSel">' +
+          Object.keys(SORTS).map(k => '<option value="' + k + '"' +
+            (st.sort === k ? ' selected' : '') + '>' + esc(SORTS[k].label) + '</option>').join('') +
+        '</select></div>';
+  }
+  html += '<label class="chk" title="' +
+    (t.totalOf ? 'Leaves out items with WH QTY + LS QTY = 0'
+               : 'Leaves out items with nothing on hand (LS Case + LS Loose + WH Loose + WH Damaged = 0)') +
+    '"><input type="checkbox" id="cbZero"' + (st.hideZero ? ' checked' : '') + '> Hide zero-qty items</label>';
+  html += '<div class="spacer" style="flex:1"></div><div class="statchips">' +
+    '<span class="statchip">Items <b>' + st.items.length + '</b></span>' +
+    '<span class="statchip">In report <b>' + rows.length + '</b></span>' +
+    (st.items.some(i => i.checked) ? '<span class="statchip">Ticked <b>' + st.items.filter(i => i.checked).length + '</b></span>' : '') +
+    '</div>';
+  host.innerHTML = html;
+
+  $('#cbZero').addEventListener('change', e => {
+    st.hideZero = e.target.checked; saveState(); renderReport(); refreshChips();
+  });
+  if (t.threshold) {
+    const rng = $('#thrRange'), nm = $('#thrNum');
+    const set = v => {
+      v = Math.max(0, Math.round(num(v)));
+      st.threshold = v; rng.value = Math.min(v, +rng.max); nm.value = v;
+      saveState(); renderReport(); refreshChips();
+    };
+    rng.addEventListener('input', () => set(rng.value));
+    nm.addEventListener('input', () => set(nm.value));
+    $('#sortSel').addEventListener('change', e => { st.sort = e.target.value; saveState(); renderReport(); });
+  }
+}
+function refreshChips() {
+  const st = ST[CUR], rows = reportRows(CUR);
+  const chips = $$('#ctrls .statchip b');
+  if (chips[1]) chips[1].textContent = rows.length;
+}
+
+/* ============================================================================
+   REPORT
+   ========================================================================== */
+function reportRows(tabId) {
+  const t = TAB[tabId], st = ST[tabId];
+  let rows = st.items.filter(i => i.name);
+  if (t.threshold) rows = rows.filter(i => i.checked || totalOf(tabId, i) <= st.threshold);
+  /* a ticked item is always kept — the operator asked for it on purpose */
+  if (st.hideZero) rows = rows.filter(i => i.checked || stockOf(tabId, i) !== 0);
+  if (t.threshold) {
+    const rule = SORTS[st.sort] || SORTS['name-asc'];
+    const byName = (a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'});
+    rows = rows.slice().sort((a, b) => rule.by === 'total'
+      ? (((totalOf(tabId, a) - totalOf(tabId, b)) * rule.dir) || byName(a, b))
+      : byName(a, b) * rule.dir);
+  }
+  return rows;
+}
+let repT = null;
+function scheduleReport() { clearTimeout(repT); repT = setTimeout(() => { renderReport(); refreshChips(); }, 200); }
+
+function levelClass(tabId, v) {
+  const t = TAB[tabId]; if (!t.threshold) return '';
+  const thr = ST[tabId].threshold || 0;
+  if (v <= 0) return 'lvl0';
+  if (thr > 0 && v <= Math.max(1, Math.round(thr / 3))) return 'lvl1';
+  return '';
+}
+
+function renderReport() {
+  const t = TAB[CUR], st = ST[CUR], rows = reportRows(CUR);
+  const host = $('#reportCard');
+
+  const head =
+    '<div class="rephead">' +
+      '<h3>Report</h3>' +
+      '<span class="pill">' + rows.length + ' of ' + st.items.length + ' items</span>' +
+      '<div class="spacer" style="flex:1"></div>' +
+      '<button class="iconbtn" id="btnCsv">⤓ CSV</button>' +
+      '<button class="iconbtn" id="btnCopy">⧉ Copy table</button>' +
+      '<button class="iconbtn primary" id="btnPng">🖼 Save as image</button>' +
+    '</div>';
+
+  if (!rows.length) {
+    host.innerHTML = head + '<div class="empty">' +
+      (st.items.length ? 'No item is at or below the threshold. Raise the slider or tick the items you want in the report.'
+                       : 'Nothing to report yet — paste some item names above.') + '</div>';
+    wireReportButtons(false);
+    return;
+  }
+
+  const cols = reportColumns(t);
+  const hasGroups = cols.some(c => c.group);
+  let thead = '';
+  if (hasGroups) {
+    thead += '<tr class="groups">';
+    let i = 0;
+    while (i < cols.length) {
+      const g = cols[i].group || '';
+      let span = 1;
+      while (i + span < cols.length && (cols[i + span].group || '') === g && g) span++;
+      thead += '<th class="' + (g ? '' : 'blank') + '" colspan="' + span + '">' + esc(g) + '</th>';
+      i += span;
+    }
+    thead += '</tr>';
+  }
+  thead += '<tr class="cols">' + cols.map(c =>
+    '<th class="' + (c.item ? 'left' : '') + '">' + esc(c.label) + '</th>').join('') + '</tr>';
+
+  const body = rows.map(it => {
+    const tds = cols.map(c => {
+      if (c.item) return '<td class="item">' + esc(it.name) + '</td>';
+      const v = c.total ? totalOf(CUR, it) : num(it.v[c.k]);
+      let cls = c.total ? 'total ' + levelClass(CUR, v) : '';
+      if (!c.total) {
+        if (!v) cls = 'zeroish';
+        else if (c.k === 'cannot' || c.k === 'whDamaged') cls = 'lvl1';
+      }
+      cls = cls.trim();
+      return '<td class="' + cls + '">' + fmtN(v) + '</td>';
+    }).join('');
+    return '<tr class="' + (it.checked ? 'flag' : '') + '">' + tds + '</tr>';
+  }).join('');
+
+  const legend = '<div class="legend">' +
+    (rows.some(r => r.checked) ? '<span class="lg"><i class="sw" style="background:#FFF6DC"></i> flagged item</span>' : '') +
+    (t.threshold ? '<span class="lg"><i class="sw" style="background:#EEF3FA"></i> total qty</span>' +
+      '<span class="lg" style="color:#B3261E">■ out of stock</span>' +
+      '<span class="lg" style="color:#B26A00">■ critical</span>' : '') +
+    '</div>';
+
+  host.innerHTML = head +
+    '<div class="paperwrap"><div class="paper" id="paper">' +
+      '<div class="ptitle">' +
+        '<h2>' + esc(t.name) + '</h2>' +
+        '<div class="pmeta"><b>Stock Up Report</b><br>Date: ' + esc(todayLong()) +
+          (t.threshold ? '<br>Threshold: Total QTY ≤ ' + st.threshold : '') + '</div>' +
+      '</div>' +
+      '<table class="rep"><thead>' + thead + '</thead><tbody>' + body + '</tbody></table>' +
+      '<div class="pfoot">' + legend +
+        '<span>CALIPOKE STATION · ' + esc(t.name) + ' · ' + rows.length + ' item(s)</span>' +
+      '</div>' +
+    '</div></div>';
+  wireReportButtons(true);
+}
+
+function reportColumns(t) {
+  const cols = [{item: true, label: 'ITEM', group: ''}];
+  if (t.totalOf) {
+    t.fields.forEach(f => {
+      cols.push({k: f.k, label: f.label, group: ''});
+      if (f.k === t.totalOf[t.totalOf.length - 1]) cols.push({total: true, label: 'Total QTY', group: ''});
+    });
+  } else {
+    t.fields.forEach(f => cols.push({k: f.k, label: f.label, group: f.group || ''}));
+  }
+  return cols;
+}
+
+function tableMatrix() {
+  const t = TAB[CUR], rows = reportRows(CUR), cols = reportColumns(t);
+  const out = [cols.map(c => c.item ? 'ITEM' : c.label)];
+  rows.forEach(it => out.push(cols.map(c => c.item ? it.name : String(c.total ? totalOf(CUR, it) : num(it.v[c.k])))));
+  return out;
+}
+
+function wireReportButtons(enabled) {
+  const png = $('#btnPng'), csv = $('#btnCsv'), cp = $('#btnCopy');
+  if (!png) return;
+  [png, csv, cp].forEach(b => { if (b) b.disabled = !enabled; });
+  if (!enabled) return;
+
+  csv.addEventListener('click', () => {
+    const q = s => '"' + String(s).replace(/"/g, '""') + '"';
+    const body = tableMatrix().map(r => r.map(q).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + body], {type: 'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stock-up-' + CUR + '-' + todayFile() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  cp.addEventListener('click', async () => {
+    const text = tableMatrix().map(r => r.join('\t')).join('\n');
+    try { await navigator.clipboard.writeText(text); toast('Table copied — paste it into a sheet', 'ok'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Table copied', 'ok'); }
+      catch (e2) { toast('Could not copy — use the CSV button', 'err'); }
+      ta.remove();
+    }
+  });
+
+  png.addEventListener('click', async () => {
+    const paper = $('#paper');
+    if (!paper) return;
+    if (typeof html2canvas !== 'function') {
+      toast('Image library did not load — check the connection, or use CSV', 'err');
+      return;
+    }
+    const label = png.textContent;
+    png.textContent = '… rendering';
+    png.disabled = true;
+    try {
+      const canvas = await html2canvas(paper, {backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false});
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'stock-up-' + CUR + '-' + todayFile() + '.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('Image saved', 'ok');
+    } catch (e) {
+      toast('Could not render the image: ' + e.message, 'err');
+    }
+    png.textContent = label; png.disabled = false;
+  });
+}
+
+/* ============================================================================
+   BOOT
+   ========================================================================== */
+function renderAll() { renderNav(); renderEditor(); renderReport(); }
+
+(function boot() {
+  loadState();
+  TABS.forEach(t => reconcile(t.id));
+  $('#datePill').innerHTML = 'Date: <b>' + esc(todayLong()) + '</b>';
+  $('#btnMenu').addEventListener('click', () => {
+    if (history.length > 1) history.back(); else { window.close(); location.href = 'index.html'; }
+  });
+  $('#syncPill').addEventListener('click', () => {
+    const v = prompt('Name this device — it is shown to the others when you save.', DEVICE);
+    if (v == null) return;
+    DEVICE = v.trim().slice(0, 40) || DEVICE;
+    try { localStorage.setItem('cps-stockup-device', DEVICE); } catch (e) {}
+    setSync('ok', 'saved as ' + DEVICE);
+  });
+  setSync('off', 'starting…');
+  renderAll();
+  initCloud();
+  addEventListener('beforeunload', writeLocal);
+})();
+</script>
 </body>
 </html>

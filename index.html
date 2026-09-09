@@ -513,6 +513,86 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   .rcitem img{width:48px;height:48px}
   .rccard img{width:72px;height:72px}
 }
+
+.rcalready{margin:10px 0 2px; padding:9px 12px; border-radius:10px; border:1px solid var(--warn);
+  background:rgba(214,158,46,.10); color:var(--fg); font-size:13px}
+.rcalready b{color:var(--warn)}
+/* ---------- shifts, pack log, report tools ---------- */
+.pill.click{cursor:pointer; border:1px solid var(--line); background:var(--card)}
+.pill.click:hover{border-color:var(--accent)}
+.caret{opacity:.55; font-size:10px; margin-left:2px}
+.shiftlist{display:flex; flex-direction:column; gap:8px; max-height:56vh; overflow:auto}
+.shiftrow{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--card); cursor:pointer}
+.shiftrow:hover{border-color:var(--accent)}
+.shiftrow.cur{border-color:var(--ok); background:rgba(46,160,90,.08)}
+.shiftrow .snm{font-weight:700; font-size:15px}
+.shiftrow .smeta{font-size:12px; color:var(--faint)}
+.shiftrow .sdel{margin-left:auto}
+.shiftbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
+.shiftchip{display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:999px; border:1px solid var(--line);
+  background:var(--card); cursor:pointer; font-size:13px; font-weight:650; color:var(--fg)}
+.shiftchip:hover{border-color:var(--accent)}
+.shiftchip.on{border-color:var(--ok); background:rgba(46,160,90,.12)}
+.shiftchip .x{opacity:.5; font-size:12px}
+.shiftchip .x:hover{opacity:1; color:var(--err)}
+.shiftchip .n{font-size:11px; color:var(--faint); font-weight:600}
+.toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:14px; border:1px solid var(--line);
+  border-radius:14px; background:var(--card); margin-bottom:16px}
+.toolbar .fld{display:flex; flex-direction:column; gap:5px}
+.toolbar .fld label{font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); font-weight:700}
+.toolbar select,.toolbar input{padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg);
+  color:var(--fg); font:inherit; font-size:13px; min-width:150px}
+.toolbar .full{flex-basis:100%}
+th[data-rsort],th[data-psort]{cursor:pointer; user-select:none; white-space:nowrap}
+th[data-rsort]:hover,th[data-psort]:hover{color:var(--accent)}
+th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
+.filterinfo{font-size:12.5px; color:var(--faint); margin:-8px 0 14px}
+@media print{ .toolbar,.shiftbar,#shiftModal{display:none !important} }
+
+/* ============================================================
+   PACKING MODE — packer's own screen (phone-first, hands-free)
+   ============================================================ */
+.pgwrap{max-width:620px;margin:0 auto}
+.pgidle{text-align:center;padding:26px 18px}
+.pgidle h2{font-family:var(--disp);font-size:26px;margin:0 0 8px}
+.pgstart{width:100%;padding:30px 20px;border-radius:20px;border:none;background:var(--accent);color:#06210F;
+  font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.02em;transition:.15s}
+.pgstart:active{transform:scale(.985)}
+.pgstart.resume{background:var(--info);color:#04101f}
+.pgbig{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:14px}
+.pgbig .lbl{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.pgtimer{font-family:var(--mono);font-weight:700;font-size:64px;line-height:1.05;letter-spacing:-.02em;margin:6px 0 2px}
+.pgtimer.warn{color:var(--warn)}
+.pgtimer.over{color:var(--err)}
+.pgstats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.pgstat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:13px 10px;text-align:center}
+.pgstat .n{font-family:var(--mono);font-weight:700;font-size:26px;line-height:1.1}
+.pgstat .l{font-size:11px;color:var(--muted);margin-top:3px}
+.pgscan{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px 16px;text-align:center;color:var(--muted);
+  margin-bottom:14px;background:var(--panel);transition:.15s}
+.pgscan b{color:var(--ink);font-family:var(--mono)}
+.pgscan.live{border-color:var(--accent);border-style:solid;background:#11201a;color:var(--ink)}
+.pgacts{display:flex;gap:10px;flex-wrap:wrap}
+.pgacts .btn{flex:1;min-width:130px;justify-content:center}
+.pgfeed{margin-top:18px}
+.pgrow{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:10px 13px;margin-bottom:8px;font-size:13.5px}
+.pgrow .trk{font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pgrow .cyc{font-family:var(--mono);font-weight:700;color:var(--ok)}
+.pgrow .cyc.slow{color:var(--warn)}
+.pgrow .cyc.none{color:var(--faint)}
+.pgrow .mt{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.pgpaused{background:#2b2412;border:1px solid #5a4a1c;border-radius:20px;padding:30px 20px;text-align:center;margin-bottom:14px}
+.pgpaused .k{font-family:var(--disp);font-size:22px;font-weight:700;color:var(--warn)}
+.pgpaused .t{font-family:var(--mono);font-size:40px;font-weight:700;margin:8px 0 2px}
+.pgask{position:fixed;inset:0;z-index:230;background:rgba(4,6,10,.9);display:grid;place-items:center;padding:20px}
+.pgaskcard{background:var(--panel);border:1px solid var(--warn);border-radius:20px;padding:26px 22px;width:min(460px,94vw);text-align:center}
+.pgaskcard h3{font-family:var(--disp);font-size:21px;margin:0 0 8px}
+.pgaskcard .gap{font-family:var(--mono);font-size:44px;font-weight:700;color:var(--warn);margin:10px 0 6px}
+.pgaskcard .btn{width:100%;margin-top:10px;padding:16px;font-size:16px;justify-content:center}
+.pgoff{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--warn);margin-left:auto}
+@media (max-width:560px){ .pgtimer{font-size:52px} .pgstats{grid-template-columns:repeat(3,1fr)} }
+
 </style>
 </head>
 <body>
@@ -538,7 +618,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
   <div class="brand"><img class="brandlogo hide" id="logoHeader" alt="logo"><span class="dot" id="dotHeader"></span><div>CALIPOKE STATION<small id="meName">—</small></div></div>
   <div class="spacer"></div>
   <button class="pill online" id="onlinePill" title="Who's online">🟢 <b id="onlineCount">0</b> online</button>
-  <div class="pill" title="Shift started">🗓 <b id="shiftDate">—</b></div>
+  <button class="pill click" id="shiftPill" title="Switch shift">🗓 <b id="shiftDate">—</b><span class="caret">▾</span></button>
   <div class="pill">✅ <b id="totalDone">0</b>/<b id="totalAll">0</b></div>
   <div class="pill" id="buildTag" title="App version — must match on every device" style="font-size:11px; color:var(--faint)">v—</div>
   <button class="iconbtn on" id="scanOnlyBtn" title="Scan-only mode — manual check disabled">📷</button>
@@ -561,9 +641,13 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 
   <!-- ============ SEED / LOAD ============ -->
   <section id="screen-seed" class="hide">
-    <div class="eyebrow">Shift start — base not loaded yet</div>
-    <h1>Load today's base into the shared session</h1>
-    <p class="sub" style="margin-bottom:18px">One person (the shift lead) loads this. Everyone else joins the same live session automatically.</p>
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap">
+      <div class="eyebrow" style="margin:0">New shift</div>
+      <div class="spacer" style="flex:1"></div>
+      <button class="btn ghost" id="seedShiftsBtn">🗓 Loaded shifts</button>
+    </div>
+    <h1>Load an orders workbook as a new shift</h1>
+    <p class="sub" style="margin-bottom:18px">Loading a workbook <b>adds</b> a shift — the shifts already loaded keep running. The shift is named after the date at the start of the workbook name; you can correct it before it is created.</p>
 
     <!-- Orders source -->
     <div class="card" style="margin-bottom:14px">
@@ -575,6 +659,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
       <p class="sub" id="ordStatus" style="font-size:12.5px; margin-top:9px">Share → Anyone with the link → Viewer. Set the tracking column to “Plain text”.</p>
       <button class="btn hide" id="ordProxy" style="margin-top:10px">↪ Try via proxy</button>
       <label class="btn ghost" style="margin-top:10px">or choose .xlsx file<input id="ordFile" type="file" accept=".xlsx,.xls,.csv" class="hide"></label>
+      <div id="shiftStage" class="hide"></div>
     </div>
 
     <!-- Inventory source (separate) -->
@@ -604,9 +689,12 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
     <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
       <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
+      <button class="btn primary lg" id="packingBtn">📦 Packing mode</button>
       <button class="btn lg" id="guideBtn">📖 Product Guidebook</button>
       <button class="btn lg" id="finishBtn">📋 Shift report</button>
+      <button class="btn lg hide" id="packLogBtn">🧾 Pack log</button>
     </div>
+    <div class="shiftbar" id="shiftBar"></div>
     <div class="pgrid" id="pgrid"></div>
     <div id="adminActions" style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap">
       <button class="btn" id="readReportBtn">📂 Read past reports</button>
@@ -662,6 +750,18 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div id="pkArea"></div>
   </section>
 
+  <!-- ============ PACKING MODE (packer KPI) ============ -->
+  <section id="screen-packing" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
+      <button class="btn ghost" id="pgBack">← Platforms</button>
+      <h1 style="margin:0">📦 Packing</h1>
+      <div class="spacer"></div>
+      <span class="pgoff hide" id="pgOffline">⚠ offline — saved locally</span>
+    </div>
+    <div class="pgwrap" id="pgWrap"></div>
+  </section>
+
+
   <!-- ============ PRODUCT GUIDEBOOK (read-only reference) ============ -->
   <section id="screen-guide" class="hide">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
@@ -708,12 +808,34 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
       <div class="eyebrow" style="margin:0">Shift report</div>
       <div class="spacer"></div>
       <button class="btn" id="csvBtn">⬇ CSV</button>
+      <button class="btn hide" id="csvSplitBtn">⬇ CSV per shift</button>
+      <button class="btn" id="xlsBtn">⬇ Excel</button>
       <button class="btn" id="printBtn">🖨 Print</button>
       <button class="btn ghost" id="reportBack">← Back</button>
     </div>
     <h1 id="reportTitle">Summary</h1>
+    <div class="shiftbar" id="reportShifts"></div>
+    <div class="toolbar" id="reportTools"></div>
+    <div class="filterinfo hide" id="reportFilterInfo"></div>
     <div class="statgrid" id="reportStats"></div>
     <div id="reportBody"></div>
+  </section>
+
+  <!-- ============ PACK LOG (admin) ============ -->
+  <section id="screen-packlog" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap">
+      <div class="eyebrow" style="margin:0">Pack log</div>
+      <div class="spacer"></div>
+      <button class="btn" id="plCsvBtn">⬇ CSV</button>
+      <button class="btn" id="plXlsBtn">⬇ Excel</button>
+      <button class="btn ghost" id="plBack">← Back</button>
+    </div>
+    <h1 id="plTitle">Pack log</h1>
+    <p class="sub" style="margin-bottom:12px">Every confirmed order, with the exact time it was packed. Cleared together with its shift.</p>
+    <div class="shiftbar" id="plShifts"></div>
+    <div class="toolbar" id="plTools"></div>
+    <div class="statgrid" id="plStats"></div>
+    <div id="plBody"></div>
   </section>
 
   <!-- ============ RECEIVING SYSTEM (independent of orders / shift) ============ -->
@@ -729,6 +851,18 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
     <div id="rcArea" class="rcwrap"></div>
   </section>
 </main>
+
+<!-- ============ SHIFT PICKER ============ -->
+<div id="shiftModal" class="pickmodal hide">
+  <div class="pickbox">
+    <div class="pickhead">🗓 Shifts</div>
+    <div class="shiftlist" id="shiftList"></div>
+    <div style="display:flex; gap:10px; margin-top:12px">
+      <button class="btn primary hide" id="shiftNewBtn" style="flex:1">＋ Load a new shift</button>
+      <button class="btn ghost" id="shiftClose" style="flex:1">Close</button>
+    </div>
+  </div>
+</div>
 
 <div id="lightbox" class="lightbox hide"><span class="lbclose">✕</span><img id="lightboxImg" src="" alt=""><div class="lbcap" id="lightboxCap"></div></div>
 
@@ -789,10 +923,11 @@ const EXTERNAL_MODES = {
   inventory: 'inventory.html',
   stockup:   'stock-up-report.html',
   analyzer:  'analyzer.html',
+  kpi:       'kpi-tracking.html',
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-01b · inventory live';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09 · packing mode + KPI';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -820,18 +955,34 @@ const COL = {
   damaged:['damaged','damage','broken','defective','not usable','unusable'],
   type:['type','category','kind'],
   brand:['brand','make','manufacturer'],
-  series:['series','collection','line']
+  series:['series','collection','line'],
+  packclass:['pack class','packclass','pack_class','pack size','packsize']
 };
 function pickCol(h,kind){const hs=h.map(norm);for(const w of COL[kind]){const i=hs.indexOf(w);if(i>=0)return i;}for(let i=0;i<hs.length;i++)if(COL[kind].some(w=>hs[i].includes(w)))return i;return -1;}
 const INVENTORY_NAMES = ['inventory','stock','catalog'];
 
 /* ---------- runtime state ---------- */
-let db=null, root=null;
+let db=null, root=null;            // root = the station node (shared across shifts)
+let shiftRef=null;                 // the shift currently being worked on
+let ordersOff=null;                // detaches the order listener when switching shift
 let MY_NAME='', SID='';
-const ROOT_PATH = 'packstation/current'; // persists until the admin clears the shift — no per-day reset
+/* Firebase layout
+     packstation/inventory      product catalog        — shared, survives shift clearing
+     packstation/settings       scan-only flag         — shared
+     packstation/presence       who is online          — shared
+     packstation/shiftIndex/<id>  {name, createdAt, createdBy, orders, source}
+     packstation/shifts/<id>/     {meta, orders, packlog}
+   Several shifts live side by side; clearing one never touches the others. */
+const STATION_PATH = 'packstation';
+const LEGACY_PATH  = 'packstation/current';   // the single-shift layout used before Sep 2026
+let SHIFTS={};                     // id -> index entry
+let CUR_SHIFT='';                  // id of the shift on screen
+const LS_SHIFT='ps_shift';
 const TODAY = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
 const fmtDate = ts => { try{ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }catch(e){ return TODAY; } };
 let S = { date:'', startedAt:null, platforms:{}, inventory:{}, barcodeIdx:{} };
+let _pendingShift=null;            // parsed orders waiting for the admin to name the shift
+let _lastSheetName='';             // workbook name from the download, used to guess the shift date
 let curScreen='seed', curPlatformKey=null;
 let activeOrder=null, activePick=null, claimRef=null, hbTimer=null;
 let pendingChoice=null; // manual last-4 confirm/select state
@@ -885,7 +1036,8 @@ function parseInventorySheet(arrayBuf){
   if(rows.length<2) throw new Error('Inventory sheet is empty.');
   const h=rows[0];
   const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),qty:pickCol(h,'qty'),
-    damaged:pickCol(h,'damaged'),type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series')};
+    damaged:pickCol(h,'damaged'),type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series'),
+    packclass:pickCol(h,'packclass')};
   if(ci.name<0) throw new Error('Inventory needs an "item name" column.');
   const map={};
   for(let r=1;r<rows.length;r++){
@@ -901,7 +1053,8 @@ function parseInventorySheet(arrayBuf){
       damaged:ci.damaged>=0?(parseInt(row[ci.damaged],10)||0):null,     // not-usable units
       type:ci.type>=0?String(row[ci.type]??'').trim():'',
       brand:ci.brand>=0?String(row[ci.brand]??'').trim():'',
-      series:ci.series>=0?String(row[ci.series]??'').trim():''
+      series:ci.series>=0?String(row[ci.series]??'').trim():'',
+      packClass:ci.packclass>=0?String(row[ci.packclass]??'').trim().toUpperCase():''   // XS S M L XL — packing effort
     };
   }
   if(Object.keys(map).length===0) throw new Error('No inventory rows found.');
@@ -916,7 +1069,7 @@ function configReady(){ return firebaseConfig.apiKey && !firebaseConfig.apiKey.s
 function connect(){
   firebase.initializeApp(firebaseConfig);
   db = firebase.database();
-  root = db.ref(ROOT_PATH);
+  root = db.ref(STATION_PATH);
 
   const pRef = root.child('presence/'+SID);
   pRef.set({name:MY_NAME, at:Date.now()});
@@ -931,38 +1084,154 @@ function connect(){
       for(const bk of barcodesOf(v.barcode)){ (S.barcodeIdx[bk]=S.barcodeIdx[bk]||[]); if(!S.barcodeIdx[bk].includes(v.ikey)) S.barcodeIdx[bk].push(v.ikey); } });
     renderCurrent();
   });
-  root.child('orders').on('value', snap=>{
-    const platforms={};
-    snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
-      platforms[pk].orders.push({_key:c.key, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||''}); });
-    S.platforms=platforms; renderCurrent();
-  });
-
-  root.child('meta').on('value', snap=>{ const m=snap.val(); S.startedAt=(m&&m.seededAt)||null; S.date=S.startedAt?fmtDate(S.startedAt):''; if(curScreen==='platforms'||curScreen==='report') renderCurrent(); });
-
   // shared staff scan-only flag (admin-controlled). Default ON when unset.
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
-  root.child('meta').once('value').then(()=>{ goMenu(); });
+  // the list of shifts is a small index node — the heavy order data is only fetched
+  // for the shift actually being worked on
+  root.child('shiftIndex').on('value', snap=>{
+    SHIFTS = snap.val() || {};
+    if(CUR_SHIFT && !SHIFTS[CUR_SHIFT]) setShift(pickDefaultShift());   // someone cleared the open shift
+    else if(!CUR_SHIFT) setShift(pickDefaultShift());
+    else renderCurrent();
+  });
+
+  rcConnect();   // NEW SHIPMENT shares the same database
+
+  root.child('shiftIndex').once('value').then(async snap=>{
+    if(IS_ADMIN && !snap.exists()) await migrateLegacyShift();
+    goMenu();
+  });
 }
 
-async function seedOrders(buf, sourceMeta){
-  let platforms; try{ platforms=parseOrders(buf); }catch(e){ gstatus('ord',e.message,'err'); return; }
-  const res = await root.child('meta').transaction(cur => cur ? undefined : {seededBy:MY_NAME, seededAt:Date.now(), source:sourceMeta||null});
-  if(res.committed && res.snapshot.val() && res.snapshot.val().seededBy===MY_NAME){
-    const updates={};
-    for(const pk in platforms) for(const o of platforms[pk].orders){
-      updates['orders/'+safeKey(pk+'__'+o.trackingId)] = {platform:pk, trackingId:o.trackingId, items:o.items, status:'pending', claim:null};
-    }
-    await root.update(updates);
-    let n=0; for(const pk in platforms) n+=platforms[pk].orders.length;
-    gstatus('ord','✓ Loaded '+n+' orders across '+Object.keys(platforms).length+' platforms.','ok');
-    toast('Orders loaded into shift','ok',2400);
-  }else{
-    gstatus('ord','Shift already started — joining the existing session.','ok');
-    toast('Shift already started — joining','info',2400);
-  }
+/* ---------- shifts ---------- */
+function shiftIds(){ return Object.keys(SHIFTS).sort((a,b)=>(SHIFTS[b].createdAt||0)-(SHIFTS[a].createdAt||0)); }
+function shiftName(id){ const s=SHIFTS[id]; return (s&&s.name)||id||'—'; }
+function pickDefaultShift(){
+  const ids=shiftIds(); if(!ids.length) return '';
+  let saved=''; try{ saved=localStorage.getItem(LS_SHIFT)||''; }catch(e){}
+  return (saved && SHIFTS[saved]) ? saved : ids[0];
+}
+function setShift(id){
+  if(ordersOff){ try{ ordersOff(); }catch(e){} ordersOff=null; }
+  CUR_SHIFT = id || '';
+  try{ localStorage.setItem(LS_SHIFT, CUR_SHIFT); }catch(e){}
+  S.platforms={}; S.date=''; S.startedAt=null;
+  shiftRef = CUR_SHIFT ? root.child('shifts/'+CUR_SHIFT) : null;
+  activeOrder=null; activePick=null; curPlatformKey=null;
+  if(!shiftRef){ renderCurrent(); return; }
+  const meta=SHIFTS[CUR_SHIFT]||{};
+  S.date=meta.name||''; S.startedAt=meta.createdAt||null;
+  const oref=shiftRef.child('orders');
+  const cb=oref.on('value', snap=>{
+    const platforms={};
+    snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
+      platforms[pk].orders.push({_key:c.key, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null}); });
+    S.platforms=platforms; renderCurrent();
+  });
+  ordersOff=()=>oref.off('value',cb);
+  renderCurrent();
+}
+
+/* the pre-Sep-2026 layout kept one shift at packstation/current — adopt it once,
+   without deleting anything, so nothing in flight is lost */
+async function migrateLegacyShift(){
+  try{
+    const legacy=db.ref(LEGACY_PATH);
+    const claim=await legacy.child('migratedTo').transaction(cur=>cur?undefined:('pending_'+SID));
+    if(!claim.committed) return;                       // another device is doing it
+    const snap=await legacy.once('value'); const v=snap.val();
+    if(!v || !v.orders){ await legacy.child('migratedTo').set('none'); return; }
+    const id=newShiftId();
+    const name=(v.meta&&v.meta.seededAt) ? fmtDateUS(v.meta.seededAt) : todayUS();
+    const n=Object.keys(v.orders).length;
+    await root.update({
+      ['shifts/'+id+'/meta']  : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, source:(v.meta&&v.meta.source)||null, migrated:true},
+      ['shifts/'+id+'/orders']: v.orders,
+      ['shiftIndex/'+id]      : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, orders:n, migrated:true},
+      ...(v.inventory ? {inventory:v.inventory} : {}),
+      ...(v.settings  ? {settings:v.settings}   : {})
+    });
+    await legacy.child('migratedTo').set(id);
+    toast('Existing shift imported as “'+name+'”','ok',4200);
+  }catch(e){ /* never block startup on the migration */ }
+}
+
+function pad2(n){ return String(n).length<2 ? '0'+n : String(n); }
+function todayUS(){ const d=new Date(); return pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+'/'+d.getFullYear(); }
+function fmtDateUS(ts){ try{ const d=new Date(ts); return pad2(d.getMonth()+1)+'/'+pad2(d.getDate())+'/'+d.getFullYear(); }catch(e){ return todayUS(); } }
+function newShiftId(){ const d=new Date();
+  return 'sh'+String(d.getFullYear()).slice(2)+pad2(d.getMonth()+1)+pad2(d.getDate())+'_'+Math.random().toString(36).slice(2,6).toUpperCase(); }
+
+/* every orders workbook is named with its date up front — pull it out of the file name.
+   Google turns the slashes into another separator on download, so accept any of them. */
+function shiftNameFrom(fileName){
+  const m=/(\d{1,2})[\/\-_. ](\d{1,2})[\/\-_. ](\d{2,4})/.exec(String(fileName||''));
+  if(!m) return '';
+  let y=m[3]; if(y.length===2) y='20'+y;
+  return pad2(m[1])+'/'+pad2(m[2])+'/'+y;
+}
+
+/* orders are parsed first and only become a shift once the name is confirmed */
+function stageOrders(buf, sourceMeta, fileName){
+  let platforms; try{ platforms=parseOrders(buf); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord',e.message,'err'); return; }
+  let n=0; for(const pk in platforms) n+=platforms[pk].orders.length;
+  const src=fileName||_lastSheetName||'';
+  _pendingShift={platforms, source:sourceMeta||null, name:shiftNameFrom(src)||todayUS(), fromName:src, orders:n};
+  gstatus('ord','✓ Read '+n+' orders across '+Object.keys(platforms).length+' platforms'+(src?' from “'+src+'”':'')+'.','ok');
+  renderShiftStage();
+}
+function renderShiftStage(){
+  const box=$('#shiftStage'); if(!box) return;
+  if(!_pendingShift){ box.innerHTML=''; box.classList.add('hide'); return; }
+  box.classList.remove('hide');
+  box.innerHTML='<div class="eyebrow" style="margin-top:4px">Name this shift</div>'+
+    '<p class="sub" style="font-size:13px">Taken from the workbook name'+(_pendingShift.fromName?' (“'+esc(_pendingShift.fromName)+'”)':'')+' — edit it if it is wrong.</p>'+
+    '<div class="srcrow" style="margin-top:10px">'+
+      '<input id="shiftNameInput" class="tinput" style="max-width:220px" value="'+esc(_pendingShift.name)+'" placeholder="mm/dd/yyyy">'+
+      '<button class="btn primary lg" id="shiftCreate">Create shift · '+_pendingShift.orders+' orders</button>'+
+      '<button class="btn ghost" id="shiftCancel">Cancel</button>'+
+    '</div>';
+  $('#shiftNameInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#shiftCreate').click(); } });
+  $('#shiftCancel').onclick=()=>{ _pendingShift=null; renderShiftStage(); gstatus('ord','Cancelled.','info'); };
+  $('#shiftCreate').onclick=createShift;
+}
+async function createShift(){
+  if(!_pendingShift) return;
+  const name=($('#shiftNameInput').value||'').trim() || todayUS();
+  const dup=shiftIds().find(id=>norm(shiftName(id))===norm(name));
+  if(dup && !confirm('A shift called “'+name+'” already exists.\nCreate a second one with the same name?')) return;
+  const btn=$('#shiftCreate'); if(btn){ btn.disabled=true; btn.textContent='Creating…'; }
+  const id=newShiftId(), platforms=_pendingShift.platforms;
+  const orders={};
+  for(const pk in platforms) for(const o of platforms[pk].orders)
+    orders[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, items:o.items, status:'pending', claim:null, addedAt:Date.now()};
+  const meta={name, createdAt:Date.now(), createdBy:MY_NAME, source:_pendingShift.source||null};
+  try{
+    await root.update({
+      ['shifts/'+id+'/meta']  : meta,
+      ['shifts/'+id+'/orders']: orders,
+      ['shiftIndex/'+id]      : {name, createdAt:meta.createdAt, createdBy:MY_NAME, orders:_pendingShift.orders}
+    });
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Create shift'; } toast('Could not create the shift: '+(e&&e.message||e),'err',4200); return; }
+  _pendingShift=null; renderShiftStage();
+  setShift(id);
+  gstatus('ord','✓ Shift “'+name+'” created.','ok');
+  toast('Shift “'+name+'” created','ok',2600);
   $('#continueBtn').disabled=false;
+}
+
+/* clearing one shift leaves every other shift, the catalog and receiving untouched */
+async function clearShift(id){
+  if(!IS_ADMIN){ toast('Only the admin can clear a shift','warn',3000); return; }
+  const nm=shiftName(id);
+  if(!confirm('Clear the shift “'+nm+'”?\nIts orders and pack log are deleted for everyone.\nOther shifts, the catalog and New Shipment are not touched.')) return;
+  if(!confirm('Are you sure? This cannot be undone.')) return;
+  try{
+    await root.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null });
+  }catch(e){ toast('Could not clear the shift','err',3600); return; }
+  toast('Shift “'+nm+'” cleared','ok',3000);
+  if(CUR_SHIFT===id) setShift(pickDefaultShift());
 }
 
 async function loadInventory(buf, sourceMeta){
@@ -995,7 +1264,7 @@ async function addNewOrders(buf){
   const updates={}; let added=0, updated=0;
   // adds + item-detail updates (by tracking number)
   for(const pk in platforms) for(const o of platforms[pk].orders){ const k=safeKey(pk+'__'+o.trackingId);
-    if(!(k in cur)){ updates['orders/'+k]={platform:pk,trackingId:o.trackingId,items:o.items,status:'pending',claim:null}; added++; }
+    if(!(k in cur)){ updates['orders/'+k]={platform:pk,trackingId:o.trackingId,items:o.items,status:'pending',claim:null,addedAt:Date.now()}; added++; }
     else { const ex=cur[k];
       if(ex.status==='pending' && !claimedFresh(ex) && itemsChanged(ex.items,o.items)){ updates['orders/'+k+'/items']=o.items; updated++; }
     }
@@ -1019,7 +1288,7 @@ async function addNewOrders(buf){
   }
 
   if(Object.keys(updates).length===0){ toast(skippedActive?('No changes · '+skippedActive+' active skipped'):'No changes','info',2800); return; }
-  await root.update(updates);
+  await shiftRef.update(updates);
   let t='Added '+added+', updated '+updated+', removed '+removable.length;
   if(skippedActive) t+=' · '+skippedActive+' active skipped';
   toast(t,'ok',4000);
@@ -1049,6 +1318,12 @@ async function fetchSheet(input, viaProxy, kind){
     if(!res.ok) throw new Error('http '+res.status);
     const ct=(res.headers.get('content-type')||'').toLowerCase();
     if(ct.includes('text/html')) throw new Error('private');
+    /* Google exposes Content-Disposition to CORS, and the workbook name is the only
+       place the shift date lives (a Sheets export carries no docProps). */
+    _lastSheetName=''; const cd=res.headers.get('content-disposition')||'';
+    let fm=/filename\*=UTF-8''([^;]+)/i.exec(cd);
+    if(fm){ try{ _lastSheetName=decodeURIComponent(fm[1]); }catch(e){ _lastSheetName=fm[1]; } }
+    if(!_lastSheetName){ fm=/filename="?([^";]+)"?/i.exec(cd); if(fm) _lastSheetName=fm[1]; }
     const buf=new Uint8Array(await res.arrayBuffer());
     if(!(buf[0]===0x50 && buf[1]===0x4B)) throw new Error('private');
     const pb1=$('#'+kind+'Proxy'); if(pb1) pb1.classList.add('hide'); return buf;
@@ -1073,7 +1348,7 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['menu','seed','platforms','pack','picking','guide','reportview','report','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['menu','seed','platforms','pack','picking','packing','guide','reportview','report','packlog','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
@@ -1096,6 +1371,7 @@ const MODES=[
   {icon:'🔢', name:'INVENTORY',         desc:'Count inventory by shelf and compare with SOH', ext:'inventory', ready:true},
   {icon:'📈', name:'STOCK UP REPORT',   desc:'Build restock reports', ext:'stockup'},
   {icon:'📊', name:'ANALYZER',          desc:'Sales analysis', ext:'analyzer'},
+  {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
 ];
 function openExternal(key){
@@ -1131,14 +1407,16 @@ function renderMenuAdmin(){
   a.innerHTML='<div class="adminpanel"><div class="eyebrow" style="margin:0">Admin — shift controls</div>'+
     '<p class="sub" style="font-size:13px">The same controls also live inside Pick &amp; Pack.</p><div class="arow">'+
     '<button class="btn" id="mFinishBtn">📋 Shift report</button>'+
+    '<button class="btn" id="mPackLogBtn">🧾 Pack log</button>'+
     '<button class="btn" id="mReadReportBtn">📂 Read past reports</button>'+
     '<button class="btn" id="mLoadDataBtn">⚙ Load data</button>'+
     '<button class="btn" id="mPullOrdersBtn">🔄 Sync orders</button>'+
     '<button class="btn" id="mUpdInvBtn">🔄 Update inventory</button>'+
     '<button class="btn" id="mScanOnlyBtn">'+(scanOnly?'📷 Scan-only: ON':'✋ Scan-only: OFF')+'</button>'+
-    '<button class="btn danger ghost" id="mWipeBtn">🧹 Clear shift</button>'+
+    '<button class="btn danger ghost" id="mWipeBtn">🧹 '+(CUR_SHIFT?('Clear shift “'+esc(shiftName(CUR_SHIFT))+'”'):'Clear shift')+'</button>'+
     '</div></div>';
   $('#mFinishBtn').onclick=()=>doShiftReport('menu');
+  $('#mPackLogBtn').onclick=()=>doPackLog('menu');
   $('#mReadReportBtn').onclick=()=>doReadReports('menu');
   $('#mLoadDataBtn').onclick=()=>show('seed');
   $('#mPullOrdersBtn').onclick=doPullOrders;
@@ -1153,8 +1431,12 @@ function renderCurrent(){
   else if(curScreen==='platforms') renderPlatforms();
   else if(curScreen==='pack'){ renderPackHeader(); renderOrderArea(); }
   else if(curScreen==='picking') renderPicking();
+  else if(curScreen==='packing') pgRender();
   else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
   else if(curScreen==='report') renderReport();
+  else if(curScreen==='packlog') renderPackLog();
+  const cb=$('#continueBtn'); if(cb) cb.disabled = !CUR_SHIFT;
+  renderShiftPill();
 }
 
 /* ============================================================
@@ -1167,6 +1449,9 @@ function platformStats(p){ const all=p.orders.length; const done=p.orders.filter
   return {all,done,partial,locked,blocked,complete:all>0&&done===all}; }
 function globalStats(){ let all=0,done=0; for(const k in S.platforms){const s=platformStats(S.platforms[k]); all+=s.all; done+=s.done;} return {all,done}; }
 function renderPlatforms(){
+  renderShiftBar();
+  const pl=$('#packLogBtn'); if(pl) pl.classList.toggle('hide', !IS_ADMIN);
+  const wb=$('#wipeBtn'); if(wb) wb.textContent = CUR_SHIFT ? ('Clear shift “'+shiftName(CUR_SHIFT)+'”') : 'Clear shift (manager)';
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !IS_ADMIN);
   if(IS_ADMIN){ $('#pullOrdersBtn').classList.toggle('hide', !_ordSource); $('#updInvBtn').classList.remove('hide'); }
   const g=$('#pgrid');
@@ -1252,7 +1537,7 @@ async function claimAndOpen(key){
   const order=findByKey(key); if(!order){ toast('Order unavailable','err'); renderOrderArea(); return; }
   if(order.status==='packed'){ flash('err');beep('warn'); toast('Order '+order.trackingId+' already packed ('+(order.packedBy||'')+')','warn',3200); activeOrder={key:order._key,platform:curPlatformKey,trackingId:order.trackingId}; activePick=null; setMode('items'); renderOrderArea(); closeCamIfOpen(); return; }
 
-  const cRef=root.child('orders/'+order._key+'/claim');
+  const cRef=shiftRef.child('orders/'+order._key+'/claim');
   let res;
   try{ res=await cRef.transaction(cur=>{ if(!cur || cur.sid===SID || (Date.now()-(cur.at||0))>STALE_MS) return {by:MY_NAME, at:Date.now(), sid:SID}; return; }); }
   catch(e){ toast('Network unavailable, try again','err'); return; }
@@ -1283,7 +1568,7 @@ async function repackOrder(key, wasDone){
   if(wasDone && !confirm('Reopen this order and pack it again? Its previous result (including packed time) will be cleared.')) return;
   try{
     // Stock is authoritative from the table (no recount) — reopening does not touch stock.
-    await root.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null});
+    await shiftRef.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null});
   }catch(e){ toast('Could not reopen the order','err'); return; }
   const local=findByKey(key); if(local) local.status='pending';   // optimistic so claim proceeds
   toast('Order '+o.trackingId+' reopened','info',2600);
@@ -1580,8 +1865,20 @@ async function confirmOrder(order){
       return {...it, packed:true, status:'ok', reason:'', count:p.count};   // picked (packed even in a partial order)
     });
     if(claimRef) claimRef.onDisconnect().cancel();
-    await root.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, claim:null});
+    /* keep when the picker actually opened this order — the claim is about to be dropped */
+    const pickStartedAt = (order.claim && order.claim.at) || order.pickStartedAt || null;
+    await shiftRef.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, pickStartedAt, claim:null});
   }catch(e){ toast('Save failed, try again','err'); if(conf){conf.disabled=false; conf.textContent='✓ Confirm pick';} return; }
+  /* KPI trail: one row per confirmed order, kept with the shift and cleared with it */
+  try{
+    const ordered=(order.items||[]).reduce((n,it)=>n+(+it.qty||1),0);
+    const packedUnits=(order.items||[]).reduce((n,it,i)=>n+(activePick&&activePick[i]&&activePick[i].status==='ok'?(+it.qty||1):0),0);
+    await shiftRef.child('packlog').push({
+      trackingId: order.trackingId, platform: curPlatformKey,
+      qty: packedUnits, ordered, lines: (order.items||[]).length,
+      packer: MY_NAME, status, at: Date.now()
+    });
+  }catch(e){ /* the order is already saved — never fail a confirm over the log */ }
   claimRef=null; stopHeartbeat();
   const good = status==='packed';
   flash(good?'ok':(allBlocked?'err':'ok')); beep(good?'ok':'warn');
@@ -1751,7 +2048,7 @@ function fmtTime(ts){ if(ts==null||ts==='') return ''; if(typeof ts!=='number') 
 function currentOrderList(){
   const arr=[];
   for(const k in S.platforms) for(const o of (S.platforms[k].orders||[])){
-    arr.push({platform:k, trackingId:o.trackingId, status:o.status, packedBy:o.packedBy||'', packedAt:(o.packedAt||null), source:'',
+    arr.push({platform:k, trackingId:o.trackingId, status:o.status, packedBy:o.packedBy||'', packedAt:(o.packedAt||null), source:'', shiftDate:S.date||'',
       items:(o.items||[]).map(it=>({ name:it.name, variation:it.variation, qty:it.qty||1,
         packed:(o.status==='packed') ? (it.packed!==false) : (it.packed===true),
         status:it.status||'ok', reason:it.reason||'', invKey:it.invKey||keyOf(it.name,it.variation) }))});
@@ -1803,9 +2100,13 @@ function reportBodyHTML(r, opts){
   b+='</tbody></table></div>';
   if(Object.keys(r.byPacker).length){ b+='<div class="tabsec"><h2>By packer</h2><table><thead><tr><th>Packer</th><th class="num">Orders handled</th></tr></thead><tbody>'; for(const who in r.byPacker) b+='<tr><td>'+esc(who)+'</td><td class="num">'+r.byPacker[who]+'</td></tr>'; b+='</tbody></table></div>'; }
   if(r.packedOrders && r.packedOrders.length){
-    b+='<div class="tabsec"><h2>Packed orders</h2><table><thead><tr><th>Platform</th><th>Label</th><th>Status</th><th>Packer</th><th>Packed at</th>'+(opts.showSource?'<th>Source</th>':'')+'</tr></thead><tbody>';
+    const so=opts.sort||{k:'',d:1};
+    const rh=(k,l)=>opts.sortable ? '<th data-rsort="'+k+'">'+l+arrow(so.k===k,so.d)+'</th>' : '<th>'+l+'</th>';
+    b+='<div class="tabsec rptorders"><h2>Packed orders — '+r.packedOrders.length+'</h2><table><thead><tr>'+
+       rh('platform','Platform')+rh('label','Label')+rh('status','Status')+rh('packer','Packer')+rh('packedAt','Packed at')+
+       (opts.showShift?rh('shift','Shift'):'')+(opts.showSource?'<th>Source</th>':'')+'</tr></thead><tbody>';
     for(const o of r.packedOrders){ const t=fmtTime(o.packedAt);
-      b+='<tr><td>'+esc(o.platform)+'</td><td class="mono">'+esc(o.trackingId)+'</td><td>'+(o.status==='partial'?'<span class="statustag st-partial">partial</span>':'<span class="statustag st-packed">packed</span>')+'</td><td>'+esc(o.packedBy||'—')+'</td><td class="mono">'+esc(t||'—')+'</td>'+(opts.showSource?'<td>'+esc(o.source||'—')+'</td>':'')+'</tr>'; }
+      b+='<tr><td>'+esc(o.platform)+'</td><td class="mono">'+esc(o.trackingId)+'</td><td>'+(o.status==='partial'?'<span class="statustag st-partial">partial</span>':'<span class="statustag st-packed">packed</span>')+'</td><td>'+esc(o.packedBy||'—')+'</td><td class="mono">'+esc(t||'—')+'</td>'+(opts.showShift?'<td>'+esc(o.shiftDate||'—')+'</td>':'')+(opts.showSource?'<td>'+esc(o.source||'—')+'</td>':'')+'</tr>'; }
     b+='</tbody></table></div>';
   }
   for(const k in r.packedItems){ const items=Object.values(r.packedItems[k]).sort((a,b)=>b.qty-a.qty); if(!items.length)continue; b+='<div class="tabsec"><h2>Packed items — '+esc(k)+'</h2><table><thead><tr><th>Item</th><th>Variation</th><th class="num">Qty</th></tr></thead><tbody>'; for(const it of items) b+='<tr><td>'+esc(it.name)+'</td><td>'+esc(it.variation||'—')+'</td><td class="num">'+it.qty+'</td></tr>'; b+='</tbody></table></div>'; }
@@ -1813,12 +2114,429 @@ function reportBodyHTML(r, opts){
   return b;
 }
 function stat(n,l,cls){ return '<div class="stat '+(cls||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
-function renderReport(){
-  const r=buildReportFromOrders(currentOrderList());
-  $('#reportTitle').innerHTML='Shift summary'+(S.date?' <span class="sub" style="font-size:15px">· since '+esc(S.date)+'</span>':'');
-  $('#reportStats').innerHTML=reportStatsHTML(r);
-  $('#reportBody').innerHTML=reportBodyHTML(r,{});
+
+let reportFrom='platforms', rvFrom='platforms';
+/* ============================================================
+   SHIFT SWITCHER — the header pill, the picker modal and the
+   chip bar on the platforms screen all read the same index.
+   ============================================================ */
+function shiftMeta(id){ return SHIFTS[id]||{}; }
+function renderShiftPill(){
+  const b=$('#shiftDate'); if(!b) return;
+  b.textContent = CUR_SHIFT ? shiftName(CUR_SHIFT) : (shiftIds().length?'pick a shift':'—');
+  const pill=$('#shiftPill'); if(pill) pill.title = shiftIds().length>1 ? 'Switch shift ('+shiftIds().length+' loaded)' : 'Shift';
 }
+function openShiftModal(){ renderShiftModal(); $('#shiftModal').classList.remove('hide'); }
+function closeShiftModal(){ $('#shiftModal').classList.add('hide'); }
+function renderShiftModal(){
+  const box=$('#shiftList'); if(!box) return;
+  const ids=shiftIds();
+  $('#shiftNewBtn').classList.toggle('hide', !IS_ADMIN);
+  if(!ids.length){
+    box.innerHTML='<div class="empty">No shift loaded yet.'+(IS_ADMIN?'<br><span style="font-size:13px">Load an orders workbook to create one.</span>':'<br><span style="font-size:13px">Waiting for the manager to load one.</span>')+'</div>';
+    return;
+  }
+  box.innerHTML=ids.map(id=>{
+    const m=shiftMeta(id);
+    return '<div class="shiftrow'+(id===CUR_SHIFT?' cur':'')+'" data-sh="'+esc(id)+'">'+
+      '<div><div class="snm">'+esc(m.name||id)+(id===CUR_SHIFT?' <span class="sub" style="font-size:12px">· open</span>':'')+'</div>'+
+      '<div class="smeta">'+(m.orders||0)+' orders'+(m.createdBy?' · loaded by '+esc(m.createdBy):'')+(m.createdAt?' · '+esc(fmtTime(m.createdAt)):'')+'</div></div>'+
+      (IS_ADMIN?'<button class="btn danger ghost sdel" data-del="'+esc(id)+'">Delete</button>':'')+
+    '</div>';
+  }).join('');
+  $$('#shiftList .shiftrow').forEach(r=>r.onclick=e=>{
+    if(e.target.closest('[data-del]')) return;
+    closeShiftModal(); switchShift(r.dataset.sh);
+  });
+  $$('#shiftList [data-del]').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation(); closeShiftModal(); await clearShift(b.dataset.del);
+  });
+}
+function switchShift(id){
+  if(id===CUR_SHIFT) return;
+  setShift(id);
+  toast('Shift “'+shiftName(id)+'” opened','ok',2000);
+}
+/* the chip row on the platforms screen — one tap to change shift, no modal */
+function renderShiftBar(){
+  const bar=$('#shiftBar'); if(!bar) return;
+  const ids=shiftIds();
+  if(ids.length<2 && !IS_ADMIN){ bar.innerHTML=''; return; }
+  let h='<span class="sub" style="font-size:12.5px">Shift:</span>';
+  h+=ids.map(id=>{
+    const m=shiftMeta(id);
+    return '<button class="shiftchip'+(id===CUR_SHIFT?' on':'')+'" data-sh="'+esc(id)+'">'+
+      esc(m.name||id)+' <span class="n">'+(m.orders||0)+'</span>'+
+      (IS_ADMIN?'<span class="x" data-del="'+esc(id)+'" title="Clear this shift">✕</span>':'')+'</button>';
+  }).join('');
+  if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
+  bar.innerHTML=h;
+  $$('#shiftBar [data-sh]').forEach(b=>b.onclick=e=>{
+    if(e.target.closest('[data-del]')){ e.stopPropagation(); clearShift(e.target.getAttribute('data-del')); return; }
+    switchShift(b.dataset.sh);
+  });
+  const add=$('#shiftAddChip'); if(add) add.onclick=()=>show('seed');
+}
+
+/* ============================================================
+   SHIFT DATA CACHE — a report may span several shifts, so the
+   orders of shifts that are not open are fetched once and kept.
+   ============================================================ */
+const SHIFT_CACHE={};       // id -> {orders:[...], packlog:[...]}
+function ordersFromRaw(raw, shiftDate){
+  const arr=[];
+  for(const k in (raw||{})){
+    const o=raw[k]; if(!o) continue;
+    arr.push({platform:o.platform||'—', trackingId:o.trackingId, status:o.status||'pending',
+      packedBy:o.packedBy||'', packedAt:o.packedAt||null, shiftDate, source:'',
+      items:(o.items||[]).map(it=>({name:it.name, variation:it.variation, qty:it.qty||1,
+        packed:(o.status==='packed')?(it.packed!==false):(it.packed===true),
+        status:it.status||'ok', reason:it.reason||'', invKey:it.invKey||keyOf(it.name,it.variation)}))});
+  }
+  return arr;
+}
+function packlogFromRaw(raw, shiftDate){
+  const arr=[];
+  for(const k in (raw||{})){ const e=raw[k]; if(!e) continue;
+    arr.push({key:k, trackingId:e.trackingId||'', platform:e.platform||'—', qty:+e.qty||0, ordered:+e.ordered||0, lines:+e.lines||0,
+      packer:e.packer||'', status:e.status||'packed', at:e.at||null, shiftDate}); }
+  return arr;
+}
+/* the open shift is always read live; the others are pulled once and cached */
+async function shiftOrders(id){
+  if(id===CUR_SHIFT) return currentOrderList();
+  if(SHIFT_CACHE[id] && SHIFT_CACHE[id].orders) return SHIFT_CACHE[id].orders;
+  if(!root) return [];
+  const snap=await root.child('shifts/'+id+'/orders').once('value');
+  const list=ordersFromRaw(snap.val(), shiftName(id));
+  SHIFT_CACHE[id]=Object.assign(SHIFT_CACHE[id]||{}, {orders:list});
+  return list;
+}
+async function shiftPacklog(id){
+  if(SHIFT_CACHE[id] && SHIFT_CACHE[id].packlog && id!==CUR_SHIFT) return SHIFT_CACHE[id].packlog;
+  if(id===CUR_SHIFT && SHIFT_CACHE[id]) SHIFT_CACHE[id].packlog=null;
+  if(!root) return [];
+  const snap=await root.child('shifts/'+id+'/packlog').once('value');
+  const list=packlogFromRaw(snap.val(), shiftName(id));
+  SHIFT_CACHE[id]=Object.assign(SHIFT_CACHE[id]||{}, {packlog:list});
+  return list;
+}
+
+/* ============================================================
+   FILTER / SORT HELPERS shared by the report and the pack log
+   ============================================================ */
+/* the toolbars are re-rendered on every live update — put the caret back
+   where it was so typing in a filter box is never interrupted */
+function keepFocus(el, fn){
+  const a=document.activeElement;
+  const id=(a&&el.contains(a))?a.id:'';
+  const st=(id&&a.selectionStart!=null)?a.selectionStart:null;
+  fn();
+  if(id){ const n=document.getElementById(id); if(n){ n.focus(); if(st!=null && n.setSelectionRange) try{ n.setSelectionRange(st,st); }catch(e){} } }
+}
+function uniqSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b))); }
+function selOpts(list, cur, anyLabel){
+  return '<option value="">'+esc(anyLabel)+'</option>'+
+    list.map(v=>'<option value="'+esc(v)+'"'+(String(cur)===String(v)?' selected':'')+'>'+esc(v)+'</option>').join('');
+}
+function arrow(active, dir){ return active ? '<span class="sarrow">'+(dir>0?'▲':'▼')+'</span>' : ''; }
+function cmp(a,b){ if(a==null)a=''; if(b==null)b='';
+  if(typeof a==='number' && typeof b==='number') return a-b;
+  return String(a).localeCompare(String(b),undefined,{numeric:true}); }
+
+/* ============================================================
+   SHIFT REPORT — one shift, or several at once
+   ============================================================ */
+let RPT={ sel:[], rows:{}, f:{platform:'',status:'',packer:'',q:''}, sort:{k:'packedAt',d:-1}, loading:false };
+const STATUS_OPTS=[['packed','packed'],['partial','partial'],['unpacked','not packed'],['pending','pending']];
+
+function doShiftReport(from){
+  reportFrom=from||'platforms';
+  if(!RPT.sel.length || RPT.sel.some(id=>!SHIFTS[id])) RPT.sel = CUR_SHIFT ? [CUR_SHIFT] : shiftIds().slice(0,1);
+  show('report'); renderReport(); loadReportShifts();
+}
+async function loadReportShifts(){
+  RPT.loading=true;
+  for(const id of RPT.sel.slice()){ try{ RPT.rows[id]=await shiftOrders(id); }catch(e){ RPT.rows[id]=[]; } }
+  RPT.loading=false;
+  if(curScreen==='report') renderReport();
+}
+function reportOrders(){
+  let all=[];
+  for(const id of RPT.sel){
+    const rows = (id===CUR_SHIFT) ? currentOrderList().map(o=>Object.assign({},o,{shiftDate:S.date||shiftName(id)})) : (RPT.rows[id]||[]);
+    all=all.concat(rows.map(o=>Object.assign({shiftId:id},o)));
+  }
+  return all;
+}
+function applyReportFilters(orders){
+  const f=RPT.f, q=norm(f.q||'');
+  return orders.filter(o=>{
+    if(f.platform && o.platform!==f.platform) return false;
+    if(f.status && (o.status||'pending')!==f.status) return false;
+    if(f.packer && (o.packedBy||'')!==f.packer) return false;
+    if(q){
+      const hay=norm(o.trackingId+' '+o.platform+' '+(o.packedBy||'')+' '+(o.items||[]).map(i=>i.name+' '+(i.variation||'')).join(' '));
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+}
+function renderReportShiftBar(){
+  const bar=$('#reportShifts'); if(!bar) return;
+  const ids=shiftIds();
+  if(!ids.length){ bar.innerHTML=''; return; }
+  bar.innerHTML='<span class="sub" style="font-size:12.5px">Include shifts:</span>'+
+    ids.map(id=>'<button class="shiftchip'+(RPT.sel.includes(id)?' on':'')+'" data-rs="'+esc(id)+'">'+
+      (RPT.sel.includes(id)?'✓ ':'')+esc(shiftName(id))+' <span class="n">'+(shiftMeta(id).orders||0)+'</span></button>').join('')+
+    (ids.length>1?'<button class="shiftchip" id="rptAll">All shifts</button><button class="shiftchip" id="rptCur">Only the open shift</button>':'');
+  $$('#reportShifts [data-rs]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.rs, i=RPT.sel.indexOf(id);
+    if(i>=0){ if(RPT.sel.length===1){ toast('Keep at least one shift selected','warn',2200); return; } RPT.sel.splice(i,1); }
+    else RPT.sel.push(id);
+    renderReport(); loadReportShifts();
+  });
+  const a=$('#rptAll'); if(a) a.onclick=()=>{ RPT.sel=shiftIds(); renderReport(); loadReportShifts(); };
+  const c=$('#rptCur'); if(c) c.onclick=()=>{ RPT.sel=CUR_SHIFT?[CUR_SHIFT]:shiftIds().slice(0,1); renderReport(); loadReportShifts(); };
+}
+function renderReportTools(orders){
+  const t=$('#reportTools'); if(!t) return;
+  const platforms=uniqSorted(orders.map(o=>o.platform));
+  const packers=uniqSorted(orders.map(o=>o.packedBy));
+  keepFocus(t,()=>{ t.innerHTML=
+    '<div class="fld"><label>Platform</label><select id="rfPlatform">'+selOpts(platforms,RPT.f.platform,'All platforms')+'</select></div>'+
+    '<div class="fld"><label>Status</label><select id="rfStatus"><option value="">Any status</option>'+
+      STATUS_OPTS.map(([v,l])=>'<option value="'+v+'"'+(RPT.f.status===v?' selected':'')+'>'+l+'</option>').join('')+'</select></div>'+
+    '<div class="fld"><label>Packer</label><select id="rfPacker">'+selOpts(packers,RPT.f.packer,'All packers')+'</select></div>'+
+    '<div class="fld" style="flex:1; min-width:200px"><label>Search</label><input id="rfQ" placeholder="tracking, item, packer…" value="'+esc(RPT.f.q)+'"></div>'+
+    '<button class="btn ghost" id="rfClear">Clear filters</button>'; });
+  $('#rfPlatform').onchange=e=>{ RPT.f.platform=e.target.value; renderReport(); };
+  $('#rfStatus').onchange  =e=>{ RPT.f.status  =e.target.value; renderReport(); };
+  $('#rfPacker').onchange  =e=>{ RPT.f.packer  =e.target.value; renderReport(); };
+  $('#rfQ').oninput=e=>{ RPT.f.q=e.target.value; clearTimeout(t._d); t._d=setTimeout(renderReport,220); };
+  $('#rfClear').onclick=()=>{ RPT.f={platform:'',status:'',packer:'',q:''}; renderReport(); };
+}
+function sortOrders(list, sort){
+  const k=sort.k, d=sort.d;
+  return list.slice().sort((a,b)=>{
+    let av,bv;
+    if(k==='shift'){ av=a.shiftDate||''; bv=b.shiftDate||''; }
+    else if(k==='packedAt'){ av=a.packedAt||0; bv=b.packedAt||0; }
+    else if(k==='label'){ av=a.trackingId; bv=b.trackingId; }
+    else if(k==='packer'){ av=a.packedBy||''; bv=b.packedBy||''; }
+    else if(k==='status'){ av=a.status||''; bv=b.status||''; }
+    else { av=a.platform||''; bv=b.platform||''; }
+    return cmp(av,bv)*d;
+  });
+}
+function renderReport(){
+  renderReportShiftBar();
+  const raw=reportOrders();
+  renderReportTools(raw);
+  const orders=applyReportFilters(raw);
+  const r=buildReportFromOrders(orders);
+  r.packedOrders=sortOrders(r.packedOrders, RPT.sort);
+  const multi=RPT.sel.length>1;
+  $('#csvSplitBtn').classList.toggle('hide', !multi);
+  const names=RPT.sel.map(shiftName);
+  $('#reportTitle').innerHTML = (multi?'Combined summary':'Shift summary')+
+    (names.length?' <span class="sub" style="font-size:15px">· '+esc(names.join(' + '))+'</span>':'')+
+    (RPT.loading?' <span class="sub" style="font-size:13px">· loading…</span>':'');
+  const info=$('#reportFilterInfo');
+  const active=[]; if(RPT.f.platform)active.push('platform = '+RPT.f.platform); if(RPT.f.status)active.push('status = '+RPT.f.status);
+  if(RPT.f.packer)active.push('packer = '+RPT.f.packer); if(RPT.f.q)active.push('“'+RPT.f.q+'”');
+  info.classList.toggle('hide', !active.length);
+  info.textContent = active.length ? ('Filtered by '+active.join(' · ')+' — showing '+orders.length+' of '+raw.length+' orders.') : '';
+  $('#reportStats').innerHTML=reportStatsHTML(r);
+  $('#reportBody').innerHTML=reportBodyHTML(r,{sortable:true, showShift:multi, sort:RPT.sort});
+  $$('#reportBody th[data-rsort]').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.rsort;
+    RPT.sort = (RPT.sort.k===k) ? {k, d:-RPT.sort.d} : {k, d:(k==='packedAt'?-1:1)};
+    renderReport();
+  });
+}
+/* ---------- exports ---------- */
+function reportRowsFor(ids){
+  let orders=[];
+  for(const id of ids){
+    const rows=(id===CUR_SHIFT)?currentOrderList().map(o=>Object.assign({},o,{shiftDate:S.date||shiftName(id)})):(RPT.rows[id]||[]);
+    orders=orders.concat(rows);
+  }
+  return ordersToCSVRows(applyReportFilters(orders), '');
+}
+function safeFile(s){ return String(s||'').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_'); }
+function exportCSV(){
+  const ids=RPT.sel.length?RPT.sel:(CUR_SHIFT?[CUR_SHIFT]:[]);
+  const nm = ids.length>1 ? 'combined' : safeFile(shiftName(ids[0])||S.date||TODAY);
+  downloadCSV(reportRowsFor(ids), 'pack_report_'+nm+'.csv');
+  toast('Report exported','ok',2000);
+}
+function exportCSVPerShift(){
+  const ids=RPT.sel.slice();
+  if(ids.length<2){ exportCSV(); return; }
+  ids.forEach((id,i)=>setTimeout(()=>downloadCSV(reportRowsFor([id]), 'pack_report_'+safeFile(shiftName(id))+'.csv'), i*450));
+  toast(ids.length+' files exported','ok',2600);
+}
+function downloadXLSX(sheets, filename){
+  try{
+    const wb=XLSX.utils.book_new();
+    for(const s of sheets){ const ws=XLSX.utils.aoa_to_sheet(s.rows); XLSX.utils.book_append_sheet(wb, ws, String(s.name||'Sheet').slice(0,28)); }
+    XLSX.writeFile(wb, filename);
+  }catch(e){ toast('Excel export failed — use CSV','err',3600); }
+}
+function exportReportXLSX(){
+  const ids=RPT.sel.length?RPT.sel:(CUR_SHIFT?[CUR_SHIFT]:[]);
+  const sheets = ids.length>1
+    ? ids.map(id=>({name:shiftName(id).replace(/\//g,'-'), rows:reportRowsFor([id])}))
+    : [{name:'Report', rows:reportRowsFor(ids)}];
+  downloadXLSX(sheets, 'pack_report_'+(ids.length>1?'combined':safeFile(shiftName(ids[0])||TODAY))+'.xlsx');
+  toast('Excel exported','ok',2000);
+}
+
+/* ============================================================
+   PACK LOG — one row per confirmed order, with the exact time.
+   Written on confirm; deleted with its shift. Admin only.
+   ============================================================ */
+let PLOG={ sel:[], rows:{}, f:{platform:'',packer:'',status:'',q:''}, sort:{k:'at',d:-1}, from:'platforms', loading:false };
+const PACKLOG_HEADERS=['Date','Time','Tracking Number','Platform','Item QTY','Lines','Packer Name','Status','Shift'];
+
+function doPackLog(from){
+  PLOG.from=from||'platforms';
+  if(!IS_ADMIN){ toast('Manager view only','warn',2400); return; }
+  if(!PLOG.sel.length || PLOG.sel.some(id=>!SHIFTS[id])) PLOG.sel = CUR_SHIFT ? [CUR_SHIFT] : shiftIds().slice(0,1);
+  show('packlog'); renderPackLog(); loadPacklogShifts();
+}
+async function loadPacklogShifts(){
+  PLOG.loading=true;
+  for(const id of PLOG.sel.slice()){ try{ PLOG.rows[id]=await shiftPacklog(id); }catch(e){ PLOG.rows[id]=[]; } }
+  PLOG.loading=false;
+  if(curScreen==='packlog') renderPackLog();
+}
+function packlogEntries(){
+  let all=[]; for(const id of PLOG.sel) all=all.concat((PLOG.rows[id]||[]).map(e=>Object.assign({shiftId:id},e)));
+  return all;
+}
+function applyPacklogFilters(list){
+  const f=PLOG.f, q=norm(f.q||'');
+  return list.filter(e=>{
+    if(f.platform && e.platform!==f.platform) return false;
+    if(f.packer && e.packer!==f.packer) return false;
+    if(f.status && e.status!==f.status) return false;
+    if(q && norm(e.trackingId+' '+e.platform+' '+e.packer).indexOf(q)<0) return false;
+    return true;
+  });
+}
+function dpart(ts){ if(!ts) return ''; const d=new Date(ts), p=n=>String(n).padStart(2,'0'); return p(d.getMonth()+1)+'/'+p(d.getDate())+'/'+d.getFullYear(); }
+function tpart(ts){ if(!ts) return ''; const d=new Date(ts), p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+function renderPacklogShiftBar(){
+  const bar=$('#plShifts'); if(!bar) return;
+  const ids=shiftIds();
+  if(!ids.length){ bar.innerHTML=''; return; }
+  bar.innerHTML='<span class="sub" style="font-size:12.5px">Shifts:</span>'+
+    ids.map(id=>'<button class="shiftchip'+(PLOG.sel.includes(id)?' on':'')+'" data-ps="'+esc(id)+'">'+
+      (PLOG.sel.includes(id)?'✓ ':'')+esc(shiftName(id))+'</button>').join('')+
+    (ids.length>1?'<button class="shiftchip" id="plAll">All shifts</button>':'');
+  $$('#plShifts [data-ps]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.ps, i=PLOG.sel.indexOf(id);
+    if(i>=0){ if(PLOG.sel.length===1){ toast('Keep at least one shift selected','warn',2200); return; } PLOG.sel.splice(i,1); }
+    else PLOG.sel.push(id);
+    renderPackLog(); loadPacklogShifts();
+  });
+  const a=$('#plAll'); if(a) a.onclick=()=>{ PLOG.sel=shiftIds(); renderPackLog(); loadPacklogShifts(); };
+}
+function renderPacklogTools(list){
+  const t=$('#plTools'); if(!t) return;
+  keepFocus(t,()=>{ t.innerHTML=
+    '<div class="fld"><label>Platform</label><select id="pfPlatform">'+selOpts(uniqSorted(list.map(e=>e.platform)),PLOG.f.platform,'All platforms')+'</select></div>'+
+    '<div class="fld"><label>Packer</label><select id="pfPacker">'+selOpts(uniqSorted(list.map(e=>e.packer)),PLOG.f.packer,'All packers')+'</select></div>'+
+    '<div class="fld"><label>Status</label><select id="pfStatus">'+selOpts(uniqSorted(list.map(e=>e.status)),PLOG.f.status,'Any status')+'</select></div>'+
+    '<div class="fld" style="flex:1; min-width:200px"><label>Search</label><input id="pfQ" placeholder="tracking or packer…" value="'+esc(PLOG.f.q)+'"></div>'+
+    '<button class="btn ghost" id="pfClear">Clear filters</button>'+
+    '<button class="btn ghost" id="pfReload">↻ Refresh</button>'; });
+  $('#pfReload').onclick=()=>{ PLOG.sel.forEach(id=>{ if(SHIFT_CACHE[id]) SHIFT_CACHE[id].packlog=null; }); loadPacklogShifts(); toast('Reloaded','info',1400); };
+  $('#pfPlatform').onchange=e=>{ PLOG.f.platform=e.target.value; renderPackLog(); };
+  $('#pfPacker').onchange  =e=>{ PLOG.f.packer  =e.target.value; renderPackLog(); };
+  $('#pfStatus').onchange  =e=>{ PLOG.f.status  =e.target.value; renderPackLog(); };
+  $('#pfQ').oninput=e=>{ PLOG.f.q=e.target.value; clearTimeout(t._d); t._d=setTimeout(renderPackLog,220); };
+  $('#pfClear').onclick=()=>{ PLOG.f={platform:'',packer:'',status:'',q:''}; renderPackLog(); };
+}
+function packlogSorted(list){
+  const k=PLOG.sort.k, d=PLOG.sort.d;
+  return list.slice().sort((a,b)=>{
+    let av,bv;
+    if(k==='at'){ av=a.at||0; bv=b.at||0; }
+    else if(k==='qty'){ av=a.qty||0; bv=b.qty||0; }
+    else av=String(a[k]||''), bv=String(b[k]||'');
+    return cmp(av,bv)*d;
+  });
+}
+function packlogRows(list){
+  const rows=[PACKLOG_HEADERS.slice()];
+  for(const e of list) rows.push([dpart(e.at), tpart(e.at), e.trackingId, e.platform, e.qty, e.lines, e.packer, e.status, e.shiftDate||'']);
+  return rows;
+}
+function renderPackLog(){
+  renderPacklogShiftBar();
+  const raw=packlogEntries();
+  renderPacklogTools(raw);
+  const list=packlogSorted(applyPacklogFilters(raw));
+  const names=PLOG.sel.map(shiftName);
+  $('#plTitle').innerHTML='🧾 Pack log'+(names.length?' <span class="sub" style="font-size:15px">· '+esc(names.join(' + '))+'</span>':'')+
+    (PLOG.loading?' <span class="sub" style="font-size:13px">· loading…</span>':'');
+  const units=list.reduce((n,e)=>n+(e.qty||0),0);
+  const packers=uniqSorted(list.map(e=>e.packer));
+  const span=list.length?(()=>{ const ts=list.map(e=>e.at||0).filter(Boolean); if(!ts.length) return '—';
+      const h=Math.max(1,Math.round((Math.max(...ts)-Math.min(...ts))/3600000)); return Math.round(list.length/h)+'/h'; })():'—';
+  $('#plStats').innerHTML = stat(list.length,'Orders packed','ok')+stat(units,'Units packed','ok')+
+    stat(packers.length,'Packers','')+stat(span,'Pace (orders/hour)','');
+  if(!list.length){
+    $('#plBody').innerHTML='<div class="empty">'+(PLOG.loading?'Loading…':'Nothing logged for this selection yet.<br><span style="font-size:13px">Rows appear as orders are confirmed.</span>')+'</div>';
+    return;
+  }
+  const th=(k,l,num)=>'<th'+(num?' class="num"':'')+' data-psort="'+k+'">'+l+arrow(PLOG.sort.k===k,PLOG.sort.d)+'</th>';
+  let b='<div class="tabsec"><h2>Packed orders — '+list.length+'</h2><table><thead><tr>'+
+    th('at','Date &amp; time')+th('trackingId','Tracking number')+th('platform','Platform')+
+    th('qty','Item QTY',true)+th('packer','Packer')+th('status','Status')+
+    (PLOG.sel.length>1?th('shiftDate','Shift'):'')+'</tr></thead><tbody>';
+  for(const e of list){
+    b+='<tr><td class="mono">'+esc(dpart(e.at))+' '+esc(tpart(e.at))+'</td>'+
+       '<td class="mono">'+esc(e.trackingId)+'</td><td>'+esc(e.platform)+'</td>'+
+       '<td class="num">'+e.qty+(e.lines>1?' <span class="sub" style="font-size:11px">('+e.lines+' lines)</span>':'')+'</td>'+
+       '<td>'+esc(e.packer||'—')+'</td>'+
+       '<td>'+(e.status==='partial'?'<span class="statustag st-partial">partial</span>':(e.status==='unpacked'?'<span class="statustag st-blocked">not packed</span>':'<span class="statustag st-packed">packed</span>'))+'</td>'+
+       (PLOG.sel.length>1?'<td>'+esc(e.shiftDate||'—')+'</td>':'')+'</tr>';
+  }
+  b+='</tbody></table></div>';
+  /* per-packer roll-up — the KPI view */
+  const per={};
+  for(const e of list){ const k=e.packer||'—'; (per[k]=per[k]||{orders:0,units:0}); per[k].orders++; per[k].units+=e.qty||0; }
+  const rows=Object.entries(per).sort((a,b)=>b[1].orders-a[1].orders);
+  b+='<div class="tabsec"><h2>By packer</h2><table><thead><tr><th>Packer</th><th class="num">Orders</th><th class="num">Units</th><th class="num">Units / order</th></tr></thead><tbody>'+
+    rows.map(([k,v])=>'<tr><td>'+esc(k)+'</td><td class="num">'+v.orders+'</td><td class="num">'+v.units+'</td><td class="num">'+(v.orders?(v.units/v.orders).toFixed(1):'—')+'</td></tr>').join('')+
+    '</tbody></table></div>';
+  $('#plBody').innerHTML=b;
+  $$('#plBody th[data-psort]').forEach(h=>h.onclick=()=>{
+    const k=h.dataset.psort;
+    PLOG.sort = (PLOG.sort.k===k) ? {k,d:-PLOG.sort.d} : {k, d:(k==='at'||k==='qty')?-1:1};
+    renderPackLog();
+  });
+}
+function exportPacklogCSV(){
+  const list=packlogSorted(applyPacklogFilters(packlogEntries()));
+  if(!list.length){ toast('Nothing to export','warn',2200); return; }
+  downloadCSV(packlogRows(list), 'pack_log_'+(PLOG.sel.length>1?'combined':safeFile(shiftName(PLOG.sel[0])||TODAY))+'.csv');
+  toast('Pack log exported','ok',2000);
+}
+function exportPacklogXLSX(){
+  const all=applyPacklogFilters(packlogEntries());
+  if(!all.length){ toast('Nothing to export','warn',2200); return; }
+  const sheets = PLOG.sel.length>1
+    ? PLOG.sel.map(id=>({name:shiftName(id).replace(/\//g,'-'), rows:packlogRows(packlogSorted(all.filter(e=>e.shiftId===id)))}))
+    : [{name:'Pack log', rows:packlogRows(packlogSorted(all))}];
+  downloadXLSX(sheets, 'pack_log_'+(PLOG.sel.length>1?'combined':safeFile(shiftName(PLOG.sel[0])||TODAY))+'.xlsx');
+  toast('Excel exported','ok',2000);
+}
+
 /* canonical CSV schema \u2014 used for export AND re-import */
 const CSV_HEADERS=['Platform','Label','Item','Variation','Qty','Order status','Item status','Reason','Packer','Packed at','Shift date'];
 function orderStatusText(st){ return st==='packed'?'packed':(st==='partial'?'partial':(st==='unpacked'?'NOT packed':'pending')); }
@@ -1838,7 +2556,6 @@ function ordersToCSVRows(orders, shiftDateDefault){
 }
 function rowsToCSV(rows){ return rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\r\n'); }
 function downloadCSV(rows, filename){ const blob=new Blob(['\ufeff'+rowsToCSV(rows)],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
-function exportCSV(){ downloadCSV(ordersToCSVRows(currentOrderList(), S.date||TODAY), 'pack_report_'+(S.date||TODAY)+'.csv'); }
 
 /* ---------- report viewer: parse past CSV reports (read-only) ---------- */
 let loadedReports=[];   // [{name, orders:[...], dates:[...]}]
@@ -1936,10 +2653,10 @@ $('#nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter')enter(); });
 function readFile(file, cb){ const fr=new FileReader(); fr.onload=()=>cb(new Uint8Array(fr.result)); fr.readAsArrayBuffer(file); }
 
 // orders source
-$('#ordLoad').onclick=async()=>{ const buf=await fetchSheet($('#ordUrl').value,false,'ord'); if(buf){ _ordSource=$('#ordUrl').value.trim(); seedOrders(buf,{type:'gsheet',input:_ordSource}); } };
+$('#ordLoad').onclick=async()=>{ const buf=await fetchSheet($('#ordUrl').value,false,'ord'); if(buf){ _ordSource=$('#ordUrl').value.trim(); stageOrders(buf,{type:'gsheet',input:_ordSource},_lastSheetName); } };
 $('#ordUrl').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();$('#ordLoad').click();} });
-$('#ordProxy').onclick=async()=>{ if(!_proxy.ord)return; const buf=await fetchSheet(_proxy.ord,true,'ord'); if(buf){ _ordSource=_proxy.ord; seedOrders(buf,{type:'gsheet',input:_proxy.ord}); } };
-$('#ordFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)readFile(f,buf=>{ _ordSource=null; seedOrders(buf,null); }); });
+$('#ordProxy').onclick=async()=>{ if(!_proxy.ord)return; const buf=await fetchSheet(_proxy.ord,true,'ord'); if(buf){ _ordSource=_proxy.ord; stageOrders(buf,{type:'gsheet',input:_proxy.ord},_lastSheetName); } };
+$('#ordFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f)readFile(f,buf=>{ _ordSource=null; stageOrders(buf,null,f.name); }); });
 
 // inventory source (separate)
 $('#invLoad').onclick=async()=>{ const buf=await fetchSheet(INVENTORY_SHEET_URL,false,'inv'); if(buf){ _invSource=INVENTORY_SHEET_URL; loadInventory(buf,{type:'gsheet',input:_invSource}); } };
@@ -1980,8 +2697,6 @@ $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the curre
 
 // nav
 /* one implementation per admin action, wired from both the menu and pick & pack */
-let reportFrom='platforms', rvFrom='platforms';
-function doShiftReport(from){ reportFrom=from||'platforms'; show('report'); renderReport(); }
 function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
 async function doPullOrders(){
   if(!_ordSource){ toast('Load the orders sheet first (⚙ Load data)','warn',3200); return; }
@@ -1993,10 +2708,9 @@ async function doUpdateInventory(){
   if(buf) await loadInventory(buf,{type:'gsheet',input:_invSource||INVENTORY_SHEET_URL});
   else toast('Could not read the inventory sheet','err',3600);
 }
-async function doWipeShift(){
-  if(!confirm('Clear the ENTIRE shift for everyone? All packing progress will be deleted.\nReceiving data is NOT touched.'))return;
-  if(!confirm('Are you sure? This cannot be undone.'))return;
-  await root.remove(); toast('Shift cleared','ok'); location.reload();
+function doWipeShift(){
+  if(!CUR_SHIFT){ toast('No shift is open','warn'); return; }
+  clearShift(CUR_SHIFT);
 }
 $('#backBtn').onclick=()=>goPlatforms();
 $('#homeBtn').onclick=goMenu;
@@ -2008,7 +2722,18 @@ $('#rvFile').addEventListener('change',e=>{ [...e.target.files].forEach(loadRepo
 $('#rvExport').onclick=exportMergedCSV;
 $('#reportBack').onclick=()=>{ reportFrom==='menu'?goMenu():goPlatforms(); };
 $('#csvBtn').onclick=exportCSV;
+$('#csvSplitBtn').onclick=exportCSVPerShift;
+$('#xlsBtn').onclick=exportReportXLSX;
 $('#printBtn').onclick=()=>window.print();
+$('#packLogBtn').onclick=()=>doPackLog('platforms');
+$('#plBack').onclick=()=>{ PLOG.from==='menu'?goMenu():goPlatforms(); };
+$('#plCsvBtn').onclick=exportPacklogCSV;
+$('#plXlsBtn').onclick=exportPacklogXLSX;
+$('#shiftPill').onclick=openShiftModal;
+$('#shiftClose').onclick=closeShiftModal;
+$('#shiftNewBtn').onclick=()=>{ closeShiftModal(); show('seed'); };
+$('#shiftModal').addEventListener('click',e=>{ if(e.target.id==='shiftModal') closeShiftModal(); });
+$('#seedShiftsBtn').onclick=openShiftModal;
 $('#soundBtn').onclick=()=>{ soundOn=!soundOn; $('#soundBtn').textContent=soundOn?'🔊':'🔇'; $('#soundBtn').classList.toggle('on',soundOn); };
 $('#onlinePill').onclick=()=>{ root.child('presence').once('value').then(s=>{ const names=[]; const now=Date.now(); s.forEach(c=>{const v=c.val(); if(v&&now-(v.at||0)<60000)names.push(v.name);}); toast('Online: '+(names.join(', ')||'—'),'info',4000); }); };
 
@@ -2147,7 +2872,300 @@ $('#camClose').onclick=closeCam;
 $('#pickCancel').onclick=closeItemPick;
 
 /* picking mode wiring */
+
+/* ============================================================================
+   PACKING MODE — the packer's own screen
+   One scan per finished box. Time is measured from Start / the previous scan /
+   the end of a pause, so queue time never lands on the packer. Everything is
+   timestamp-based, so a locked phone or a reload never loses the session.
+   ========================================================================== */
+const PG_CFG = {
+  longGapMs : 12*60*1000,        // ask "were you packing?" above this
+  slowMs    : 4*60*1000,         // cycle shown in amber above this
+  maxSessionMs: 16*60*60*1000,   // a forgotten session is auto-closed after this
+  LS        : 'cps-packing-session',
+  LSQ       : 'cps-packing-queue'
+};
+let PG=null, pgTick=null, pgWake=null, pgBuf='', pgBufAt=0, pgAsk=null, pgChoice=null, pgAskBeep=null;
+
+/* ---------- tiny durable write queue (survives a Wi-Fi drop) ---------- */
+let pgQueue=[];
+function pgQLoad(){ try{ pgQueue=JSON.parse(localStorage.getItem(PG_CFG.LSQ)||'[]')||[]; }catch(e){ pgQueue=[]; } }
+function pgQSave(){ try{ localStorage.setItem(PG_CFG.LSQ, JSON.stringify(pgQueue.slice(-500))); }catch(e){} }
+function pgWrite(path, val, op){
+  pgQueue.push({path, val, op:op||'set', id:Math.random().toString(36).slice(2)});
+  pgQSave(); pgFlush();
+}
+let pgFlushing=false;
+async function pgFlush(){
+  if(pgFlushing || !root || !pgQueue.length) return;
+  pgFlushing=true;
+  while(pgQueue.length){
+    const j=pgQueue[0];
+    try{
+      const r=root.child(j.path);
+      if(j.op==='push') await r.push(j.val);
+      else if(j.op==='update') await r.update(j.val);
+      else await r.set(j.val);
+      pgQueue.shift(); pgQSave();
+    }catch(e){ break; }
+  }
+  pgFlushing=false;
+  const off=$('#pgOffline'); if(off) off.classList.toggle('hide', pgQueue.length===0);
+}
+addEventListener('online', pgFlush);
+
+/* ---------- session persistence ---------- */
+function pgSave(){ try{ localStorage.setItem(PG_CFG.LS, JSON.stringify(PG)); }catch(e){} }
+function pgLoad(){
+  let v=null; try{ v=JSON.parse(localStorage.getItem(PG_CFG.LS)||'null'); }catch(e){}
+  if(!v || !v.sid) return null;
+  if(Date.now()-(v.startedAt||0) > PG_CFG.maxSessionMs){       // forgotten overnight — close it quietly
+    const last=(v.feed&&v.feed[0]&&v.feed[0].at)||v.anchor||v.startedAt;
+    pgWrite('packing/sessions/'+v.sid, {endedAt:last, autoClosed:true}, 'update');
+    try{ localStorage.removeItem(PG_CFG.LS); }catch(e){}
+    return null;
+  }
+  return v;
+}
+
+/* ---------- wake lock ---------- */
+async function pgWakeOn(){
+  try{ if(navigator.wakeLock && !pgWake) pgWake=await navigator.wakeLock.request('screen'); }catch(e){}
+}
+function pgWakeOff(){ try{ if(pgWake){ pgWake.release(); pgWake=null; } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && PG && !PG.paused) pgWakeOn(); });
+
+/* ---------- helpers ---------- */
+const pgDur = ms => {
+  ms=Math.max(0, ms|0); const s=Math.round(ms/1000);
+  const m=Math.floor(s/60), r=s%60;
+  return (m>=60? Math.floor(m/60)+':'+String(m%60).padStart(2,'0')+':' : m+':') + String(r).padStart(2,'0');
+};
+const pgClock = ts => { const d=new Date(ts), p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes()); };
+function pgPausedMs(){ let t=(PG.pauses||[]).reduce((a,p)=>a+((p.to||Date.now())-p.from),0); if(PG.paused) t+=Date.now()-PG.paused.from; return t; }
+
+/* ---------- start / pause / end ---------- */
+function enterPacking(){ show('packing'); PG=PG||pgLoad(); pgRender(); pgStartTick(); if(PG&&!PG.paused) pgWakeOn(); }
+function pgStartTick(){ clearInterval(pgTick); pgTick=setInterval(()=>{ if(curScreen==='packing') pgPaint(); }, 500); }
+
+function pgStart(){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){}
+  const now=Date.now();
+  PG={ sid:(crypto.randomUUID?crypto.randomUUID():'s'+now+Math.random().toString(36).slice(2,7)),
+       packer:MY_NAME||'—', startedAt:now, anchor:now, anchorKind:'start',
+       count:0, units:0, cycles:[], pauses:[], paused:null, feed:[], device:(navigator.userAgent||'').slice(0,80) };
+  pgWrite('packing/sessions/'+PG.sid, {packer:PG.packer, startedAt:now, device:PG.device, shiftId:CUR_SHIFT||null});
+  pgSave(); pgWakeOn(); beep('ok'); pgRender();
+}
+function pgPause(kind){
+  if(!PG||PG.paused) return;
+  PG.paused={from:Date.now(), kind:kind};
+  pgWakeOff(); pgSave(); pgRender(); beep('warn');
+}
+function pgResume(){
+  if(!PG||!PG.paused) return;
+  const p=PG.paused; p.to=Date.now();
+  PG.pauses.push(p); PG.paused=null; PG.anchor=p.to; PG.anchorKind='resume';
+  pgWrite('packing/sessions/'+PG.sid+'/pauses', {from:p.from, to:p.to, kind:p.kind}, 'push');
+  pgSave(); pgWakeOn(); beep('ok'); pgRender();
+}
+function pgEnd(){
+  if(!PG) return;
+  if(!confirm('End this packing session?\nPacked: '+PG.count+' order(s).')) return;
+  if(PG.paused){ const p=PG.paused; p.to=Date.now(); PG.pauses.push(p);
+    pgWrite('packing/sessions/'+PG.sid+'/pauses', {from:p.from,to:p.to,kind:p.kind}, 'push'); PG.paused=null; }
+  pgWrite('packing/sessions/'+PG.sid, {endedAt:Date.now(), orders:PG.count, units:PG.units}, 'update');
+  pgWakeOff(); try{ localStorage.removeItem(PG_CFG.LS); }catch(e){}
+  toast('Session ended — '+PG.count+' order(s) packed','ok',3200);
+  PG=null; pgRender();
+}
+
+/* ---------- scanning ---------- */
+function pgCanScan(){ return curScreen==='packing' && PG && !PG.paused && !pgAsk; }
+document.addEventListener('keydown', e=>{
+  if(!pgCanScan()) return;
+  const t=e.target;
+  if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const now=Date.now();
+  if(now-pgBufAt>400) pgBuf='';
+  pgBufAt=now;
+  if(e.key==='Enter'){ const v=pgBuf; pgBuf=''; if(v) pgResolve(v); e.preventDefault(); pgPaint(); return; }
+  if(e.key && e.key.length===1){ pgBuf+=e.key; pgPaint(); }
+});
+
+function pgResolve(raw){
+  const val=(raw||'').trim(); if(!val) return;
+  pgChoice=null;
+  const cv=clean(val);
+  if(cv.length<3){ flash('err'); beep('err'); toast('Scan the shipping label','err',2600); return; }
+  const all=allOrdersFlat();
+  const exact=all.filter(x=>clean(x.order.trackingId)===cv);
+  let matches = exact.length ? exact : all.filter(x=>{ const ct=clean(x.order.trackingId); if(!ct) return false;
+      return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=4 && ct.endsWith(cv)); });
+  if(matches.length===0){
+    beep('err'); toast('No order with label '+val,'err',3400);
+    pgWrite('packing/misscans', {at:Date.now(), code:val, packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
+    pgRender(); return;
+  }
+  if(matches.length>1){ pgChoice=matches; beep('warn'); pgRender(); return; }
+  pgTake(matches[0]);
+}
+
+function pgTake(x){
+  const o=x.order, now=Date.now();
+  if(o.packing && o.packing.at){
+    beep('err');
+    toast('Already packed at '+pgClock(o.packing.at)+' by '+(o.packing.by||'—'),'warn',3800);
+    pgRender(); return;
+  }
+  const gap=now-PG.anchor;
+  if(gap>PG_CFG.longGapMs){ pgOpenAsk(x, now, gap); return; }
+  pgCommit(x, now, gap, []);
+}
+
+function pgCommit(x, at, cycleMs, flags){
+  const o=x.order;
+  const items=(o.items||[]).map(it=>{
+    const iv=S.inventory[it.invKey]||{};
+    return {name:it.name, variation:it.variation||'', qty:+it.qty||1, packClass:(iv.packClass||'').toUpperCase()||null};
+  });
+  const units=items.reduce((n,i)=>n+i.qty,0);
+  if(o.status==='pending') flags=flags.concat(['not-picked']);
+  if(items.some(i=>!i.packClass)) flags=flags.concat(['no-class']);
+
+  pgWrite('packing/events', {
+    at, sid:PG.sid, packer:PG.packer,
+    tracking:o.trackingId, platform:x.platform,
+    shiftId:CUR_SHIFT||null, orderKey:o._key,
+    cycleMs:(cycleMs==null?null:Math.round(cycleMs)), since:PG.anchorKind,
+    lines:items.length, units, items,
+    addedAt:o.addedAt||null, pickStartedAt:o.pickStartedAt||null, pickConfirmedAt:o.packedAt||null,
+    orderStatus:o.status||null, flags:flags.length?flags:null
+  }, 'push');
+
+  if(CUR_SHIFT) pgWrite('shifts/'+CUR_SHIFT+'/orders/'+o._key+'/packing',
+    {at, by:PG.packer, sid:PG.sid, cycleMs:(cycleMs==null?null:Math.round(cycleMs))});
+
+  PG.count++; PG.units+=units;
+  if(cycleMs!=null) PG.cycles.push(Math.round(cycleMs));
+  PG.feed.unshift({at, trk:o.trackingId, platform:x.platform, cycleMs:(cycleMs==null?null:Math.round(cycleMs)), units, lines:items.length});
+  PG.feed=PG.feed.slice(0,40);
+  PG.anchor=at; PG.anchorKind='prev';
+  pgSave(); flash('ok'); beep('ok');
+  try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){}
+  pgRender();
+}
+
+/* ---------- "were you packing?" prompt ---------- */
+function pgOpenAsk(x, at, gap){
+  pgAsk={x, at, gap};
+  try{ if(navigator.vibrate) navigator.vibrate([200,120,200]); }catch(e){}
+  clearInterval(pgAskBeep); beep('warn');
+  pgAskBeep=setInterval(()=>beep('warn'), 2200);
+  pgRender();
+}
+function pgAnswer(worked){
+  clearInterval(pgAskBeep); pgAskBeep=null;
+  const a=pgAsk; pgAsk=null; if(!a) return;
+  if(worked){ pgCommit(a.x, a.at, a.gap, ['long-cycle']); return; }
+  const p={from:PG.anchor, to:a.at, kind:'auto'};
+  PG.pauses.push(p);
+  pgWrite('packing/sessions/'+PG.sid+'/pauses', p, 'push');
+  PG.anchor=a.at; PG.anchorKind='resume';
+  pgCommit(a.x, a.at, null, ['gap-discarded']);
+}
+
+/* ---------- render ---------- */
+function pgRender(){
+  const host=$('#pgWrap'); if(!host) return;
+  if(!PG){
+    host.innerHTML='<div class="pgidle"><h2>Ready to pack</h2>'+
+      '<p class="sub" style="margin-bottom:22px">Press start, then scan the shipping label of every box you finish, right before it goes to the shipping zone.</p>'+
+      '<button class="pgstart" id="pgStart">▶ START PACKING</button>'+
+      '<p class="sub" style="margin-top:16px;font-size:12.5px">Packing as <b>'+esc(MY_NAME||'—')+'</b></p></div>';
+    $('#pgStart').onclick=pgStart;
+    pgWakeOff(); return;
+  }
+  if(PG.paused){
+    host.innerHTML='<div class="pgpaused"><div class="k">'+(PG.paused.kind==='break'?'☕ On break':'⏸ Paused')+'</div>'+
+      '<div class="t" id="pgPauseT">0:00</div><div class="sub">Nothing is being counted right now</div></div>'+
+      '<button class="pgstart resume" id="pgResume">▶ BACK TO PACKING</button>'+
+      '<div class="pgacts" style="margin-top:12px"><button class="btn danger" id="pgEnd">⏹ End session</button></div>';
+    $('#pgResume').onclick=pgResume; $('#pgEnd').onclick=pgEnd;
+    pgPaint(); return;
+  }
+  if(pgChoice){
+    let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pgChoice.length+' orders match — choose one</div><div class="choices scroll">';
+    pgChoice.forEach((x,i)=>{ h+='<button class="choice" data-pg-pick="'+i+'"><span class="choicetop"><span class="trk">'+esc(x.order.trackingId)+'</span><span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(x.order.items||[]).length+' item(s)</span></button>'; });
+    h+='</div><div class="orderfoot"><button class="btn ghost" id="pgChoiceCancel">Cancel</button></div></div>';
+    host.innerHTML=h;
+    $$('#pgWrap [data-pg-pick]').forEach(b=>b.onclick=()=>{ const x=pgChoice[+b.dataset.pgPick]; pgChoice=null; pgTake(x); });
+    $('#pgChoiceCancel').onclick=()=>{ pgChoice=null; pgRender(); };
+    return;
+  }
+
+  const avg=PG.cycles.length? PG.cycles.reduce((a,b)=>a+b,0)/PG.cycles.length : 0;
+  let h='<div class="pgbig"><div class="lbl">Current order</div>'+
+        '<div class="pgtimer" id="pgTimer">0:00</div>'+
+        '<div class="sub" id="pgSince">since start</div></div>'+
+        '<div class="pgstats">'+
+          '<div class="pgstat"><div class="n">'+PG.count+'</div><div class="l">packed</div></div>'+
+          '<div class="pgstat"><div class="n">'+PG.units+'</div><div class="l">units</div></div>'+
+          '<div class="pgstat"><div class="n">'+(avg?pgDur(avg):'—')+'</div><div class="l">avg / order</div></div>'+
+        '</div>'+
+        '<div class="pgscan" id="pgScan">Scan the shipping label…</div>'+
+        '<div class="pgacts">'+
+          '<button class="btn" id="pgBreak">☕ Break</button>'+
+          '<button class="btn" id="pgPause">⏸ Pause</button>'+
+          '<button class="btn ghost" id="pgManual">⌨ Type label</button>'+
+          '<button class="btn danger ghost" id="pgEnd">⏹ End</button>'+
+        '</div>';
+  if(PG.feed.length){
+    h+='<div class="pgfeed"><div class="eyebrow">This session</div>';
+    PG.feed.forEach(f=>{ const cls=f.cycleMs==null?'none':(f.cycleMs>PG_CFG.slowMs?'slow':'');
+      h+='<div class="pgrow"><span class="trk mono">'+esc(f.trk)+'</span>'+
+         '<span class="mt">'+f.lines+'×items · '+f.units+'u</span>'+
+         '<span class="cyc '+cls+'">'+(f.cycleMs==null?'—':pgDur(f.cycleMs))+'</span>'+
+         '<span class="mt">'+pgClock(f.at)+'</span></div>'; });
+    h+='</div>';
+  }
+  if(pgAsk){
+    h+='<div class="pgask"><div class="pgaskcard"><h3>Were you packing all this time?</h3>'+
+       '<div class="gap">'+pgDur(pgAsk.gap)+'</div>'+
+       '<p class="sub">Order '+esc(pgAsk.x.order.trackingId)+'. If you stepped away, the time will not be counted.</p>'+
+       '<button class="btn primary" id="pgAskYes">✓ I was packing</button>'+
+       '<button class="btn" id="pgAskNo">⏸ I stepped away</button></div></div>';
+  }
+  host.innerHTML=h;
+  $('#pgBreak').onclick=()=>pgPause('break');
+  $('#pgPause').onclick=()=>pgPause('pause');
+  $('#pgEnd').onclick=pgEnd;
+  $('#pgManual').onclick=()=>{ const v=prompt('Tracking number or last 4 digits'); if(v) pgResolve(v); };
+  if(pgAsk){ $('#pgAskYes').onclick=()=>pgAnswer(true); $('#pgAskNo').onclick=()=>pgAnswer(false); }
+  pgPaint();
+}
+
+function pgPaint(){
+  if(!PG) return;
+  if(PG.paused){ const t=$('#pgPauseT'); if(t) t.textContent=pgDur(Date.now()-PG.paused.from); return; }
+  const el=$('#pgTimer'); if(!el) return;
+  const ms=Date.now()-PG.anchor;
+  el.textContent=pgDur(ms);
+  el.className='pgtimer'+(ms>PG_CFG.longGapMs?' over':(ms>PG_CFG.slowMs?' warn':''));
+  const s=$('#pgSince'); if(s) s.textContent = PG.anchorKind==='start'?'since start of session'
+      : PG.anchorKind==='resume'?'since you came back':'since the previous box';
+  const sc=$('#pgScan');
+  if(sc){ if(pgBuf && Date.now()-pgBufAt<1200){ sc.classList.add('live'); sc.innerHTML='<b>'+esc(pgBuf)+'</b>'; }
+          else { sc.classList.remove('live'); sc.textContent='Scan the shipping label…'; } }
+  const off=$('#pgOffline'); if(off) off.classList.toggle('hide', pgQueue.length===0);
+}
+
 $('#pickingBtn').onclick=enterPicking;
+$('#packingBtn').onclick=enterPacking;
+$('#pgBack').onclick=goPlatforms;
+pgQLoad();
 $('#pkBack').onclick=goPlatforms;
 $('#pkGo').onclick=pkSubmit;
 $('#pkCam').onclick=openCam;
@@ -2190,9 +3208,9 @@ const RC_WAREHOUSE = 'Arcadia Warehouse';
        (P1, P2 …) is used in the Slack line instead, so the groups stay readable.
        Set to false to print those lines with no prefix at all. <<< */
 const RC_SLACK_PALLET_PREFIX = true;
-/* >>> Scanning the same barcode again inside one pallet/package adds +1
-       instead of re-asking for the quantity. Set to false to always ask. <<< */
-const RC_RESCAN_INCREMENTS = true;
+/* >>> Every scan asks for a quantity — including a repeat scan of an item
+       that is already on the list. The dialog then shows what is already
+       counted and adds to it, so a miscount can never slip in silently. <<< */
 
 const RC_LS_STATE = 'rc_state_v1';
 const RC_LS_CAT   = 'rc_catalog_v1';
@@ -2225,13 +3243,116 @@ function rcDeleteSession(id){
   if(!confirm('Delete the receiving "'+(s.supplier||'—')+' · '+s.dateStr+'"?\nThis cannot be undone — export the report first if you still need it.')) return;
   RC.sessions.splice(i,1);
   if(rcActiveId===id) rcActiveId=null;
-  rcSave(); toast('Receiving deleted','ok'); rcGo('home');
+  clearTimeout(_rcPush[id]); delete _rcPush[id]; delete _rcDirty[id];
+  if(rcRef) rcRef.child('sessions/'+safeKey(id)).remove().catch(()=>{});
+  rcSaveLocal(); toast('Receiving deleted','ok'); rcGo('home');
 }
 
-/* ---------- storage ---------- */
-function rcSave(){
+/* ---------- storage ----------
+   Receivings live on the shared database at packstation/receiving so several
+   people can count different shipments at the same time and the manager sees
+   the progress live. localStorage stays as an offline mirror: it is what the
+   other modules read (Label Print reads the learned barcodes), and it is what
+   keeps the screen usable if the connection drops mid-count.
+   Writes are per receiving — two people on two shipments never overwrite each
+   other — and they are debounced so a fast scanner does not hammer the wire. */
+let rcRef=null;                 // packstation/receiving
+let _rcPush={};                 // id -> pending write timer
+let _rcDirty={};                // id -> this device has unsent or unconfirmed changes
+let _rcSuppressRender=false;
+
+function rcSaveLocal(){
   try{ localStorage.setItem(RC_LS_STATE, JSON.stringify({v:2, sessions:RC.sessions, learned:RC.learned})); }
-  catch(e){ toast('Local storage is full — export the report','warn',3500); }
+  catch(e){ /* the cloud copy is the real one — a full cache is not fatal */ }
+}
+/* save = local mirror now, shared copy a moment later */
+function rcSave(session){
+  rcSaveLocal();
+  const s = session || rcCur();
+  if(s && !rcDraft) rcPushSession(s.id);      // a draft is not a receiving yet
+  else if(s && rcDraft && s.id===rcDraft.id){ /* nothing to publish yet */ }
+}
+function rcPushSession(id){
+  if(!rcRef || !id) return;
+  _rcDirty[id]=true;                       // hold the local copy until the write lands
+  clearTimeout(_rcPush[id]);
+  _rcPush[id]=setTimeout(()=>{
+    const s=RC.sessions.find(x=>x.id===id);
+    if(!s){ delete _rcDirty[id]; return; }
+    rcRef.child('sessions/'+safeKey(id)).set(s)
+      .then(()=>{ if(!_rcPush[id]) delete _rcDirty[id]; })
+      .catch(()=>{});
+    _rcPush[id]=null;
+  }, 350);
+}
+function rcPushLearned(code, rec){
+  if(!rcRef || !code) return;
+  rcRef.child('learned/'+safeKey(code)).set(Object.assign({code}, rec)).catch(()=>{});
+}
+function rcRemoveLearned(code){ if(rcRef&&code) rcRef.child('learned/'+safeKey(code)).remove().catch(()=>{}); }
+
+/* live feed — merges what other devices write without disturbing this one.
+   The listener is attached only after this device's own receivings are on the
+   wire, so an empty shared node can never wipe a count in progress. */
+function rcConnect(){
+  if(!root) return;
+  rcRef = root.child('receiving');
+  rcRef.child('sessions').once('value')
+    .then(snap=>{ if(snap.exists()) return; return rcPublishLocal(); })
+    .catch(()=>{})
+    .then(rcAttachFeed, rcAttachFeed);
+}
+function rcPublishLocal(){
+  const local=(RC.sessions||[]).filter(s=>s && s.id);
+  const learned=RC.learned||{};
+  if(!local.length && !Object.keys(learned).length) return Promise.resolve();
+  const up={};
+  local.forEach(s=>up['sessions/'+safeKey(s.id)]=s);
+  for(const code in learned) up['learned/'+safeKey(code)]=Object.assign({code}, learned[code]);
+  return rcRef.update(up).catch(()=>{});
+}
+function rcAttachFeed(){
+  rcRef.child('sessions').on('value', snap=>{
+    const remote=[];
+    snap.forEach(c=>{ const v=c.val(); if(v && v.id) remote.push(v); });
+    /* A receiving this device is still writing keeps its local copy — otherwise
+       an echo of the previous write would undo the scan just made. Everything
+       else comes straight from the shared database. */
+    const merged=remote.map(r=>{
+      if(!_rcDirty[r.id]) return r;
+      return RC.sessions.find(s=>s.id===r.id) || r;
+    });
+    for(const id in _rcDirty){
+      if(merged.some(s=>s.id===id)) continue;
+      const local=RC.sessions.find(s=>s.id===id);
+      if(local) merged.push(local);                       // created here, not on the wire yet
+    }
+    RC.sessions=merged.sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
+    rcSaveLocal();
+    if(!_rcSuppressRender && curScreen==='recv') rcRenderKeepingFocus();
+  });
+  rcRef.child('learned').on('value', snap=>{
+    const m={}; snap.forEach(c=>{ const v=c.val(); if(v) m[v.code||c.key]=v; });
+    if(!Object.keys(m).length && Object.keys(RC.learned||{}).length) return;   // nothing shared yet — keep ours
+    RC.learned=m; rcSaveLocal(); rcBuildIdx();
+    if(!_rcSuppressRender && curScreen==='recv' && (rcView==='catalog'||rcView==='home')) rcRenderKeepingFocus();
+  });
+}
+/* A live update from another device must never disturb what this one is doing:
+   half-typed fields keep their text and the scan box keeps the caret. The
+   setup screen is skipped entirely — it is a draft nobody else can change. */
+function rcRenderKeepingFocus(){
+  if(rcView==='setup') return;
+  const area=$('#rcArea'); if(!area){ rcRender(); return; }
+  const typed={};
+  area.querySelectorAll('input[id], textarea[id]').forEach(el=>{ typed[el.id]=el.value; });
+  const act=document.activeElement;
+  const focusId=(act && act.id && area.contains(act)) ? act.id : '';
+  const caret=(focusId && act.selectionStart!=null) ? act.selectionStart : null;
+  rcRender();
+  for(const id in typed){ const el=document.getElementById(id); if(el && el.value!==typed[id]) el.value=typed[id]; }
+  if(focusId){ const el=document.getElementById(focusId);
+    if(el){ try{ el.focus(); if(caret!=null && el.setSelectionRange) el.setSelectionRange(caret,caret); }catch(e){} } }
 }
 function rcLoad(){
   try{ const raw=localStorage.getItem(RC_LS_STATE); if(!raw) return;
@@ -2503,19 +3624,26 @@ function rcExportBarcodes(list, name, s, xlsx){
 function rcDeleteLearned(code){
   const e=RC.learned[code]; if(!e) return;
   if(!confirm('Remove the barcode '+code+' from "'+e.name+'"?\nIt will stop being recognised on the next scan. Counted lines are not changed.')) return;
-  delete RC.learned[code]; rcBuildIdx(); rcSave(); toast('Barcode removed','ok');
+  delete RC.learned[code]; rcRemoveLearned(code); rcBuildIdx(); rcSaveLocal(); toast('Barcode removed','ok');
   if($('#rcBcList')) rcRenderBcList(); else rcRender();
 }
 function rcClearLearned(){
   if(!IS_ADMIN){ toast('Only the admin can clear the whole list','warn',3000); return; }
   const n=Object.keys(RC.learned).length; if(!n) return;
   if(!confirm('Remove all '+n+' assigned barcodes?\nExport them first if you still need them.')) return;
-  RC.learned={}; rcBuildIdx(); rcSave(); toast('List cleared','ok'); rcRender();
+  RC.learned={}; if(rcRef) rcRef.child('learned').remove().catch(()=>{});
+  rcBuildIdx(); rcSaveLocal(); toast('List cleared','ok'); rcRender();
 }
 
 /* ============================================================
    SCANNING / ITEM RESOLUTION
    ============================================================ */
+function rcCountedHere(entry){
+  const unit=rcUnit(rcUnitN); if(!unit||!entry) return 0;
+  const k=norm(entry.name)+'||'+norm(entry.variation||'');
+  const ex=(unit.items||[]).find(i=>norm(i.name)+'||'+norm(i.variation||'')===k);
+  return ex ? (+ex.qty||0) : 0;
+}
 function rcAddItem(unit, entry, qty, barcode){
   const k=norm(entry.name)+'||'+norm(entry.variation||'');
   const ex=unit.items.find(i=>norm(i.name)+'||'+norm(i.variation||'')===k);
@@ -2527,13 +3655,9 @@ function rcScanCode(raw){
   const code=String(raw==null?'':raw).trim();   // stored and exported exactly as scanned
   const key=norm(code); if(!key) return;        // matching is case/spacing insensitive
   const unit=rcUnit(rcUnitN); if(!unit) return;
-  // already counted in this pallet/package → just add one more
-  if(RC_RESCAN_INCREMENTS){
-    const ex=unit.items.find(i=>barcodesOf(i.barcode).includes(key));
-    if(ex){ ex.qty=(+ex.qty||0)+1; rcSave(); flash('ok'); beep('ok');
-      scanFx('ok',{name:ex.name,variation:ex.variation,image:ex.image},'+1 → '+ex.qty,raw);
-      rcRender(); closeCamIfOpen(); return; }
-  }
+  /* An item already on this pallet/package goes through the same confirm +
+     quantity dialogs as a first scan — the dialog just says how many are
+     already counted and adds the new number to them. */
   const hits=(rcIdx[key]||[]);
   if(hits.length===1) rcOpenConfirm(hits[0], code);
   else if(hits.length>1) rcOpenChoose(hits, code);
@@ -2556,6 +3680,7 @@ function rcOpenConfirm(entry, code){
   const d=rcModal(
     '<h2>Is this the product?</h2>'+
     '<p class="sub" style="font-size:13px">Barcode <b class="mono">'+esc(code)+'</b>'+(entry.learned?' · assigned here earlier':'')+'</p>'+
+    (rcCountedHere(entry)?'<div class="rcalready">Already counted on this '+esc(rcUnitWord(rcCur()||{}))+': <b>'+rcCountedHere(entry)+'</b> — what you enter next is added to it.</div>':'')+
     '<div class="rccard">'+rcImg(entry.image,entry.name)+'<div><div class="cn">'+esc(entry.name)+'</div>'+
       (entry.variation?'<div class="cv">'+esc(entry.variation)+'</div>':'')+
       (entry.location?'<div class="cv">📍 '+esc(entry.location)+'</div>':'')+'</div></div>'+
@@ -2638,30 +3763,36 @@ function rcOpenManual(code){
   setTimeout(()=>nm.focus(),50);
 }
 function rcOpenQty(entry, code, learn){
-  const d=rcModal('<h2>How many?</h2>'+
+  const had=rcCountedHere(entry);
+  const d=rcModal('<h2>'+(had?'How many more?':'How many?')+'</h2>'+
     '<div class="rccard">'+rcImg(entry.image,entry.name)+'<div><div class="cn">'+esc(entry.name)+'</div>'+
       (entry.variation?'<div class="cv">'+esc(entry.variation)+'</div>':'')+'</div></div>'+
+    (had?'<div class="rcalready">Already counted here: <b>'+had+'</b>. This number is added on top — new total <b id="rcQTotal">'+(had+1)+'</b>.</div>':'')+
     '<input id="rcQty" class="rcbigqty" type="number" inputmode="numeric" min="1" step="1" value="1">'+
     '<div class="rcrow" style="margin-top:8px"><button class="btn" data-q="-1">−1</button><button class="btn" data-q="1">+1</button>'+
     '<button class="btn" data-q="6">+6</button><button class="btn" data-q="12">+12</button><button class="btn" data-q="24">+24</button></div>'+
-    '<button class="btn primary lg" id="rcQOk" style="width:100%;margin-top:14px">Add to the list</button>'+
+    '<button class="btn primary lg" id="rcQOk" style="width:100%;margin-top:14px">'+(had?'Add to the count':'Add to the list')+'</button>'+
     '<button class="btn ghost" id="rcCancel" style="width:100%;margin-top:9px">Cancel</button>');
   const q=d.querySelector('#rcQty');
-  d.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ q.value=Math.max(1,(parseInt(q.value,10)||0)+(+b.dataset.q)); q.focus(); });
+  const tot=d.querySelector('#rcQTotal');
+  const sync=()=>{ if(tot) tot.textContent = had + Math.max(1,parseInt(q.value,10)||1); };
+  q.addEventListener('input',sync);
+  d.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{ q.value=Math.max(1,(parseInt(q.value,10)||0)+(+b.dataset.q)); sync(); q.focus(); });
   const ok=()=>{
     const n=Math.max(1,parseInt(q.value,10)||1);
     const unit=rcUnit(rcUnitN); if(!unit){ rcCloseModal(); return; }
     const s=rcCur();
     if(learn && code){
-      for(const k in RC.learned) if(norm(k)===norm(code) && k!==code) delete RC.learned[k];
+      for(const k in RC.learned) if(norm(k)===norm(code) && k!==code){ delete RC.learned[k]; rcRemoveLearned(k); }
       RC.learned[code]={ name:entry.name, variation:entry.variation||'', image:entry.image||'', at:Date.now(),
         supplier:(s&&s.supplier)||'', dateStr:(s&&s.dateStr)||rcDateStr(), by:MY_NAME||'', sid:(s&&s.id)||'' };
+      rcPushLearned(code, RC.learned[code]);
       entry=Object.assign({}, entry, {assigned:true});      // remembered on the line too, for the receiving's own report
       rcBuildIdx();
     }
     rcAddItem(unit, entry, n, code);
     rcCloseModal(); flash('ok'); beep('ok');
-    scanFx('ok',{name:entry.name,variation:entry.variation,image:entry.image},'added ×'+n, code||'manual');
+    scanFx('ok',{name:entry.name,variation:entry.variation,image:entry.image}, had?('+'+n+' → '+(had+n)):('added ×'+n), code||'manual');
     rcRender(); rcFocusScan();
   };
   d.querySelector('#rcQOk').onclick=ok;
@@ -2696,9 +3827,13 @@ function rcStepBar(active){
   return '<div class="rcsteps">'+list.map((x,i)=>'<span class="rcstep'+(x[0]===active?' on':(ai>=0&&i<ai?' done':''))+'">'+
     (i+1)+'. '+x[1]+'</span>').join('')+'</div>';
 }
+const RC_VIEWS_NEEDING_SESSION = ['setup','units','unit','palletask','pallets','pallet','report'];
 function rcRender(){
   const cc=$('#rcCatCount'); if(cc) cc.textContent=(RCCAT.main.length+RCCAT.pending.length);
   const a=$('#rcArea'); if(!a) return;
+  /* the open receiving can disappear under us — a manager deleted it, or it was
+     finished on another device. Fall back to the list instead of breaking. */
+  if(RC_VIEWS_NEEDING_SESSION.indexOf(rcView)>=0 && !rcCur()){ rcView='home'; rcActiveId=null; }
   switch(rcView){
     case 'catalog':   a.innerHTML=rcViewCatalog(); rcWireCatalog(); break;
     case 'setup':     a.innerHTML=rcViewSetup(); rcWireSetup(); break;
@@ -2877,7 +4012,7 @@ function rcWireSetup(){
       keep.forEach((u,i)=>{ s.units[i]=Object.assign(s.units[i],{tracking:u.tracking,noTracking:u.noTracking,counted:u.counted,code:u.code,items:u.items}); });
     }
     s.stage='units';
-    if(rcDraft){ RC.sessions.unshift(rcDraft); rcActiveId=rcDraft.id; rcDraft=null; }   // only now does it become a real receiving
+    if(rcDraft){ RC.sessions.unshift(rcDraft); rcActiveId=rcDraft.id; rcDraft=null; rcPushSession(rcActiveId); }   // only now does it become a real receiving, shared with everyone
     rcSave(); rcGo('units');
   };
   $('#rcSetupBack').onclick=()=>{ if(rcDraft){ rcDraft=null; rcActiveId=null; } rcGo('home'); };
@@ -3191,13 +4326,16 @@ function rcWireReport(){
   const hm=$('#rcRepHome'); if(hm) hm.onclick=()=>{ rcActiveId=null; rcGo('home'); };
   const fn=$('#rcFinish'); if(fn) fn.onclick=()=>{
     if(!confirm('Finish this receiving? It moves to the finished list and can no longer be counted into.\nExport the Excel file first if you have not.')) return;
-    s.finished=true; s.finishedAt=Date.now();
+    s.finished=true; s.finishedAt=Date.now(); s.finishedBy=MY_NAME||'';
+    rcPushSession(s.id);
     const fin=RC.sessions.filter(x=>x.finished);
     if(fin.length>RC_ARCHIVE_MAX){                       // keep only the newest finished ones
       const drop=fin.slice(RC_ARCHIVE_MAX).map(x=>x.id);
       RC.sessions=RC.sessions.filter(x=>drop.indexOf(x.id)<0);
+      drop.forEach(id=>{ clearTimeout(_rcPush[id]); delete _rcPush[id]; delete _rcDirty[id];
+        if(rcRef) rcRef.child('sessions/'+safeKey(id)).remove().catch(()=>{}); });
     }
-    rcActiveId=null; rcSave(); toast('Receiving finished','ok',3000); rcGo('home');
+    rcActiveId=null; rcSaveLocal(); toast('Receiving finished','ok',3000); rcGo('home');
   };
 }
 

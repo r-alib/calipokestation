@@ -372,6 +372,9 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 .summary{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 13px}
 .summary b{color:var(--ink);font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
 
+.dbnote{margin:0 0 10px; font-size:12px; color:var(--muted)}
+.dbnote.warn{color:var(--warn)}
+.sitem .cd .by{color:var(--muted); opacity:.85}
 /* ---------- saved codes ---------- */
 .saveform{display:flex;gap:8px;align-items:stretch;margin-bottom:14px}
 .saveform input{flex:1 1 auto;font-size:14px;padding:9px 12px}
@@ -822,6 +825,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
       <input id="filter" class="small" type="search" autocomplete="off" placeholder="Filter by name or code">
     </div>
 
+    <p class="dbnote" id="dbNote" hidden></p>
     <div class="slist" id="savedList"></div>
     <p class="empty-note" id="savedEmpty">No saved codes yet. Type a name above and hit "Save current" to keep the code you're working on.</p>
 
@@ -842,6 +846,8 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 
 <div id="printArea" aria-hidden="true"></div>
 
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
 <script>
 "use strict";
 /* ================= Code 128 (auto B/C) ================= */
@@ -946,6 +952,9 @@ function setUser(name){
   IS_ADMIN = USER.toLowerCase() === "admin";
   var el = document.getElementById("meName");
   if (el) el.textContent = USER ? (USER + (IS_ADMIN ? " · admin" : "")) : "—";
+  /* whether the shared list offers a delete button depends on who is signed in */
+  if (document.getElementById("savedList")) renderSaved();
+  if (JOB === 3) renderPalletRecent();
 }
 
 function backToStation(){
@@ -976,7 +985,7 @@ function catalogRows(){
   (cat.pending || []).forEach(function(e){
     splitCodes(e.barcode).forEach(function(b){ push(e.name, e.variation, b, "", "pending"); });
   });
-  var recv = lsJson(LS_RECV) || {};
+  var recv = cloudRecv || lsJson(LS_RECV) || {};
   var learned = recv.learned || {};
   Object.keys(learned).forEach(function(b){
     var e = learned[b] || {};
@@ -1074,6 +1083,95 @@ var mapping = [];                     // per-column role
 var headerAuto = false, headerManual = null;
 var items = [];                       // built batch labels
 var selIndex = 0;
+
+/* ================= shared database =================
+   Saved codes live at packstation/labels so a code someone saves on the
+   scanning bench prints from the office printer, and the pallet codes and
+   barcodes assigned in NEW SHIPMENT are reachable from any device.
+   localStorage stays as the offline mirror: if the database is unreachable
+   the module keeps working on this device alone.
+   >>> keep firebaseConfig identical to the one in index.html <<<           */
+var firebaseConfig = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+var lpRoot = null, lpCodes = null, lpPalRef = null;
+var DB_ON = false;                       // true once the shared list is live
+var cloudRecv = null;                    // receiving state from the database (may be null)
+
+function safeKey(s){ return String(s == null ? "" : s).replace(/[.#$/\[\]]/g, "_").slice(0, 300) || "_"; }
+function dbNote(txt, warn){
+  var el = document.getElementById("dbNote");
+  if (!el) return;
+  el.textContent = txt || "";
+  el.hidden = !txt;
+  el.classList.toggle("warn", !!warn);
+}
+function connectDB(){
+  if (typeof firebase === "undefined" || !firebase.database){ dbNote("Offline — codes are saved on this device only.", true); return; }
+  try {
+    firebase.initializeApp(firebaseConfig);
+    lpRoot   = firebase.database().ref("packstation");
+    lpCodes  = lpRoot.child("labels/codes");
+    lpPalRef = lpRoot.child("labels/pallets");
+  } catch (e){ dbNote("Offline — codes are saved on this device only.", true); return; }
+
+  lpCodes.on("value", function(snap){
+    var list = [];
+    snap.forEach(function(c){
+      var v = c.val(); if (!v || !v.code) return;
+      list.push({ id: c.key, name: v.name || v.code, code: v.code, top: v.top || "",
+                  by: v.by || "", at: v.at || 0 });
+    });
+    list.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
+    saved = list; DB_ON = true;
+    dbNote(list.length + (list.length === 1 ? " code" : " codes") + " shared with the whole team.");
+    writeStore(); renderSaved();
+  }, function(){ dbNote("Offline — codes are saved on this device only.", true); });
+
+  lpPalRef.on("value", function(snap){
+    var list = [];
+    snap.forEach(function(c){ var v = c.val(); if (v && v.code) list.push(v); });
+    list.sort(function(a, b){ return (b.at || 0) - (a.at || 0); });
+    cloudPallets = list;
+    if (JOB === 3) renderPalletRecent();
+  });
+
+  /* barcodes and pallet codes that NEW SHIPMENT wrote from any device */
+  lpRoot.child("receiving").on("value", function(snap){
+    var v = snap.val() || {}, out = { sessions: [], learned: {} }, k;
+    var sess = v.sessions || {};
+    for (k in sess) if (sess[k]) out.sessions.push(sess[k]);
+    var lr = v.learned || {};
+    for (k in lr) if (lr[k]) out.learned[lr[k].code || k] = lr[k];
+    /* nothing shared yet — keep reading this device's own copy rather than
+       replacing a working catalog with an empty one */
+    if (!out.sessions.length && !Object.keys(out.learned).length){ cloudRecv = null; }
+    else cloudRecv = out;
+    refreshCatalog(); renderCatalogSearch();
+    if (JOB === 3) renderPalletRecent();
+  });
+
+  /* first run on a fresh database: publish whatever this device already had */
+  lpCodes.once("value").then(function(snap){
+    if (snap.exists() || !saved.length) return;
+    var up = {};
+    saved.forEach(function(e){ up[e.id] = { name: e.name, code: e.code, top: e.top || "", by: USER || "", at: Date.now() }; });
+    lpCodes.update(up).catch(function(){});
+  }).catch(function(){});
+  lpPalRef.once("value").then(function(snap){
+    if (snap.exists()) return;
+    var local = readLocalPallets(); if (!local.length) return;
+    var up = {};
+    local.forEach(function(r){ up[safeKey(r.code)] = { code: r.code, top: r.top || "", no: r.no || 1, at: r.at || Date.now(), by: USER || "" }; });
+    lpPalRef.update(up).catch(function(){});
+  }).catch(function(){});
+}
 
 /* ================= storage ================= */
 function readStore(){
@@ -1550,7 +1648,8 @@ function renderSaved(){
     var main = document.createElement("button");
     main.type = "button"; main.className = "main"; main.title = "Load this code";
     main.innerHTML = '<div class="nm">' + esc(e.name) + '</div><div class="cd">' +
-                     esc(e.code) + (e.top ? " · " + esc(e.top) : "") + "</div>";
+                     esc(e.code) + (e.top ? " · " + esc(e.top) : "") +
+                     (e.by ? ' · <span class="by">' + esc(e.by) + "</span>" : "") + "</div>";
     main.addEventListener("click", function(){ loadEntry(e); });
 
     var pb = document.createElement("button");
@@ -1558,12 +1657,14 @@ function renderSaved(){
     pb.title = "Load and print"; pb.setAttribute("aria-label", "Load and print " + e.name);
     pb.addEventListener("click", function(){ loadEntry(e); doPrint(); });
 
-    var db = document.createElement("button");
-    db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
-    db.title = "Delete"; db.setAttribute("aria-label", "Delete " + e.name);
-    db.addEventListener("click", function(){ removeEntry(e); });
-
-    row.appendChild(main); row.appendChild(pb); row.appendChild(db);
+    row.appendChild(main); row.appendChild(pb);
+    if (!DB_ON || IS_ADMIN){
+      var db = document.createElement("button");
+      db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
+      db.title = "Delete"; db.setAttribute("aria-label", "Delete " + e.name);
+      db.addEventListener("click", function(){ removeEntry(e); });
+      row.appendChild(db);
+    }
     list.appendChild(row);
   });
 
@@ -1597,12 +1698,21 @@ function loadEntry(e){
 function addSaved(name, code, top){
   for (var i = 0; i < saved.length; i++){
     if (saved[i].name.toLowerCase() === name.toLowerCase()){
-      saved[i].code = code; saved[i].top = top; return false;
+      saved[i].code = code; saved[i].top = top;
+      pushSaved(saved[i]);
+      return false;
     }
   }
-  saved.unshift({ id: newId(), name: name, code: code, top: top });
+  var e = { id: newId(), name: name, code: code, top: top, by: USER || "", at: Date.now() };
+  saved.unshift(e);
   if (saved.length > 500) saved.length = 500;
+  pushSaved(e);
   return true;
+}
+function pushSaved(e){
+  if (!lpCodes) return;
+  lpCodes.child(e.id).set({ name: e.name, code: e.code, top: e.top || "",
+                            by: e.by || USER || "", at: e.at || Date.now() }).catch(function(){});
 }
 
 function saveCurrent(){
@@ -1620,10 +1730,16 @@ function saveAllRows(){
               : "All rows were already in the list.");
 }
 
+/* the list is shared, so deleting from it is a manager action */
 function removeEntry(e){
+  if (DB_ON && !IS_ADMIN){
+    alert("This list is shared with the whole team.\nAsk a manager to delete \u201C" + e.name + "\u201D.");
+    return;
+  }
   var idx = saved.indexOf(e);
   if (idx < 0) return;
   saved.splice(idx, 1);
+  if (lpCodes) lpCodes.child(e.id).remove().catch(function(){});
   pendingDelete = { entry: e, index: idx };
   $("undoName").textContent = e.name;
   $("undoBar").hidden = false;
@@ -1635,6 +1751,7 @@ function removeEntry(e){
 function undoDelete(){
   if (!pendingDelete) return;
   saved.splice(Math.min(pendingDelete.index, saved.length), 0, pendingDelete.entry);
+  pushSaved(pendingDelete.entry);
   hideUndo(); renderSaved(); writeStore();
 }
 
@@ -1774,7 +1891,7 @@ function productRows(){
   var cat = lsJson(LS_CATALOG) || {};
   (cat.main || []).forEach(function(e){ push(e.name, e.variation, splitCodes(e.barcode), e.location, ""); });
   (cat.pending || []).forEach(function(e){ push(e.name, e.variation, splitCodes(e.barcode), "", "pending"); });
-  var learned = (lsJson(LS_RECV) || {}).learned || {};
+  var learned = (cloudRecv || lsJson(LS_RECV) || {}).learned || {};
   Object.keys(learned).forEach(function(b){ var e = learned[b] || {}; push(e.name, e.variation, [b], "", "new"); });
   out.sort(function(a, b){ return a.name.localeCompare(b.name); });
   return out;
@@ -1865,19 +1982,28 @@ function palletNoFromCode(c){
   var m = /-P(\d{1,3})\s*$/i.exec(String(c || ""));
   return m ? parseInt(m[1], 10) : null;
 }
+var cloudPallets = null;                 // filled by the lpPalRef listener
 function readLocalPallets(){
+  if (cloudPallets) return cloudPallets.slice();
   var a = lsJson(LS_PALLETS);
   return Array.isArray(a) ? a : [];
 }
 function rememberPallet(rec){
-  var list = readLocalPallets().filter(function(x){ return x.code !== rec.code; });
+  var list = (lsJson(LS_PALLETS) || []).filter(function(x){ return x.code !== rec.code; });
   list.unshift(rec);
   if (list.length > 40) list.length = 40;
   try { localStorage.setItem(LS_PALLETS, JSON.stringify(list)); } catch (e) {}
+  if (lpPalRef) lpPalRef.child(safeKey(rec.code)).set({ code: rec.code, top: rec.top || "",
+    no: rec.no || 1, at: rec.at || Date.now(), by: USER || "" }).catch(function(){});
+}
+function forgetPallet(code){
+  var keep = (lsJson(LS_PALLETS) || []).filter(function(x){ return x.code !== code; });
+  try { localStorage.setItem(LS_PALLETS, JSON.stringify(keep)); } catch (e) {}
+  if (lpPalRef) lpPalRef.child(safeKey(code)).remove().catch(function(){});
 }
 /* pallet codes that NEW SHIPMENT already put on real pallets — this is the reprint list */
 function stationPallets(){
-  var recv = lsJson(LS_RECV) || {}, out = [];
+  var recv = cloudRecv || lsJson(LS_RECV) || {}, out = [];
   (recv.sessions || []).forEach(function(s){
     var top = [s.supplier || "", s.dateStr || ""].filter(Boolean).join(" · ");
     (s.units || []).forEach(function(u){
@@ -1923,8 +2049,8 @@ function renderPalletRecent(){
       db.type = "button"; db.className = "iconbtn danger"; db.innerHTML = ICON_TRASH;
       db.title = "Forget this code";
       db.addEventListener("click", function(){
-        var keep = readLocalPallets().filter(function(x){ return x.code !== r.code; });
-        try { localStorage.setItem(LS_PALLETS, JSON.stringify(keep)); } catch (e) {}
+        if (cloudPallets && !IS_ADMIN){ alert("Pallet codes are shared with the team.\nAsk a manager to remove this one."); return; }
+        forgetPallet(r.code);
         renderPalletRecent();
       });
       row.appendChild(db);
@@ -2135,6 +2261,7 @@ window.addEventListener("storage", function(e){
 window.addEventListener("focus", function(){ refreshCatalog(); });
 
 readStore();
+connectDB();
 Array.prototype.forEach.call($("barh").children, function(x){
   x.setAttribute("aria-pressed", x.dataset.h === barHeight ? "true" : "false");
 });
