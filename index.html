@@ -925,10 +925,11 @@ const EXTERNAL_MODES = {
   stockup:   'stock-up-report.html',
   analyzer:  'analyzer.html',
   kpi:       'kpi-tracking.html',
+  streamer:  'streamer-assist.html',
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09d · partial label match + duplicate guard';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-09e · streamer assist tile';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1373,6 +1374,7 @@ const MODES=[
   {icon:'📈', name:'STOCK UP REPORT',   desc:'Count OP / Pokemon JP / CN stock and build a restock report', ext:'stockup', ready:true},
   {icon:'📊', name:'ANALYZER',          desc:'Sales analytics by item, category and platform', ext:'analyzer', ready:true},
   {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
+  {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
 ];
 function openExternal(key){

@@ -1,0 +1,1158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>CALIPOKE STATION — Streamer Assist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<style>
+/* ============================================================
+   CALIPOKE STATION — STREAMER ASSIST
+   Same design tokens as index.html.
+   ============================================================ */
+:root{
+  color-scheme: dark;
+  --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --accent-d:#18742F;
+  --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button{font-family:inherit;color:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:inherit;color:inherit}
+.hide{display:none !important}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:rgba(14,17,22,.94);
+  border-bottom:1px solid var(--border);backdrop-filter:blur(8px);position:relative;z-index:20;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;letter-spacing:-.01em}
+.brand .dot{width:11px;height:11px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);flex:none}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);
+  letter-spacing:.04em;text-transform:uppercase}
+.spacer{flex:1}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--ink);
+  display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;white-space:nowrap;transition:.15s}
+.iconbtn:hover{border-color:var(--faint)}
+.iconbtn.danger{color:var(--err);border-color:#4a2321}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;background:var(--panel);
+  border:1px solid var(--border);border-radius:99px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.pill b{color:var(--ink);font-weight:600}
+.led{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.led.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.led.off{background:var(--err);box-shadow:0 0 8px var(--err)}
+.led.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+
+/* ---------- generic ---------- */
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 15px;font-size:14px;
+  font-weight:600;transition:.15s}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#08130C}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--err);border-color:#4a2321}
+.btn.small{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:9px}
+.sub{color:var(--muted);font-size:13.5px}
+input[type=text],input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:11px 13px;outline:none;transition:.15s}
+input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
+label.fld{display:block;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  font-weight:600;margin:0 0 6px}
+
+/* ---------- gate / setup ---------- */
+.center{height:calc(100% - 52px);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.gatebox{width:100%;max-width:460px}
+.gatebox h1{font-family:var(--disp);font-size:26px;font-weight:700;letter-spacing:.02em;margin:0 0 6px}
+
+/* ---------- work layout ---------- */
+#work{height:calc(100% - 52px);display:grid;grid-template-columns:300px minmax(0,1fr) 340px;gap:12px;padding:12px;overflow:hidden}
+.col{min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden}
+.colhead{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex:none}
+.colhead .t{font-family:var(--disp);font-size:14px;font-weight:600;letter-spacing:.02em}
+.colbody{flex:1;min-height:0;overflow:auto;padding:12px 14px}
+.colfoot{flex:none;padding:10px 14px;border-top:1px solid var(--border)}
+
+/* chat */
+.chatrow{padding:7px 9px;border-radius:9px;cursor:pointer;transition:.12s;border:1px solid transparent}
+.chatrow:hover{background:var(--panel2);border-color:var(--line)}
+.chatrow .u{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--accent)}
+.chatrow .n{font-size:11.5px;color:var(--faint);margin-left:6px}
+.chatrow .t{font-size:13px;color:var(--muted);word-break:break-word}
+.chatrow.bid{background:#12251a;border-color:#1e4c30}
+.pinned{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:10px}
+.empty{color:var(--faint);font-size:13px;text-align:center;padding:26px 10px;line-height:1.6}
+
+/* center */
+.lotno{font-family:var(--mono);font-size:34px;font-weight:700;letter-spacing:.02em;color:var(--accent)}
+.field{margin-bottom:14px}
+.sugg{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
+.sugg button{background:var(--raised);border:1px solid var(--line);border-radius:99px;padding:5px 11px;
+  font-size:12.5px;font-family:var(--mono);font-weight:700}
+.sugg button:hover{border-color:var(--accent);color:var(--accent)}
+.itembox{display:flex;gap:13px;align-items:center;background:var(--panel2);border:1px solid var(--line);
+  border-radius:12px;padding:12px;min-height:86px}
+.itembox img{width:62px;height:62px;border-radius:9px;object-fit:cover;background:var(--raised);flex:none}
+.itembox .nm{font-weight:600;font-size:15px;line-height:1.25}
+.itembox .va{color:var(--muted);font-size:13px}
+.itembox .lo{color:var(--faint);font-size:12px;font-family:var(--mono);margin-top:3px}
+.bigbtn{width:100%;padding:17px;font-size:17px;font-weight:700;letter-spacing:.02em;border-radius:12px;
+  background:var(--accent);border:1px solid var(--accent);color:#08130C;font-family:var(--disp)}
+.bigbtn:disabled{background:var(--panel2);border-color:var(--line);color:var(--faint)}
+.hint{font-size:12px;color:var(--faint);margin-top:9px;line-height:1.6}
+.hint kbd{font-family:var(--mono);background:var(--raised);border:1px solid var(--line);border-radius:5px;
+  padding:1px 5px;font-size:11px;color:var(--muted)}
+
+/* log */
+.logrow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)}
+.logrow:last-child{border-bottom:0}
+.logrow .n{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--faint);flex:none;width:38px;padding-top:2px}
+.logrow .b{flex:1;min-width:0}
+.logrow .u{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);word-break:break-all}
+.logrow .i{font-size:12.5px;color:var(--muted);word-break:break-word}
+.logrow .acts{display:flex;gap:4px;flex:none}
+.logrow .acts button{background:none;border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11px;color:var(--muted)}
+.logrow .acts button:hover{border-color:var(--faint);color:var(--ink)}
+.logrow.void{opacity:.4}
+.logrow.void .u{text-decoration:line-through}
+.warnchip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:#2b2412;border:1px solid #5a4a1c;color:var(--warn);border-radius:99px;padding:1px 7px;margin-left:6px}
+.repeat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:10px}
+.repeat .r{display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0}
+.repeat .r b{font-family:var(--mono)}
+
+/* summary */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px}
+.stat .v{font-family:var(--disp);font-size:24px;font-weight:700}
+.stat .k{font-size:11.5px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase}
+table.rep{width:100%;border-collapse:collapse;font-size:13px}
+table.rep th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  padding:7px 9px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+table.rep td{padding:7px 9px;border-bottom:1px solid var(--border)}
+table.rep td.mono{font-family:var(--mono)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100;display:flex;
+  flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.tst{background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:11px 17px;font-size:14px;
+  font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.tst.ok{border-color:var(--accent-d);color:var(--ok)}
+.tst.err{border-color:#4a2321;color:var(--err)}
+.tst.warn{border-color:#5a4a1c;color:var(--warn)}
+
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(6,8,11,.72);z-index:60;display:flex;align-items:center;
+  justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;
+  width:100%;max-width:520px;max-height:86vh;overflow:auto}
+.modal h3{font-family:var(--disp);font-size:18px;margin:0 0 10px}
+
+@media(max-width:1180px){
+  #work{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow:auto;height:auto}
+  body{overflow:auto}
+  .col{max-height:60vh}
+  .center{height:auto;padding:40px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================ TOP BAR ============================ -->
+<div class="topbar">
+  <div class="brand"><span class="dot"></span><span>CALIPOKE STATION<small>Streamer Assist</small></span></div>
+  <div class="spacer"></div>
+  <span class="pill" id="pillRoom">—</span>
+  <span class="pill" id="pillBridge"><span class="led" id="ledBridge"></span>bridge</span>
+  <span class="pill" id="pillPrn"><span class="led" id="ledPrn"></span>DYMO</span>
+  <span class="pill" id="pillCount"><b>0</b>&nbsp;lots</span>
+  <span class="pill" id="pillMe">—</span>
+  <button class="iconbtn" id="btnEnd">🏁 End stream</button>
+  <button class="iconbtn" id="btnMenu">← Menu</button>
+</div>
+
+<!-- ============================ NAME GATE ============================ -->
+<div class="center hide" id="gate">
+  <div class="gatebox">
+    <div class="card">
+      <div class="eyebrow">Streamer Assist</div>
+      <h1>Who is assisting?</h1>
+      <p class="sub" style="margin:0 0 16px">The same name you use in the station.</p>
+      <input type="text" id="nameInput" placeholder="Your name" autocomplete="off">
+      <button class="btn primary" id="enterBtn" style="width:100%;margin-top:12px">Enter →</button>
+      <p class="sub" id="gateNote" style="font-size:12.5px;margin:12px 0 0"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SESSION SETUP ============================ -->
+<div class="center hide" id="setup">
+  <div class="gatebox">
+    <div class="card">
+      <div class="eyebrow">New stream</div>
+      <h1 id="setupTitle">Start a stream</h1>
+      <p class="sub" style="margin:0 0 18px">Auction numbering restarts at <b>#001</b> for every stream.</p>
+
+      <div class="field">
+        <label class="fld">Room</label>
+        <input type="text" id="setRoom" readonly>
+      </div>
+      <div class="field">
+        <label class="fld">Streamer on camera</label>
+        <input type="text" id="setStreamer" placeholder="Name of the streamer" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="fld">Assistant</label>
+        <input type="text" id="setAssistant" readonly>
+      </div>
+
+      <button class="btn primary" id="startBtn" style="width:100%">▶ Start stream</button>
+
+      <div id="resumeBox" class="hide" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div class="eyebrow" style="margin-bottom:7px">Unfinished stream</div>
+        <p class="sub" id="resumeInfo" style="margin:0 0 10px"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" id="resumeBtn">↩ Continue it</button>
+          <button class="btn danger" id="closeOldBtn">Close it</button>
+        </div>
+      </div>
+
+      <p class="sub" style="font-size:12px;color:var(--faint);margin:16px 0 0;line-height:1.6">
+        This mode never writes to the pack-station data. It only reads the product catalogue
+        (<span style="font-family:var(--mono)">packstation/inventory</span>) and keeps its own records under
+        <span style="font-family:var(--mono)">streamerassist/</span>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ WORK SCREEN ============================ -->
+<div id="work" class="hide">
+
+  <!-- ---------- LEFT: chat ---------- -->
+  <div class="col">
+    <div class="colhead">
+      <span class="t">LIVE CHAT</span>
+      <div class="spacer"></div>
+      <button class="btn small" id="chatClear">clear</button>
+    </div>
+    <div style="flex:none;padding:10px 14px 0">
+      <input type="text" id="chatFilter" placeholder="Filter the feed…" autocomplete="off">
+      <div id="pinBox"></div>
+    </div>
+    <div class="colbody" id="chatBody">
+      <div class="empty">Bridge is not connected.<br>Type the username by hand — everything else works.</div>
+    </div>
+  </div>
+
+  <!-- ---------- CENTER: current lot ---------- -->
+  <div class="col">
+    <div class="colhead">
+      <span class="t">CURRENT AUCTION</span>
+      <div class="spacer"></div>
+      <span class="lotno" id="lotNo">#001</span>
+    </div>
+    <div class="colbody">
+
+      <div class="field">
+        <label class="fld">Winner — username</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="userInput" placeholder="@username" autocomplete="off" spellcheck="false">
+          <button class="btn small" id="userCopy" title="Copy">⧉</button>
+          <button class="btn small" id="userUnk" title="Username not caught">?</button>
+        </div>
+        <div class="sugg" id="userSugg"></div>
+      </div>
+
+      <div class="field">
+        <label class="fld">Item — scan the barcode</label>
+        <input type="text" id="scanInput" placeholder="Scan or type a barcode / name…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="field">
+        <div class="itembox" id="itemBox">
+          <img id="itemImg" alt="">
+          <div style="min-width:0">
+            <div class="nm" id="itemName">Nothing scanned</div>
+            <div class="va" id="itemVar"></div>
+            <div class="lo" id="itemLoc"></div>
+          </div>
+        </div>
+        <div id="itemChoice" style="margin-top:8px"></div>
+      </div>
+
+      <div class="field" id="priceField">
+        <label class="fld">Price — optional</label>
+        <input type="number" id="priceInput" placeholder="0.00" step="0.01" min="0">
+      </div>
+
+      <button class="bigbtn" id="printBtn" disabled>🖨 PRINT &amp; SAVE</button>
+      <div class="hint">
+        <kbd>Enter</kbd> print &amp; save · <kbd>Esc</kbd> clear · <kbd>F2</kbd> reprint last · <kbd>Ctrl</kbd>+<kbd>Z</kbd> void last<br>
+        The scanner works wherever the cursor is.
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- RIGHT: log ---------- -->
+  <div class="col">
+    <div class="colhead">
+      <span class="t">STREAM LOG</span>
+      <div class="spacer"></div>
+      <button class="btn small" id="btnCsv">⬇ CSV</button>
+    </div>
+    <div class="colbody">
+      <div id="repeatBox"></div>
+      <div id="logBody"><div class="empty">No auctions recorded yet.</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================ SUMMARY ============================ -->
+<div class="center hide" id="summary">
+  <div style="width:100%;max-width:900px">
+    <div class="card">
+      <div class="eyebrow">Stream report</div>
+      <h1 id="sumTitle" style="font-family:var(--disp);font-size:24px;margin:0 0 4px">—</h1>
+      <p class="sub" id="sumSub" style="margin:0"></p>
+      <div class="stats" id="sumStats"></div>
+      <div style="max-height:44vh;overflow:auto;border:1px solid var(--border);border-radius:12px">
+        <table class="rep" id="sumTable"></table>
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn primary" id="sumCsv">⬇ Download CSV</button>
+        <button class="btn" id="sumCopy">⧉ Copy for Sheets</button>
+        <button class="btn" id="sumBack">← Back to the stream</button>
+        <div class="spacer"></div>
+        <button class="btn danger" id="sumClose">🏁 Close the stream</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;left:-9999px"></iframe>
+
+<script>
+"use strict";
+/* ============================================================
+   STREAMER ASSIST — CALIPOKE STATION
+   Independent module. Reads packstation/inventory (read-only),
+   writes only under streamerassist/.
+   ============================================================ */
+
+/* >>> THE ROOM THIS COPY SERVES.  One room for now — change these
+       two lines to run the module for another room. <<< */
+const ROOM        = 'TT1';
+const ROOM_HANDLE = '@calipokehouse';     // TikTok account, used by bridge.js
+
+/* >>> Same Firebase project as the station <<< */
+const firebaseConfig = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+
+const BUILD = '2026-09-09a · streamer assist v1';
+const SA_PATH   = 'streamerassist';
+const INV_PATH  = 'packstation/inventory';
+const LS_NAME   = 'ps_name';          // shared with the station
+const LS_SESS   = 'sa_session';
+const LS_MIRROR = 'sa_mirror';
+const BRIDGE_STALE_MS = 60000;
+
+/* ---------- helpers ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const norm  = v => (v==null?'':String(v)).trim().toLowerCase().replace(/\s+/g,' ');
+const esc   = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const xesc  = s => (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+const safeKey = k => encodeURIComponent(String(k)).replace(/\./g,'%2E');
+const barcodesOf = s => (s==null?'':String(s)).split(/[,;\n]+/).map(x=>norm(x)).filter(Boolean);
+const pad3 = n => String(n).padStart(3,'0');
+const PLACEHOLDER = 'data:image/svg+xml;utf8,'+encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" fill="#222936"/><text x="32" y="38" font-size="22" text-anchor="middle" fill="#5A6472">▧</text></svg>');
+function fmtTime(ts){ try{ const d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }catch(e){ return ''; } }
+function fmtDate(ts){ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function toast(msg,kind,ms){
+  const t=document.createElement('div'); t.className='tst '+(kind||''); t.textContent=msg;
+  $('#toast').appendChild(t); setTimeout(()=>t.remove(), ms||2200);
+}
+function beep(ok){
+  try{
+    const C=window.AudioContext||window.webkitAudioContext; if(!C) return;
+    const c=new C(), o=c.createOscillator(), g=c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.frequency.value = ok?880:220; g.gain.value=0.05;
+    o.start(); setTimeout(()=>{o.stop(); c.close();}, ok?90:220);
+  }catch(e){}
+}
+
+/* ---------- runtime state ---------- */
+let db=null, saRef=null;
+let MY_NAME='';
+let INV={}, BC={};                 // inventory by ikey, barcode -> [ikey]
+let BUYERS={};                     // key -> {u,n,wins,last}
+let SESS=null;                     // {id, room, streamer, assistant, startedAt}
+let LOTS=[];                       // current session lots, ascending by n
+let lotsOff=null;
+let pickedItem=null;               // inventory record chosen for the current lot
+let editingId=null;                // lot id being edited
+let lastPrinted=null;              // last saved record (for F2)
+let chatRows=[], chatOff=null, pinnedUser=null;
+let bridgeState={online:false,lastSeen:0};
+let dymoReady=false, dymoTried=false;
+
+/* ============================================================
+   FIREBASE
+   ============================================================ */
+function showFatal(msg){
+  showOnly('gate');
+  $('#gate').innerHTML = '<div class="gatebox"><div class="card">'+
+    '<div class="eyebrow">Streamer Assist</div>'+
+    '<h1 style="font-family:var(--disp);font-size:24px;margin:0 0 8px">No connection</h1>'+
+    '<p class="sub" style="margin:0 0 14px">'+esc(msg)+'</p>'+
+    '<button class="btn primary" onclick="location.reload()" style="width:100%">↻ Try again</button>'+
+    '</div></div>';
+}
+function connect(){
+  if(typeof firebase==='undefined' || !firebase.initializeApp){
+    showFatal('The Firebase library did not load. Check the internet connection on this PC and reload the page.');
+    return false;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    saRef = db.ref(SA_PATH);
+  }catch(e){
+    showFatal('Could not connect to the database: '+e.message);
+    return false;
+  }
+
+  /* product catalogue — READ ONLY */
+  db.ref(INV_PATH).on('value', snap=>{
+    INV={}; BC={};
+    snap.forEach(c=>{
+      const v=c.val(); if(!v||!v.ikey) return;
+      INV[v.ikey]=v;
+      barcodesOf(v.barcode).forEach(b=>{ (BC[b]=BC[b]||[]).push(v.ikey); });
+    });
+  });
+
+  /* buyer directory */
+  saRef.child('buyers').on('value', snap=>{ BUYERS = snap.val()||{}; });
+
+  /* bridge heartbeat */
+  saRef.child('bridge/'+ROOM).on('value', snap=>{
+    bridgeState = snap.val()||{online:false,lastSeen:0};
+    renderBridge();
+  });
+  setInterval(renderBridge, 15000);
+
+  /* chat feed */
+  attachChat();
+  return true;
+}
+
+function attachChat(){
+  if(chatOff) chatOff();
+  const ref = saRef.child('chat/'+ROOM).limitToLast(120);
+  const onAdd = ref.on('child_added', snap=>{
+    const v=snap.val(); if(!v||!v.u) return;
+    chatRows.push({k:snap.key,u:v.u,n:v.n||'',t:v.t||'',ts:v.ts||Date.now()});
+    if(chatRows.length>160) chatRows=chatRows.slice(-160);
+    renderChat(true);
+  });
+  chatOff = ()=>ref.off('child_added', onAdd);
+}
+
+/* ============================================================
+   SESSION
+   ============================================================ */
+function newSession(streamer){
+  const id = ROOM+'_'+fmtDate(Date.now())+'_'+Date.now().toString(36);
+  const meta = {room:ROOM, handle:ROOM_HANDLE, streamer:streamer, assistant:MY_NAME,
+                startedAt:Date.now(), endedAt:null, lastN:0};
+  saRef.child('sessions/'+id).set(meta)
+    .then(()=>{ SESS=Object.assign({id:id}, meta); rememberSession(); openWork(); })
+    .catch(e=>toast('Could not create the stream: '+e.message,'err',4000));
+}
+function rememberSession(){ try{ localStorage.setItem(LS_SESS, SESS?SESS.id:''); }catch(e){} }
+
+function loadSession(id, cb){
+  saRef.child('sessions/'+id).once('value').then(s=>{
+    const v=s.val(); if(!v){ cb(null); return; }
+    cb(Object.assign({id:id}, v));
+  }).catch(()=>cb(null));
+}
+
+function findOpenSession(cb){
+  saRef.child('sessions').orderByChild('startedAt').limitToLast(12).once('value').then(s=>{
+    let best=null;
+    s.forEach(c=>{
+      const v=c.val()||{};
+      if(v.room!==ROOM) return;
+      if(v.endedAt) return;
+      if(!best || (v.startedAt||0) > (best.startedAt||0)) best=Object.assign({id:c.key}, v);
+    });
+    cb(best);
+  }).catch(()=>cb(null));
+}
+
+function attachLots(){
+  if(lotsOff) lotsOff();
+  const ref = saRef.child('lots/'+SESS.id);
+  const h = ref.on('value', snap=>{
+    LOTS=[];
+    snap.forEach(c=>{ const v=c.val()||{}; LOTS.push(Object.assign({id:c.key}, v)); });
+    LOTS.sort((a,b)=>(a.n||0)-(b.n||0));
+    mirrorSave();
+    renderLog(); renderRepeat(); renderCounters();
+  });
+  lotsOff = ()=>ref.off('value', h);
+}
+
+function mirrorSave(){
+  try{ localStorage.setItem(LS_MIRROR, JSON.stringify({sid:SESS?SESS.id:'', at:Date.now(), lots:LOTS.slice(-400)})); }catch(e){}
+}
+
+function endSession(){
+  if(!SESS) return;
+  saRef.child('sessions/'+SESS.id+'/endedAt').set(Date.now())
+    .then(()=>{ toast('Stream closed','ok'); SESS=null; rememberSession();
+                if(lotsOff){lotsOff(); lotsOff=null;} LOTS=[]; openSetup(); })
+    .catch(e=>toast('Could not close: '+e.message,'err',3600));
+}
+
+/* ============================================================
+   SCREENS
+   ============================================================ */
+function showOnly(id){
+  ['gate','setup','work','summary'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
+  $('#btnEnd').classList.toggle('hide', id!=='work');
+}
+function openGate(){
+  showOnly('gate');
+  $('#gateNote').textContent = 'Room: '+ROOM+' · build '+BUILD;
+  setTimeout(()=>$('#nameInput').focus(), 60);
+}
+function openSetup(){
+  showOnly('setup');
+  $('#setRoom').value = ROOM+'  ('+ROOM_HANDLE+')';
+  $('#setAssistant').value = MY_NAME;
+  $('#pillRoom').textContent = ROOM;
+  $('#resumeBox').classList.add('hide');
+  findOpenSession(s=>{
+    if(!s) return;
+    window._openSess = s;
+    $('#resumeInfo').innerHTML = 'A stream started at <b>'+fmtTime(s.startedAt)+'</b> ('+fmtDate(s.startedAt)+
+      ') by <b>'+esc(s.assistant||'—')+'</b> was never closed.';
+    $('#resumeBox').classList.remove('hide');
+  });
+  setTimeout(()=>$('#setStreamer').focus(), 60);
+}
+function openWork(){
+  showOnly('work');
+  $('#pillRoom').textContent = ROOM+' · '+esc(SESS.streamer||'—');
+  attachLots();
+  clearForm();
+  renderChat(false); renderBridge(); probeDymo();
+  setTimeout(()=>$('#scanInput').focus(), 80);
+}
+
+/* ============================================================
+   RENDER — top bar
+   ============================================================ */
+function renderCounters(){
+  const live = LOTS.filter(l=>!l.void).length;
+  $('#pillCount').innerHTML = '<b>'+live+'</b>&nbsp;lots';
+  const next = nextNumber();
+  $('#lotNo').textContent = '#'+pad3(next);
+}
+function nextNumber(){
+  let mx=0; LOTS.forEach(l=>{ if((l.n||0)>mx) mx=l.n; });
+  return mx+1;
+}
+function renderBridge(){
+  const fresh = bridgeState && bridgeState.online && (Date.now()-(bridgeState.lastSeen||0) < BRIDGE_STALE_MS);
+  const led=$('#ledBridge');
+  led.className = 'led '+(fresh?'on':(bridgeState&&bridgeState.lastSeen?'warn':'off'));
+  $('#pillBridge').title = fresh ? ('bridge online'+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):''))
+                                 : 'bridge silent — type the username by hand';
+}
+
+/* ============================================================
+   RENDER — chat
+   ============================================================ */
+const BIDLIKE = /^\s*(?:\$?\d{1,5}(?:\.\d{1,2})?|mine|sold|me|take it|claim(?:ed)?)\s*$/i;
+function renderChat(scroll){
+  const box=$('#chatBody');
+  const f=norm($('#chatFilter').value);
+  let rows = chatRows;
+  if(f) rows = rows.filter(r=>norm(r.u).includes(f)||norm(r.n).includes(f)||norm(r.t).includes(f));
+  rows = rows.slice(-120);
+  if(!rows.length){
+    box.innerHTML = chatRows.length
+      ? '<div class="empty">Nothing matches the filter.</div>'
+      : '<div class="empty">Bridge is not connected.<br>Type the username by hand — everything else works.</div>';
+    return;
+  }
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+  box.innerHTML = rows.map(r=>{
+    const bid = BIDLIKE.test(r.t);
+    return '<div class="chatrow'+(bid?' bid':'')+'" data-u="'+esc(r.u)+'" data-n="'+esc(r.n)+'">'+
+      '<div><span class="u">'+esc(r.u)+'</span>'+(r.n?'<span class="n">'+esc(r.n)+'</span>':'')+'</div>'+
+      '<div class="t">'+esc(r.t)+'</div></div>';
+  }).join('');
+  $$('#chatBody .chatrow').forEach(el=>{
+    el.onclick = ()=>{ setUser(el.dataset.u, el.dataset.n); };
+    el.oncontextmenu = e=>{ e.preventDefault(); pinnedUser={u:el.dataset.u,n:el.dataset.n}; renderPin(); };
+  });
+  if(scroll && atBottom) box.scrollTop = box.scrollHeight;
+}
+function renderPin(){
+  const b=$('#pinBox');
+  if(!pinnedUser){ b.innerHTML=''; return; }
+  b.innerHTML = '<div class="pinned"><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600">pinned</div>'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">'+
+    '<span class="u" style="font-family:var(--mono);font-weight:700;color:var(--accent)">'+esc(pinnedUser.u)+'</span>'+
+    '<div class="spacer" style="flex:1"></div>'+
+    '<button class="btn small" id="pinUse">use</button><button class="btn small" id="pinDrop">×</button></div></div>';
+  $('#pinUse').onclick=()=>setUser(pinnedUser.u, pinnedUser.n);
+  $('#pinDrop').onclick=()=>{ pinnedUser=null; renderPin(); };
+}
+
+/* ============================================================
+   FORM — winner
+   ============================================================ */
+function setUser(u,n){
+  $('#userInput').value = u||'';
+  $('#userInput').dataset.nick = n||'';
+  renderSugg();
+  validate();
+  copyUser(true);
+  $('#scanInput').focus();
+}
+function copyUser(silent){
+  const v=$('#userInput').value.trim(); if(!v) return;
+  try{
+    navigator.clipboard.writeText(v);
+    if(!silent) toast('Copied: '+v,'ok',1400);
+  }catch(e){}
+}
+function renderSugg(){
+  const q=norm($('#userInput').value).replace(/^@/,'');
+  const box=$('#userSugg');
+  if(q.length<2){ box.innerHTML=''; return; }
+  const list=Object.keys(BUYERS).map(k=>BUYERS[k]).filter(b=>b&&b.u)
+    .filter(b=>norm(b.u).replace(/^@/,'').includes(q))
+    .sort((a,b)=>(b.wins||0)-(a.wins||0)).slice(0,6);
+  if(!list.length){ box.innerHTML=''; return; }
+  box.innerHTML = list.map(b=>'<button data-u="'+esc(b.u)+'">'+esc(b.u)+
+    (b.wins?'<span style="color:var(--faint);font-weight:400"> ·'+b.wins+'</span>':'')+'</button>').join('');
+  $$('#userSugg button').forEach(el=>el.onclick=()=>{ $('#userInput').value=el.dataset.u; box.innerHTML=''; validate(); $('#scanInput').focus(); });
+}
+
+/* ============================================================
+   FORM — item lookup
+   ============================================================ */
+function lookup(val){
+  const v=norm(val); if(!v) return;
+  const hit = BC[v];
+  if(hit && hit.length===1){ applyItem(INV[hit[0]]); return; }
+  if(hit && hit.length>1){ offerChoice(hit.map(k=>INV[k]).filter(Boolean), 'Barcode is shared by several products'); return; }
+  // fall back to a name search
+  const found=[];
+  for(const k in INV){
+    const it=INV[k]; if(!it) continue;
+    if(norm(it.name).includes(v) || norm(it.name+' '+(it.variation||'')).includes(v)) found.push(it);
+    if(found.length>24) break;
+  }
+  if(found.length===1){ applyItem(found[0]); return; }
+  if(found.length>1){ offerChoice(found.slice(0,12), found.length+' matches'); return; }
+  offerFree(val);
+}
+function applyItem(it){
+  if(!it) return;
+  pickedItem = {ikey:it.ikey, name:it.name||'', variation:it.variation||'', location:it.location||'', image:it.image||''};
+  $('#itemChoice').innerHTML='';
+  paintItem();
+  beep(true);
+  validate();
+}
+function offerChoice(list, note){
+  $('#itemChoice').innerHTML = '<div class="sub" style="font-size:12.5px;margin-bottom:6px">'+esc(note)+' — pick one:</div>'+
+    list.map((it,i)=>'<button class="btn small" style="display:block;width:100%;text-align:left;margin-bottom:5px" data-i="'+i+'">'+
+      esc(it.name)+(it.variation&&norm(it.variation)!=='default'?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+'</button>').join('');
+  $$('#itemChoice button').forEach(el=>el.onclick=()=>applyItem(list[+el.dataset.i]));
+  beep(false);
+}
+function offerFree(val){
+  pickedItem=null; paintItem();
+  $('#itemChoice').innerHTML = '<div class="sub" style="font-size:12.5px;margin-bottom:6px">Nothing found for '+
+    '<span style="font-family:var(--mono)">'+esc(val)+'</span>.</div>'+
+    '<button class="btn small" id="freeBtn">✎ Use it as a free-text item</button>';
+  $('#freeBtn').onclick=()=>{
+    pickedItem={ikey:'', name:val, variation:'', location:'', image:'', free:true};
+    $('#itemChoice').innerHTML=''; paintItem(); validate();
+  };
+  beep(false);
+}
+function paintItem(){
+  const it=pickedItem;
+  $('#itemImg').src = (it&&it.image)||PLACEHOLDER;
+  $('#itemName').textContent = it? it.name : 'Nothing scanned';
+  $('#itemVar').textContent  = it? (norm(it.variation)==='default'?'':it.variation) : '';
+  $('#itemLoc').textContent  = it? (it.free?'free text':(it.location?('loc '+it.location):'')) : '';
+}
+function validate(){
+  const ok = !!$('#userInput').value.trim() && !!pickedItem;
+  $('#printBtn').disabled = !ok;
+  return ok;
+}
+function clearForm(){
+  editingId=null;
+  $('#userInput').value=''; $('#userInput').dataset.nick='';
+  $('#scanInput').value=''; $('#priceInput').value='';
+  $('#userSugg').innerHTML=''; $('#itemChoice').innerHTML='';
+  pickedItem=null; paintItem(); validate();
+  $('#printBtn').textContent='🖨 PRINT & SAVE';
+  renderCounters();
+  $('#scanInput').focus();
+}
+
+/* ============================================================
+   SAVE + PRINT
+   ============================================================ */
+function saveLot(){
+  if(!validate() || !SESS) return;
+  const user = $('#userInput').value.trim();
+  const nick = $('#userInput').dataset.nick||'';
+  const price = parseFloat($('#priceInput').value);
+  const base = {
+    user: user,
+    nick: nick,
+    unknown: user==='???',
+    itemKey: pickedItem.ikey||'',
+    itemName: pickedItem.name||'',
+    variation: (norm(pickedItem.variation)==='default'?'':(pickedItem.variation||'')),
+    free: !!pickedItem.free,
+    price: isNaN(price)?null:price,
+    by: MY_NAME,
+    at: Date.now()
+  };
+
+  if(editingId){
+    const id=editingId, n=(LOTS.find(l=>l.id===id)||{}).n||0;
+    saRef.child('lots/'+SESS.id+'/'+id).update(base)
+      .then(()=>{ lastPrinted=Object.assign({n:n}, base); printLabel(lastPrinted); toast('Auction #'+pad3(n)+' updated','ok'); clearForm(); })
+      .catch(e=>toast('Save failed: '+e.message,'err',4000));
+    return;
+  }
+
+  saRef.child('sessions/'+SESS.id+'/lastN').transaction(v=>(v||0)+1, (err, ok, snap)=>{
+    let n = (!err && ok && snap) ? snap.val() : nextNumber();
+    const rec = Object.assign({n:n}, base);
+    const ref = saRef.child('lots/'+SESS.id).push();
+    ref.set(rec).catch(e=>toast('Not saved to the server — kept locally','warn',3600));
+    touchBuyer(user, nick);
+    lastPrinted = rec;
+    printLabel(rec);
+    toast('Auction #'+pad3(n)+' → '+user,'ok',1800);
+    clearForm();
+  });
+}
+function touchBuyer(user, nick){
+  if(!user || user==='???') return;
+  const k=safeKey(norm(user));
+  saRef.child('buyers/'+k).transaction(v=>{
+    v=v||{u:user, n:nick, wins:0, first:Date.now()};
+    v.u=user; if(nick) v.n=nick;
+    v.wins=(v.wins||0)+1; v.last=Date.now();
+    return v;
+  });
+}
+function voidLot(id){
+  const l=LOTS.find(x=>x.id===id); if(!l) return;
+  saRef.child('lots/'+SESS.id+'/'+id+'/void').set(!l.void);
+  toast(l.void?'Auction restored':'Auction voided', l.void?'ok':'warn', 1800);
+}
+function editLot(id){
+  const l=LOTS.find(x=>x.id===id); if(!l) return;
+  editingId=id;
+  $('#userInput').value=l.user||''; $('#userInput').dataset.nick=l.nick||'';
+  $('#priceInput').value=(l.price==null?'':l.price);
+  pickedItem={ikey:l.itemKey||'', name:l.itemName||'', variation:l.variation||'',
+              location:(INV[l.itemKey]||{}).location||'', image:(INV[l.itemKey]||{}).image||'', free:!!l.free};
+  paintItem(); validate();
+  $('#lotNo').textContent='#'+pad3(l.n||0);
+  $('#printBtn').textContent='💾 SAVE CHANGES & REPRINT';
+  $('#userInput').focus();
+  toast('Editing auction #'+pad3(l.n||0),'warn',2200);
+}
+
+/* ============================================================
+   LOG + REPEAT BUYERS
+   ============================================================ */
+function renderLog(){
+  const box=$('#logBody');
+  if(!LOTS.length){ box.innerHTML='<div class="empty">No auctions recorded yet.</div>'; return; }
+  box.innerHTML = LOTS.slice().reverse().map(l=>{
+    const wins = LOTS.filter(x=>!x.void && norm(x.user)===norm(l.user)).length;
+    return '<div class="logrow'+(l.void?' void':'')+'" data-id="'+l.id+'">'+
+      '<div class="n">#'+pad3(l.n||0)+'</div>'+
+      '<div class="b"><div class="u">'+esc(l.user||'—')+
+        (l.unknown?'<span class="warnchip">check</span>':'')+
+        (wins>1&&!l.void?'<span style="color:var(--faint);font-weight:400"> ·'+wins+'</span>':'')+'</div>'+
+        '<div class="i">'+esc(l.itemName||'')+(l.variation?' · '+esc(l.variation):'')+
+        '<span style="color:var(--faint)"> · '+fmtTime(l.at)+'</span></div></div>'+
+      '<div class="acts"><button data-a="copy" title="Copy username">⧉</button>'+
+        '<button data-a="print" title="Reprint">🖨</button>'+
+        '<button data-a="edit" title="Edit">✎</button>'+
+        '<button data-a="void" title="Void / restore">'+(l.void?'↺':'×')+'</button></div></div>';
+  }).join('');
+  $$('#logBody .logrow').forEach(row=>{
+    const id=row.dataset.id;
+    row.querySelectorAll('button').forEach(b=>{
+      b.onclick=e=>{
+        e.stopPropagation();
+        const l=LOTS.find(x=>x.id===id); if(!l) return;
+        if(b.dataset.a==='copy'){ try{navigator.clipboard.writeText(l.user||'');}catch(e2){} toast('Copied: '+l.user,'ok',1400); }
+        if(b.dataset.a==='print'){ printLabel(l); }
+        if(b.dataset.a==='edit'){ editLot(id); }
+        if(b.dataset.a==='void'){ voidLot(id); }
+      };
+    });
+  });
+}
+function renderRepeat(){
+  const map={};
+  LOTS.filter(l=>!l.void).forEach(l=>{ const k=norm(l.user); if(!k) return; (map[k]=map[k]||{u:l.user,c:0}).c++; });
+  const list=Object.values(map).filter(x=>x.c>1).sort((a,b)=>b.c-a.c).slice(0,8);
+  const box=$('#repeatBox');
+  if(!list.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="repeat"><div class="eyebrow" style="margin:0 0 5px">combine shipping</div>'+
+    list.map(x=>'<div class="r"><span>'+esc(x.u)+'</span><b>'+x.c+'</b></div>').join('')+'</div>';
+}
+
+/* ============================================================
+   DYMO PRINTING  —  30252 Address, 1 1/8" x 3 1/2" (28 x 89 mm)
+   ============================================================ */
+const LABEL_XML =
+'<?xml version="1.0" encoding="utf-8"?>\n'+
+'<DieCutLabel Version="8.0" Units="twips">\n'+
+'  <PaperOrientation>Landscape</PaperOrientation>\n'+
+'  <Id>Address</Id>\n'+
+'  <PaperName>30252 Address</PaperName>\n'+
+'  <DrawCommands><RoundRectangle X="0" Y="0" Width="1581" Height="5040" Rx="270" Ry="270"/></DrawCommands>\n'+
+'  {{OBJECTS}}\n'+
+'</DieCutLabel>';
+
+function textObject(name, value, x, y, w, h, size, bold, align, gray){
+  return '<ObjectInfo><TextObject>'+
+    '<Name>'+name+'</Name>'+
+    '<ForeColor Alpha="255" Red="0" Green="0" Blue="0"/>'+
+    '<BackColor Alpha="0" Red="255" Green="255" Blue="255"/>'+
+    '<LinkedObjectName></LinkedObjectName><Rotation>Rotation0</Rotation>'+
+    '<IsMirrored>False</IsMirrored><IsVariable>True</IsVariable>'+
+    '<HorizontalAlignment>'+align+'</HorizontalAlignment>'+
+    '<VerticalAlignment>Middle</VerticalAlignment>'+
+    '<TextFitMode>ShrinkToFit</TextFitMode>'+
+    '<UseFullFontHeight>True</UseFullFontHeight><Verticalized>False</Verticalized>'+
+    '<StyledText><Element><String>'+xesc(value||' ')+'</String>'+
+    '<Attributes><Font Family="Helvetica" Size="'+size+'" Bold="'+(bold?'True':'False')+
+      '" Italic="False" Underline="False" Strikeout="False"/>'+
+    '<ForeColor Alpha="255" Red="'+(gray?90:0)+'" Green="'+(gray?90:0)+'" Blue="'+(gray?90:0)+'"/>'+
+    '</Attributes></Element></StyledText>'+
+    '</TextObject><Bounds X="'+x+'" Y="'+y+'" Width="'+w+'" Height="'+h+'"/></ObjectInfo>';
+}
+
+function buildLabelXml(rec){
+  const meta = '#'+pad3(rec.n||0)+' · '+ROOM;
+  const objs =
+    textObject('ITEM', rec.itemName||'',   332, 110, 4460, 380, 11, true,  'Left',  false)+
+    textObject('VAR',  rec.variation||'',  332, 500, 4460, 290,  9, false, 'Left',  true)+
+    textObject('USER', rec.user||'',       332, 820, 3280, 560, 20, true,  'Left',  false)+
+    textObject('META', meta,              3680,1000, 1110, 300,  8, false, 'Right', true);
+  return LABEL_XML.replace('{{OBJECTS}}', objs);
+}
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    const s=document.createElement('script'); s.src=src; s.async=true;
+    s.onload=res; s.onerror=()=>rej(new Error('load failed: '+src));
+    document.head.appendChild(s);
+  });
+}
+async function probeDymo(){
+  if(dymoTried) return dymoReady;
+  dymoTried=true;
+  const sources=[
+    'dymo.connect.framework.js',                                                       // next to this file
+    'https://cdn.jsdelivr.net/gh/dymosoftware/dymo-connect-framework@master/dymo.connect.framework.js'
+  ];
+  for(const src of sources){
+    try{ await loadScript(src); if(window.dymo && dymo.label && dymo.label.framework) break; }catch(e){}
+  }
+  const led=$('#ledPrn');
+  if(!(window.dymo && dymo.label && dymo.label.framework)){
+    led.className='led off'; $('#pillPrn').title='DYMO framework not loaded — using the browser print dialog';
+    return false;
+  }
+  return new Promise(res=>{
+    let done=false;
+    const finish=ok=>{ if(done) return; done=true; dymoReady=ok;
+      led.className='led '+(ok?'on':'off');
+      $('#pillPrn').title = ok ? 'DYMO Connect service found' : 'DYMO Connect not running — using the browser print dialog';
+      res(ok); };
+    try{
+      dymo.label.framework.init(()=>{
+        try{
+          const env=dymo.label.framework.checkEnvironment();
+          finish(!!(env && env.isFrameworkInstalled !== false) && dymoPrinters().length>0);
+        }catch(e){ finish(dymoPrinters().length>0); }
+      });
+    }catch(e){ finish(false); }
+    setTimeout(()=>finish(false), 6000);
+  });
+}
+function dymoPrinters(){
+  try{
+    const p=dymo.label.framework.getPrinters();
+    const arr=[]; for(let i=0;i<p.length;i++){ const it=p[i];
+      if(it && (it.printerType==='LabelWriterPrinter' || /label/i.test(it.printerType||'')) && it.isConnected!==false) arr.push(it.name);
+    }
+    return arr;
+  }catch(e){ return []; }
+}
+
+function printLabel(rec){
+  const xml=buildLabelXml(rec);
+  if(dymoReady){
+    try{
+      const printers=dymoPrinters();
+      if(printers.length){
+        dymo.label.framework.printLabel(printers[0], '', xml, '');
+        toast('Label #'+pad3(rec.n||0)+' sent to '+printers[0],'ok',1600);
+        return;
+      }
+    }catch(e){ toast('DYMO refused: '+e.message,'err',3600); }
+  }
+  printFallback(rec);
+}
+function printFallback(rec){
+  const f=$('#printFrame'), d=f.contentWindow.document;
+  d.open();
+  d.write('<!doctype html><html><head><meta charset="utf-8"><style>'+
+    '@page{size:89mm 28mm;margin:0}'+
+    'html,body{margin:0;padding:0}'+
+    'body{width:89mm;height:28mm;font-family:Helvetica,Arial,sans-serif;padding:1.6mm 2.4mm;overflow:hidden}'+
+    '.i{font-size:9pt;font-weight:700;line-height:1.1;max-height:8mm;overflow:hidden}'+
+    '.v{font-size:7pt;color:#555;line-height:1.1;max-height:4mm;overflow:hidden}'+
+    '.b{display:flex;align-items:flex-end;justify-content:space-between;margin-top:1mm}'+
+    '.u{font-size:15pt;font-weight:700;line-height:1;white-space:nowrap;overflow:hidden}'+
+    '.m{font-size:6.5pt;color:#666;white-space:nowrap;padding-left:2mm}'+
+    '</style></head><body>'+
+    '<div class="i">'+esc(rec.itemName||'')+'</div>'+
+    '<div class="v">'+esc(rec.variation||'')+'</div>'+
+    '<div class="b"><div class="u">'+esc(rec.user||'')+'</div>'+
+    '<div class="m">#'+pad3(rec.n||0)+' · '+ROOM+'</div></div>'+
+    '</body></html>');
+  d.close();
+  setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast('Print failed','err',3000); } }, 180);
+}
+
+/* ============================================================
+   REPORT
+   ============================================================ */
+function reportRows(){
+  return LOTS.filter(l=>!l.void).map(l=>({
+    n: pad3(l.n||0),
+    item: l.itemName||'',
+    variation: l.variation||'',
+    user: l.user||'',
+    time: fmtTime(l.at),
+    room: ROOM
+  }));
+}
+function csvText(){
+  const rows=reportRows();
+  const head=['Auction #','Item','Variation','Username','Time','Room'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  return [head.map(q).join(',')].concat(rows.map(r=>[r.n,r.item,r.variation,r.user,r.time,r.room].map(q).join(','))).join('\r\n');
+}
+function downloadCsv(){
+  const name='streamer_assist_'+ROOM+'_'+(SESS?fmtDate(SESS.startedAt):fmtDate(Date.now()))+'.csv';
+  const blob=new Blob(['﻿'+csvText()],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast('CSV downloaded','ok');
+}
+function openSummary(){
+  if(!SESS){ toast('No active stream','warn'); return; }
+  showOnly('summary');
+  const rows=reportRows();
+  const buyers={}; rows.forEach(r=>{ buyers[norm(r.user)]=(buyers[norm(r.user)]||0)+1; });
+  const nb=Object.keys(buyers).length;
+  let top='—', topc=0; for(const k in buyers){ if(buyers[k]>topc){ topc=buyers[k]; top=k; } }
+  const mins=Math.max(1, Math.round((Date.now()-SESS.startedAt)/60000));
+  const money=LOTS.filter(l=>!l.void && typeof l.price==='number').reduce((s,l)=>s+l.price,0);
+  const unknown=LOTS.filter(l=>!l.void && l.unknown).length;
+
+  $('#sumTitle').textContent = ROOM+' · '+fmtDate(SESS.startedAt);
+  $('#sumSub').textContent   = 'Streamer '+(SESS.streamer||'—')+' · assistant '+(SESS.assistant||'—')+
+                               ' · '+fmtTime(SESS.startedAt)+'–'+fmtTime(Date.now());
+  $('#sumStats').innerHTML =
+    stat(rows.length,'auctions')+
+    stat(nb,'buyers')+
+    stat(top+' ('+topc+')','top buyer')+
+    stat((rows.length/mins*60).toFixed(1),'lots / hour')+
+    (money?stat('$'+money.toFixed(2),'entered value'):'')+
+    (unknown?stat(unknown,'to check'):'');
+  $('#sumTable').innerHTML =
+    '<thead><tr><th>Auction #</th><th>Item</th><th>Variation</th><th>Username</th><th>Time</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td class="mono">#'+esc(r.n)+'</td><td>'+esc(r.item)+'</td><td>'+esc(r.variation)+
+      '</td><td class="mono">'+esc(r.user)+'</td><td class="mono">'+esc(r.time)+'</td></tr>').join('')+
+    '</tbody>';
+}
+function stat(v,k){ return '<div class="stat"><div class="v">'+esc(v)+'</div><div class="k">'+esc(k)+'</div></div>'; }
+
+/* ============================================================
+   SCANNER — a burst of fast keystrokes is a scan, wherever focus is
+   ============================================================ */
+let burst={txt:'', last:0, start:0, target:null, before:''};
+function burstIsScan(now){
+  if(burst.txt.length<5) return false;
+  if(now-burst.last > 120) return false;
+  const gaps = burst.txt.length-1;
+  if(gaps<1) return false;
+  return ((burst.last-burst.start)/gaps) < 45;      // a human cannot type this fast
+}
+document.addEventListener('keydown', e=>{
+  if($('#work').classList.contains('hide')) return;
+  const now=Date.now();
+
+  if(e.key==='Enter'){
+    const fast = burstIsScan(now);
+    if(fast){
+      e.preventDefault();
+      const code=burst.txt;
+      if(burst.target && burst.target!==$('#scanInput')) burst.target.value = burst.before;
+      burst={txt:'',last:0,start:0,target:null,before:''};
+      $('#scanInput').value=code;
+      lookup(code);
+      return;
+    }
+    burst={txt:'',last:0,start:0,target:null,before:''};
+    if(document.activeElement===$('#scanInput')){
+      e.preventDefault();
+      const v=$('#scanInput').value.trim();
+      if(v){ lookup(v); return; }
+    }
+    if(!$('#printBtn').disabled){ e.preventDefault(); saveLot(); }
+    return;
+  }
+
+  if(e.key==='Escape'){ clearForm(); return; }
+  if(e.key==='F2'){ e.preventDefault(); if(lastPrinted){ printLabel(lastPrinted); toast('Reprinted #'+pad3(lastPrinted.n||0),'ok',1600); } return; }
+  if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){
+    e.preventDefault();
+    const live=LOTS.filter(l=>!l.void); if(live.length) voidLot(live[live.length-1].id);
+    return;
+  }
+
+  if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+    if(now-burst.last > 120){
+      burst={txt:'', last:now, start:now, target:document.activeElement, before:(document.activeElement&&'value' in document.activeElement)?document.activeElement.value:''};
+    }
+    burst.txt += e.key; burst.last = now;
+  }
+});
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+$('#btnMenu').onclick = ()=>{ if(history.length>1) history.back(); else location.href='index.html'; };
+$('#btnEnd').onclick  = openSummary;
+
+$('#enterBtn').onclick = ()=>{
+  const v=$('#nameInput').value.trim();
+  if(v.length<2){ $('#nameInput').focus(); toast('Enter your name','warn'); return; }
+  MY_NAME=v; try{ localStorage.setItem(LS_NAME, v); }catch(e){}
+  $('#pillMe').textContent=MY_NAME;
+  openSetup();
+};
+$('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#enterBtn').click(); });
+
+$('#startBtn').onclick = ()=>{
+  const s=$('#setStreamer').value.trim();
+  if(s.length<2){ $('#setStreamer').focus(); toast('Who is on camera?','warn'); return; }
+  newSession(s);
+};
+$('#setStreamer').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#startBtn').click(); });
+$('#resumeBtn').onclick = ()=>{ if(window._openSess){ SESS=window._openSess; rememberSession(); openWork(); } };
+$('#closeOldBtn').onclick = ()=>{
+  if(!window._openSess) return;
+  saRef.child('sessions/'+window._openSess.id+'/endedAt').set(Date.now())
+    .then(()=>{ window._openSess=null; $('#resumeBox').classList.add('hide'); toast('Old stream closed','ok'); });
+};
+
+$('#userInput').addEventListener('input', ()=>{ renderSugg(); validate(); });
+$('#userCopy').onclick = ()=>copyUser(false);
+$('#userUnk').onclick  = ()=>{ $('#userInput').value='???'; validate(); $('#scanInput').focus(); };
+$('#scanInput').addEventListener('input', ()=>{ /* wait for Enter */ });
+$('#chatFilter').addEventListener('input', ()=>renderChat(false));
+$('#chatClear').onclick = ()=>{ chatRows=[]; renderChat(false); };
+$('#printBtn').onclick  = saveLot;
+$('#btnCsv').onclick    = downloadCsv;
+
+$('#sumCsv').onclick  = downloadCsv;
+$('#sumCopy').onclick = ()=>{
+  const rows=reportRows();
+  const txt=['Auction #\tItem\tVariation\tUsername\tTime\tRoom']
+    .concat(rows.map(r=>[r.n,r.item,r.variation,r.user,r.time,r.room].join('\t'))).join('\n');
+  try{ navigator.clipboard.writeText(txt); toast('Copied — paste straight into Sheets','ok',2400); }
+  catch(e){ toast('Could not copy','err'); }
+};
+$('#sumBack').onclick  = ()=>{ showOnly('work'); $('#scanInput').focus(); };
+$('#sumClose').onclick = ()=>{ if(confirm('Close this stream? The report stays available in the database.')) endSession(); };
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+(function boot(){
+  try{ MY_NAME = localStorage.getItem(LS_NAME)||''; }catch(e){}
+  if(!connect()) return;
+  $('#pillRoom').textContent = ROOM;
+  if(!MY_NAME){ openGate(); return; }
+  $('#pillMe').textContent = MY_NAME;
+
+  let saved=''; try{ saved=localStorage.getItem(LS_SESS)||''; }catch(e){}
+  if(saved){
+    loadSession(saved, s=>{
+      if(s && !s.endedAt && s.room===ROOM){ SESS=s; openWork(); }
+      else openSetup();
+    });
+  } else openSetup();
+})();
+</script>
+</body>
+</html>
