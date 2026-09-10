@@ -521,6 +521,15 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .syncbanner{margin:0 0 12px; padding:10px 13px; border-radius:12px; border:1px solid var(--warn);
   background:rgba(214,158,46,.10); font-size:13px; line-height:1.5}
 .syncbanner b{color:var(--warn)}
+.choicewrap{display:flex; gap:8px; align-items:stretch}
+.choicewrap .choice{flex:1; min-width:0}
+.choicedel{flex:0 0 auto; width:46px; border-radius:var(--r-sm); border:1px solid var(--border);
+  background:var(--panel2); color:var(--muted); font-size:16px; line-height:1; cursor:pointer; transition:.12s}
+.choicedel:hover{border-color:var(--err); color:var(--err); background:rgba(240,82,77,.08)}
+.choicedel.off{display:flex; align-items:center; justify-content:center; opacity:.28; cursor:default}
+.choicedel.off:hover{border-color:var(--border); color:var(--muted); background:var(--panel2)}
+.xshift{display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px;
+  border:1px solid var(--accent); color:var(--accent); font-size:11.5px; font-weight:700; letter-spacing:.02em}
 /* ---------- shifts, pack log, report tools ---------- */
 .pill.click{cursor:pointer; border:1px solid var(--line); background:var(--card)}
 .pill.click:hover{border-color:var(--accent)}
@@ -745,7 +754,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
     <div class="scanwrap">
       <div class="scanhead">
         <span class="mode label">Find order</span>
-        <span class="who">searches <b>all platforms</b></span>
+        <span class="who">searches <b>all shifts</b></span>
       </div>
       <div class="scanrow">
         <input id="pkScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan label, or type last 4 digits…">
@@ -952,7 +961,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-10 · per-shift sync + removed log';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-10b · cross-shift scan lookup';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1114,6 +1123,13 @@ function connect(){
 
   // the list of shifts is a small index node — the heavy order data is only fetched
   // for the shift actually being worked on
+  /* the label index of every shift — small enough to hold all of them, which is
+     what lets Picking and Packing find a parcel without switching shift */
+  root.child('trackIndex').on('value', snap=>{
+    XTRACK = snap.val() || {};
+    if(curScreen==='picking') renderPicking();
+  });
+
   root.child('shiftIndex').on('value', snap=>{
     SHIFTS = snap.val() || {};
     if(CUR_SHIFT && !SHIFTS[CUR_SHIFT]) setShift(pickDefaultShift());   // someone cleared the open shift
@@ -1128,6 +1144,61 @@ function connect(){
     goMenu();
   });
 }
+
+/* ============================================================
+   CROSS-SHIFT LABEL INDEX
+   packstation/trackIndex/<shiftId>/<orderKey> = {t:trackingId, p:platform}
+   One tiny record per order — a few dozen bytes — so every device can match a
+   scanned label against every loaded shift without downloading their orders.
+   It is derived data: written wherever orders are created or removed, and
+   rebuilt from the live orders whenever a shift is opened, so it heals itself
+   for shifts that existed before this build.
+   ============================================================ */
+let XTRACK={};                       // shiftId -> {orderKey: {t,p}}
+function trackRowsFor(orders){       // orders: {key: {platform, trackingId}}
+  const m={};
+  for(const k in (orders||{})){ const o=orders[k]; if(o && o.trackingId) m[k]={t:o.trackingId, p:o.platform||''}; }
+  return m;
+}
+/* the open shift is authoritative — if the index disagrees with it, fix the index */
+function healTrackIndex(shiftId, platforms){
+  if(!root || !shiftId) return;
+  const live={};
+  for(const pk in platforms) for(const o of (platforms[pk].orders||[])) live[o._key]={t:o.trackingId, p:pk};
+  const have=XTRACK[shiftId]||{};
+  const liveKeys=Object.keys(live), haveKeys=Object.keys(have);
+  if(liveKeys.length===haveKeys.length && liveKeys.every(k=>have[k] && have[k].t===live[k].t && have[k].p===live[k].p)) return;
+  root.child('trackIndex/'+shiftId).set(liveKeys.length?live:null).catch(()=>{});
+}
+/* every order the station knows about, from every loaded shift.
+   The open shift contributes real orders; the others contribute stubs that
+   carry only what the matcher needs and are fetched in full once picked. */
+function allOrdersEverywhere(){
+  const all=allOrdersFlat().map(x=>Object.assign({shiftId:CUR_SHIFT}, x));
+  for(const sid in XTRACK){
+    if(sid===CUR_SHIFT || !SHIFTS[sid]) continue;
+    const rows=XTRACK[sid]||{};
+    for(const key in rows){ const r=rows[key];
+      all.push({platform:r.p||'—', shiftId:sid, lite:true,
+                order:{_key:key, trackingId:r.t, items:[], status:'pending'}}); }
+  }
+  return all;
+}
+/* turn a stub into the real order, straight from its own shift */
+async function hydrateMatch(x){
+  if(!x) return null;
+  if(!x.lite) return x;
+  try{
+    const snap=await root.child('shifts/'+x.shiftId+'/orders/'+x.order._key).once('value');
+    const v=snap.val(); if(!v) return null;
+    return {platform:v.platform||x.platform, shiftId:x.shiftId,
+      order:{_key:x.order._key, platform:v.platform||x.platform, trackingId:v.trackingId, items:v.items||[],
+             status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'',
+             packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null,
+             packing:v.packing||null, syncNote:v.syncNote||null}};
+  }catch(e){ return null; }
+}
+function matchShiftLabel(x){ return (x && x.shiftId && x.shiftId!==CUR_SHIFT) ? shiftName(x.shiftId) : ''; }
 
 /* ---------- shifts ---------- */
 function shiftIds(){ return Object.keys(SHIFTS).sort((a,b)=>(SHIFTS[b].createdAt||0)-(SHIFTS[a].createdAt||0)); }
@@ -1194,7 +1265,9 @@ function setShift(id){
     const platforms={};
     snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
       platforms[pk].orders.push({_key:c.key, platform:pk, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null, syncNote:v.syncNote||null}); });
-    S.platforms=platforms; renderCurrent();
+    S.platforms=platforms;
+    healTrackIndex(CUR_SHIFT, platforms);      // the open shift keeps its index honest
+    renderCurrent();
   });
   ordersOff=()=>oref.off('value',cb);
   renderCurrent();
@@ -1215,6 +1288,7 @@ async function migrateLegacyShift(){
     await root.update({
       ['shifts/'+id+'/meta']  : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, source:(v.meta&&v.meta.source)||null, migrated:true},
       ['shifts/'+id+'/orders']: v.orders,
+      ['trackIndex/'+id]      : trackRowsFor(v.orders),
       ['shiftIndex/'+id]      : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, orders:n, migrated:true, source:(v.meta&&v.meta.source)||null},
       ...(v.inventory ? {inventory:v.inventory} : {}),
       ...(v.settings  ? {settings:v.settings}   : {})
@@ -1278,6 +1352,7 @@ async function createShift(){
     await root.update({
       ['shifts/'+id+'/meta']  : meta,
       ['shifts/'+id+'/orders']: orders,
+      ['trackIndex/'+id]      : trackRowsFor(orders),
       ['shiftIndex/'+id]      : {name, createdAt:meta.createdAt, createdBy:MY_NAME, orders:_pendingShift.orders,
                                  source:_pendingShift.source||null, fileName:_pendingShift.fromName||''}
     });
@@ -1296,7 +1371,7 @@ async function clearShift(id){
   if(!confirm('Clear the shift “'+nm+'”?\nIts orders and pack log are deleted for everyone.\nOther shifts, the catalog and New Shipment are not touched.')) return;
   if(!confirm('Are you sure? This cannot be undone.')) return;
   try{
-    await root.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null });
+    await root.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null, ['trackIndex/'+id]:null });
   }catch(e){ toast('Could not clear the shift','err',3600); return; }
   delete SHIFT_META[id];
   toast('Shift “'+nm+'” cleared','ok',3000);
@@ -1378,7 +1453,7 @@ async function syncShiftOrders(buf, label){
   const now=Date.now();
   const claimedFresh=o=>o.claim && (now-(o.claim.at||0))<STALE_MS;
 
-  const updates={};
+  const updates={}, idx={};          // idx is written on the station root, not the shift
   const added=[], changed=[], removedPending=[], removedDone=[], skipped=[], untouchedPlatforms=[];
 
   /* --- in the file --- */
@@ -1387,6 +1462,7 @@ async function syncShiftOrders(buf, label){
     if(!ex){ added.push(s.trackingId);
       updates['orders/'+k]={platform:s.platform, trackingId:s.trackingId, items:s.items,
                             status:'pending', claim:null, addedAt:now};
+      idx['trackIndex/'+CUR_SHIFT+'/'+k]={t:s.trackingId, p:s.platform};
       continue;
     }
     if(claimedFresh(ex)){ skipped.push(ex.trackingId); continue; }   // being packed right now
@@ -1433,8 +1509,9 @@ async function syncShiftOrders(buf, label){
   }
   if(!confirm(lines.join('\n'))) { toast('Sync cancelled','info',2000); return; }
 
-  for(const o of removedPending) updates['orders/'+o._key]=null;
+  for(const o of removedPending){ updates['orders/'+o._key]=null; idx['trackIndex/'+CUR_SHIFT+'/'+o._key]=null; }
   for(const o of removedDone){
+    idx['trackIndex/'+CUR_SHIFT+'/'+o._key]=null;
     updates['removed/'+o._key]={ platform:o.platform, trackingId:o.trackingId, items:o.items||[],
       status:o.status, packedBy:o.packedBy||'', packedAt:o.packedAt||null, blockReason:o.blockReason||'',
       addedAt:o.addedAt||null, pickStartedAt:o.pickStartedAt||null, packing:o.packing||null,
@@ -1444,6 +1521,7 @@ async function syncShiftOrders(buf, label){
 
   try{ await shiftRef.update(updates); }
   catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); return; }
+  if(Object.keys(idx).length) root.update(idx).catch(()=>{});
 
   let t='“'+shiftLabel+'”: +'+added.length+' new, '+changed.length+' changed, '+
         (removedPending.length+removedDone.length)+' removed';
@@ -1591,7 +1669,17 @@ function renderCurrent(){
   const g=globalStats(); $('#totalDone').textContent=g.done; $('#totalAll').textContent=g.all;
   if(curScreen==='menu') renderMenu();
   else if(curScreen==='platforms') renderPlatforms();
-  else if(curScreen==='pack'){ renderPackHeader(); renderOrderArea(); }
+  else if(curScreen==='pack'){
+    /* the last order of this platform may have just gone — the platform is
+       then no longer a thing, so step back to the list instead of sitting on
+       an empty screen */
+    if(curPlatformKey && !S.platforms[curPlatformKey]){
+      toast('“'+curPlatformKey+'” has no orders left','info',3000);
+      curPlatformKey=null; activeOrder=null; activePick=null; pendingChoice=null;
+      goPlatforms(); return;
+    }
+    renderPackHeader(); renderOrderArea();
+  }
   else if(curScreen==='picking') renderPicking();
   else if(curScreen==='packing') pgRender();
   else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
@@ -1917,9 +2005,11 @@ function renderOrderArea(){
       '<p class="sub" style="margin-top:10px">'+(done?'Packed by: ':'Last handled by: ')+'<b>'+esc(order.packedBy||'—')+'</b>'+(order.packedAt?' · <span class="mono">'+esc(fmtTime(order.packedAt))+'</span>':'')+'</p>'+
       (order.blockReason?'<p class="reasontag" style="margin-top:6px">⛔ '+esc(order.blockReason)+'</p>':'')+
       '<div class="orderfoot"><button class="btn ghost" onclick="backToScan()">← Scan next</button><div class="spacer"></div>'+
+      (canDeleteOrder(order)?'<button class="btn danger ghost" id="delOrderBtn">🗑 Delete order</button>':'')+
       (done?'<button class="btn" id="repackBtn">↺ Pack again</button>':'<button class="btn primary" id="repackBtn">Pack this order →</button>')+
       '</div></div>';
     const rb=$('#repackBtn'); if(rb) rb.onclick=()=>repackOrder(order._key, done);
+    const db=$('#delOrderBtn'); if(db) db.onclick=()=>deleteOrder(order._key);
     return;
   }
 
@@ -1988,6 +2078,29 @@ function syncTag(o){
     esc([].concat(n.added||[],(n.removed||[]).map(x=>'removed '+x),n.reqty||[]).join('; '))+
     '">⟳ changed'+(bits.length?' '+bits.join(' '):'')+'</span>';
 }
+/* An order can be deleted by hand only while nobody has touched it: still to
+   pack, not claimed by a packer right now, and not boxed in Packing mode.
+   Anything that has been worked on leaves through a sync instead, so the work
+   is recorded in the removed-orders log rather than vanishing. */
+function canDeleteOrder(o){
+  if(!IS_ADMIN || !o) return false;
+  if((o.status||'pending')!=='pending') return false;
+  if(o.packing && o.packing.at) return false;
+  if(o.claim && (Date.now()-(o.claim.at||0))<STALE_MS) return false;
+  return true;
+}
+async function deleteOrder(key){
+  const o=findByKey(key); if(!o) return;
+  if(!canDeleteOrder(o)){ toast('Only an order nobody has started can be deleted','warn',3200); return; }
+  if(!confirm('Delete order '+o.trackingId+' from “'+shiftName(CUR_SHIFT)+'”?\n\n'+
+              'It is still in the workbook, so Sync orders will bring it back.\n'+
+              'Use this for a row that should not be packed today.')) return;
+  try{ await shiftRef.child('orders/'+key).remove(); }
+  catch(e){ toast('Could not delete it','err',3200); return; }
+  root.child('trackIndex/'+CUR_SHIFT+'/'+key).remove().catch(()=>{});
+  if(activeOrder && activeOrder.key===key){ activeOrder=null; activePick=null; }
+  toast('Order '+o.trackingId+' deleted — Sync orders restores it','ok',3600);
+}
 function orderStatusTag(o){
   if(o.status==='packed') return '<span class="statustag st-packed">packed</span>';
   if(o.status==='partial') return '<span class="statustag st-partial">partial</span>';
@@ -2016,13 +2129,20 @@ function renderPending(area){
       : list.length+' orders end with “'+esc(pendingChoice.code)+'” — choose the right one';
     let h='<div class="card"><div class="eyebrow"'+(isAll?'':' style="color:var(--warn)"')+'>'+head+'</div><div class="choices'+(isAll?' scroll':'')+'">';
     for(const o of list){
-      h+='<button class="choice" data-do-pick="'+esc(o._key)+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId, pendingChoice.code||'')+'</span>'+orderStatusTag(o)+syncTag(o)+'</span>'+
+      const row='<button class="choice" data-do-pick="'+esc(o._key)+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId, pendingChoice.code||'')+'</span>'+orderStatusTag(o)+syncTag(o)+'</span>'+
          '<span class="sub">'+(o.items||[]).length+' item(s) · '+orderSummary(o)+'</span></button>';
+      /* the manager's column keeps its width on every row, so the list does not
+         go ragged where an order cannot be deleted */
+      if(!IS_ADMIN || !isAll) h += row;
+      else h += '<div class="choicewrap">'+row+(canDeleteOrder(o)
+        ? '<button class="choicedel" data-ordel="'+esc(o._key)+'" title="Delete this order — Sync orders brings it back">✕</button>'
+        : '<span class="choicedel off" title="'+(o.packing&&o.packing.at?'Boxed in Packing mode':(o.status!=='pending'?'Already handled':'Being packed right now'))+'">•</span>')+'</div>';
     }
     h+='</div><div class="orderfoot"><button class="btn ghost" data-cancel-pick>Cancel</button></div></div>';
     area.innerHTML=h;
   }
   $$('#orderArea [data-do-pick]').forEach(b=>b.onclick=()=>claimAndOpen(b.dataset.doPick));
+  $$('#orderArea [data-ordel]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); await deleteOrder(b.dataset.ordel); });
   const c=$('#orderArea [data-cancel-pick]'); if(c)c.onclick=()=>{ pendingChoice=null; renderOrderArea(); focusScan(); };
 }
 
@@ -2096,20 +2216,26 @@ function pkFocus(){ const i=$('#pkScan'); if(i) i.focus(); }
 function pkSubmit(){ const i=$('#pkScan'); if(!i) return; const v=i.value; pickingResolve(v); i.value=''; i.focus(); }
 function allOrdersFlat(){ const all=[]; for(const k in S.platforms) for(const o of (S.platforms[k].orders||[])) all.push({platform:k, order:o}); return all; }
 
-function pickingResolve(raw){
+async function pickingResolve(raw){
   const val=(raw||'').trim(); if(!val) return;
   pkChoice=null;
   const cv=clean(val);
   if(cv.length<2){ flash('err');beep('err'); toast('Type at least the last 3-4 digits','err',3000); return; }
-  const all=allOrdersFlat();
+  const all=allOrdersEverywhere();                 // every loaded shift, not just the open one
   const exact=all.filter(x=>clean(x.order.trackingId)===cv);
   let matches = exact.length ? exact : all.filter(x=>{ const ct=clean(x.order.trackingId); if(!ct) return false;
       return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=3 && ct.endsWith(cv)); });
-  if(matches.length===0){ flash('err');beep('err'); toast('No order matching '+val+' on any platform','err',3200); return; }
-  if(matches.length===1){ showPickingOrder(matches[0], cv); return; }
+  if(matches.length===0){ flash('err');beep('err'); toast('No order matching '+val+' in any loaded shift','err',3200); return; }
+  if(matches.length===1){ await showPickingOrder(matches[0], cv); return; }
   pkChoice={list:matches, code:cv}; beep('ok'); renderPicking(); closeCamIfOpen();
 }
-function showPickingOrder(x, code){ pkOrder={platform:x.platform, key:x.order._key, code:code||''}; pkChecked=new Set(); pkChoice=null; flash('ok');beep('ok'); renderPicking(); pkFocus(); closeCamIfOpen(); }
+async function showPickingOrder(x, code){
+  const full=await hydrateMatch(x);
+  if(!full){ flash('err'); beep('err'); toast('That order is no longer in its shift','err',3400); return; }
+  pkOrder={platform:full.platform, key:full.order._key, code:code||'',
+           shiftId:full.shiftId||CUR_SHIFT, snapshot:(full.shiftId&&full.shiftId!==CUR_SHIFT)?full.order:null};
+  pkChecked=new Set(); pkChoice=null; flash('ok');beep('ok'); renderPicking(); pkFocus(); closeCamIfOpen();
+}
 
 function renderPicking(){
   const area=$('#pkArea'); if(!area) return;
@@ -2118,8 +2244,10 @@ function renderPicking(){
   // ambiguity → choice list (cross-platform)
   if(pkChoice){
     let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pkChoice.list.length+' orders match “'+esc(pkChoice.code)+'” — choose one</div><div class="choices scroll">';
-    pkChoice.list.forEach((x,i)=>{ const o=x.order;
-      h+='<button class="choice" data-pk-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId,pkChoice.code)+'</span><span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(o.items||[]).length+' item(s) · '+orderSummary(o)+'</span></button>'; });
+    pkChoice.list.forEach((x,i)=>{ const o=x.order; const sh=matchShiftLabel(x);
+      h+='<button class="choice" data-pk-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId,pkChoice.code)+'</span>'+
+         '<span class="chip loc">'+esc(x.platform)+'</span>'+(sh?'<span class="xshift">🗓 '+esc(sh)+'</span>':'')+'</span>'+
+         '<span class="sub">'+(x.lite?'in shift '+esc(sh||'—')+' — opens when picked':((o.items||[]).length+' item(s) · '+orderSummary(o)))+'</span></button>'; });
     h+='</div><div class="orderfoot"><button class="btn ghost" id="pkChoiceCancel">Cancel</button></div></div>';
     area.innerHTML=h;
     $$('#pkArea [data-pk-pick]').forEach(b=>b.onclick=()=>{ showPickingOrder(pkChoice.list[+b.dataset.pkPick], pkChoice.code); });
@@ -2129,14 +2257,17 @@ function renderPicking(){
   }
 
   if(!pkOrder){
-    area.innerHTML='<div class="empty">Scan a label, type the last 4 digits, or use <b>📷 Camera</b> to look up any order across <b>all platforms</b>.</div>';
+    area.innerHTML='<div class="empty">Scan a label, type the last 4 digits, or use <b>📷 Camera</b> to look up any order — every platform of every loaded shift is searched.</div>';
     $('#pkDone').textContent='0'; $('#pkAll').textContent='0'; return;
   }
-  const order=findByKey(pkOrder.key);
+  const order = pkOrder.snapshot || findByKey(pkOrder.key);
   if(!order){ area.innerHTML='<div class="empty">This order is no longer available.<br><button class="btn" id="pkNew2" style="margin-top:12px">← New label</button></div>'; const n=$('#pkNew2'); if(n) n.onclick=()=>{ pkOrder=null; renderPicking(); pkFocus(); }; return; }
+  const otherShift = (pkOrder.shiftId && pkOrder.shiftId!==CUR_SHIFT) ? shiftName(pkOrder.shiftId) : '';
 
   const items=order.items||[]; const total=items.length; let taken=0;
-  let h='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label · '+esc(pkOrder.platform)+'</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+orderStatusTag(order)+'<div class="spacer"></div><div class="pill">Items: <b>'+total+'</b></div></div><div class="pklist">';
+  let h='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label · '+esc(pkOrder.platform)+
+    (otherShift?' · <span class="xshift">🗓 '+esc(otherShift)+'</span>':'')+'</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+
+    orderStatusTag(order)+'<div class="spacer"></div><div class="pill">Items: <b>'+total+'</b></div></div><div class="pklist">';
   items.forEach((it,idx)=>{
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—';
     const q=it.qty||1; const stock=(iv.stock==null)?null:iv.stock;
@@ -3173,7 +3304,7 @@ function updateCamHint(){
   const m=$('#camMode'), h=$('#camHint'); if(!m||!h) return;
   if(curScreen==='guide'){ m.textContent='lookup'; h.textContent='Scan a product barcode to look it up'; return; }
   if(curScreen==='recv'){ m.textContent='receiving'; h.textContent='Scan the item barcode'; return; }
-  if(curScreen==='picking'){ m.textContent='find'; h.textContent='Scan a label to look up the order (all platforms)'; return; }
+  if(curScreen==='picking'){ m.textContent='find'; h.textContent='Scan a label to look up the order — every loaded shift is searched'; return; }
   if(activePick){ m.textContent='items'; const order=findByKey(activeOrder.key);
     h.textContent = order ? ('Order '+order.trackingId+' · scan each item') : 'Scan items'; }
   else { m.textContent='label'; h.textContent='Scan a shipping label / tracking barcode'; }
@@ -3354,7 +3485,7 @@ document.addEventListener('keydown', e=>{
    packer picks the right one. */
 const PG_MIN_PARTIAL = 8;      // characters that must line up for a partial match
 function pgMatchOrders(cv){
-  const all=allOrdersFlat();
+  const all=allOrdersEverywhere();                  // every loaded shift, not just the open one
   const ct=x=>clean(x.order.trackingId);
   const exact=all.filter(x=>ct(x)===cv);
   if(exact.length) return {tier:'exact', list:exact};
@@ -3384,24 +3515,36 @@ function pgResolve(raw){
 
   const m=pgMatchOrders(cv);
   if(!m.list.length){
-    beep('err'); toast('No order with label '+val,'err',3400);
+    beep('err'); toast('No order with label '+val+' in any loaded shift','err',3400);
     pgWrite('packing/misscans', {at:Date.now(), kind:'unknown', code:val, packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
     pgRender(); return;
   }
   if(m.list.length>1){ pgChoice={list:m.list, code:val, tier:m.tier}; beep('warn'); pgRender(); return; }
-  pgTake(m.list[0], {scanned:val, match:m.tier});
+  pgTakeResolved(m.list[0], {scanned:val, match:m.tier});
 }
+/* a parcel from another shift is fetched from its own shift before anything is
+   decided about it — the duplicate guards need the real order, not a stub */
+async function pgTakeResolved(x, how){
+  if(x && x.lite){
+    const full=await hydrateMatch(x);
+    if(!full){ flash('err'); beep('err'); toast('That order is no longer in its shift','err',3400); pgRender(); return; }
+    x=full;
+  }
+  pgTake(x, how);
+}
+function pgShiftOf(x){ return (x && x.shiftId) || CUR_SHIFT || null; }
+function pgDoneKey(x){ return pgShiftOf(x)+'/'+x.order._key; }
 function pgTake(x, how){
   const o=x.order, now=Date.now();
   how = how || {};
   /* 1. this session, on this device — catches a second scan before the database
         has echoed the first one back, and works offline */
-  const mine = PG.done && PG.done[o._key];
+  const mine = (PG.done && (PG.done[pgDoneKey(x)] || PG.done[o._key]));
   if(mine){
     flash('err'); beep('err');
     toast('Already scanned at '+pgClock(mine)+' — this parcel is counted','warn',3800);
     pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
-      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
+      packer:PG.packer, sid:PG.sid, shiftId:pgShiftOf(x)}, 'push');
     pgRender(); return;
   }
   /* 2. anyone, any session — the stamp written on the order itself */
@@ -3409,7 +3552,7 @@ function pgTake(x, how){
     flash('err'); beep('err');
     toast('Already packed at '+pgClock(o.packing.at)+' by '+(o.packing.by||'—'),'warn',3800);
     pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
-      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null, alreadyBy:o.packing.by||''}, 'push');
+      packer:PG.packer, sid:PG.sid, shiftId:pgShiftOf(x), alreadyBy:o.packing.by||''}, 'push');
     pgRender(); return;
   }
   const gap=now-PG.anchor;
@@ -3430,20 +3573,21 @@ function pgCommit(x, at, cycleMs, flags, how){
   pgWrite('packing/events', {
     at, sid:PG.sid, packer:PG.packer,
     tracking:o.trackingId, scanned:how.scanned||null, match:how.match||'exact', platform:x.platform,
-    shiftId:CUR_SHIFT||null, orderKey:o._key,
+    shiftId:pgShiftOf(x), shiftName:shiftName(pgShiftOf(x)), orderKey:o._key,
     cycleMs:(cycleMs==null?null:Math.round(cycleMs)), since:PG.anchorKind,
     lines:items.length, units, items,
     addedAt:o.addedAt||null, pickStartedAt:o.pickStartedAt||null, pickConfirmedAt:o.packedAt||null,
     orderStatus:o.status||null, flags:flags.length?flags:null
   }, 'push');
 
-  if(CUR_SHIFT) pgWrite('shifts/'+CUR_SHIFT+'/orders/'+o._key+'/packing',
+  const sid=pgShiftOf(x);
+  if(sid) pgWrite('shifts/'+sid+'/orders/'+o._key+'/packing',
     {at, by:PG.packer, sid:PG.sid, cycleMs:(cycleMs==null?null:Math.round(cycleMs))});
 
-  PG.done = PG.done || {}; PG.done[o._key]=at;      // local duplicate guard, survives a reload
+  PG.done = PG.done || {}; PG.done[pgDoneKey(x)]=at;   // local duplicate guard, survives a reload
   PG.count++; PG.units+=units;
   if(cycleMs!=null) PG.cycles.push(Math.round(cycleMs));
-  PG.feed.unshift({at, trk:o.trackingId, platform:x.platform, cycleMs:(cycleMs==null?null:Math.round(cycleMs)), units, lines:items.length});
+  PG.feed.unshift({at, trk:o.trackingId, platform:x.platform, shift:(sid&&sid!==CUR_SHIFT)?shiftName(sid):'', cycleMs:(cycleMs==null?null:Math.round(cycleMs)), units, lines:items.length});
   PG.feed=PG.feed.slice(0,40);
   PG.anchor=at; PG.anchorKind='prev';
   pgSave(); flash('ok'); beep('ok');
@@ -3493,14 +3637,14 @@ function pgRender(){
     let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pgChoice.list.length+' orders match — choose one</div>'+
       '<p class="sub" style="margin:0 0 10px">Scanned <span class="mono" style="color:var(--ink)">'+esc(pgChoice.code)+'</span> — the label is not a full match, pick the right parcel.</p>'+
       '<div class="choices scroll">';
-    pgChoice.list.forEach((x,i)=>{ const done=x.order.packing&&x.order.packing.at;
+    pgChoice.list.forEach((x,i)=>{ const done=x.order.packing&&x.order.packing.at; const sh=matchShiftLabel(x);
       h+='<button class="choice" data-pg-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(x.order.trackingId, clean(pgChoice.code))+'</span>'+
       '<span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(x.order.items||[]).length+' item(s)'+
       (done?' · <span style="color:var(--warn)">already packed '+pgClock(x.order.packing.at)+'</span>':'')+'</span></button>'; });
     h+='</div><div class="orderfoot"><button class="btn ghost" id="pgChoiceCancel">Cancel</button></div></div>';
     host.innerHTML=h;
     $$('#pgWrap [data-pg-pick]').forEach(b=>b.onclick=()=>{ const c=pgChoice; const x=c.list[+b.dataset.pgPick]; pgChoice=null;
-      pgTake(x, {scanned:c.code, match:c.tier}); });
+      pgTakeResolved(x, {scanned:c.code, match:c.tier}); });
     $('#pgChoiceCancel').onclick=()=>{ pgChoice=null; pgRender(); };
     return;
   }
