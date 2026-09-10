@@ -517,6 +517,10 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .rcalready{margin:10px 0 2px; padding:9px 12px; border-radius:10px; border:1px solid var(--warn);
   background:rgba(214,158,46,.10); color:var(--fg); font-size:13px}
 .rcalready b{color:var(--warn)}
+.statustag.st-sync{background:rgba(214,158,46,.15); color:var(--warn); border:1px solid var(--warn)}
+.syncbanner{margin:0 0 12px; padding:10px 13px; border-radius:12px; border:1px solid var(--warn);
+  background:rgba(214,158,46,.10); font-size:13px; line-height:1.5}
+.syncbanner b{color:var(--warn)}
 /* ---------- shifts, pack log, report tools ---------- */
 .pill.click{cursor:pointer; border:1px solid var(--line); background:var(--card)}
 .pill.click:hover{border-color:var(--accent)}
@@ -548,51 +552,6 @@ th[data-rsort]:hover,th[data-psort]:hover{color:var(--accent)}
 th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
 .filterinfo{font-size:12.5px; color:var(--faint); margin:-8px 0 14px}
 @media print{ .toolbar,.shiftbar,#shiftModal{display:none !important} }
-
-/* ============================================================
-   PACKING MODE — packer's own screen (phone-first, hands-free)
-   ============================================================ */
-.pgwrap{max-width:620px;margin:0 auto}
-.pgidle{text-align:center;padding:26px 18px}
-.pgidle h2{font-family:var(--disp);font-size:26px;margin:0 0 8px}
-.pgstart{width:100%;padding:30px 20px;border-radius:20px;border:none;background:var(--accent);color:#06210F;
-  font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:.02em;transition:.15s}
-.pgstart:active{transform:scale(.985)}
-.pgstart.resume{background:var(--info);color:#04101f}
-.pgbig{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:22px 18px;text-align:center;margin-bottom:14px}
-.pgbig .lbl{font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:600}
-.pgtimer{font-family:var(--mono);font-weight:700;font-size:64px;line-height:1.05;letter-spacing:-.02em;margin:6px 0 2px}
-.pgtimer.warn{color:var(--warn)}
-.pgtimer.over{color:var(--err)}
-.pgstats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-.pgstat{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:13px 10px;text-align:center}
-.pgstat .n{font-family:var(--mono);font-weight:700;font-size:26px;line-height:1.1}
-.pgstat .l{font-size:11px;color:var(--muted);margin-top:3px}
-.pgscan{border:1.5px dashed var(--line);border-radius:var(--r);padding:18px 16px;text-align:center;color:var(--muted);
-  margin-bottom:14px;background:var(--panel);transition:.15s}
-.pgscan b{color:var(--ink);font-family:var(--mono)}
-.pgscan.live{border-color:var(--accent);border-style:solid;background:#11201a;color:var(--ink)}
-.pgacts{display:flex;gap:10px;flex-wrap:wrap}
-.pgacts .btn{flex:1;min-width:130px;justify-content:center}
-.pgfeed{margin-top:18px}
-.pgrow{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);
-  border-radius:var(--r-sm);padding:10px 13px;margin-bottom:8px;font-size:13.5px}
-.pgrow .trk{font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.pgrow .cyc{font-family:var(--mono);font-weight:700;color:var(--ok)}
-.pgrow .cyc.slow{color:var(--warn)}
-.pgrow .cyc.none{color:var(--faint)}
-.pgrow .mt{font-size:12px;color:var(--muted);font-family:var(--mono)}
-.pgpaused{background:#2b2412;border:1px solid #5a4a1c;border-radius:20px;padding:30px 20px;text-align:center;margin-bottom:14px}
-.pgpaused .k{font-family:var(--disp);font-size:22px;font-weight:700;color:var(--warn)}
-.pgpaused .t{font-family:var(--mono);font-size:40px;font-weight:700;margin:8px 0 2px}
-.pgask{position:fixed;inset:0;z-index:230;background:rgba(4,6,10,.9);display:grid;place-items:center;padding:20px}
-.pgaskcard{background:var(--panel);border:1px solid var(--warn);border-radius:20px;padding:26px 22px;width:min(460px,94vw);text-align:center}
-.pgaskcard h3{font-family:var(--disp);font-size:21px;margin:0 0 8px}
-.pgaskcard .gap{font-family:var(--mono);font-size:44px;font-weight:700;color:var(--warn);margin:10px 0 6px}
-.pgaskcard .btn{width:100%;margin-top:10px;padding:16px;font-size:16px;justify-content:center}
-.pgoff{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--warn);margin-left:auto}
-@media (max-width:560px){ .pgtimer{font-size:52px} .pgstats{grid-template-columns:repeat(3,1fr)} }
-
 </style>
 </head>
 <body>
@@ -659,6 +618,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <p class="sub" id="ordStatus" style="font-size:12.5px; margin-top:9px">Share → Anyone with the link → Viewer. Set the tracking column to “Plain text”.</p>
       <button class="btn hide" id="ordProxy" style="margin-top:10px">↪ Try via proxy</button>
       <label class="btn ghost" style="margin-top:10px">or choose .xlsx file<input id="ordFile" type="file" accept=".xlsx,.xls,.csv" class="hide"></label>
+      <input id="syncFile" type="file" accept=".xlsx,.xls,.csv" class="hide">
       <div id="shiftStage" class="hide"></div>
     </div>
 
@@ -689,10 +649,10 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
     <h1 style="margin-bottom:14px">Pick a platform to pack</h1>
     <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap">
       <button class="btn primary lg" id="pickingBtn">🧺 Picking mode</button>
-      <button class="btn primary lg" id="packingBtn">📦 Packing mode</button>
       <button class="btn lg" id="guideBtn">📖 Product Guidebook</button>
       <button class="btn lg" id="finishBtn">📋 Shift report</button>
       <button class="btn lg hide" id="packLogBtn">🧾 Pack log</button>
+      <button class="btn lg hide" id="removedBtn">🗃 Removed orders</button>
     </div>
     <div class="shiftbar" id="shiftBar"></div>
     <div class="pgrid" id="pgrid"></div>
@@ -749,18 +709,6 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
     </div>
     <div id="pkArea"></div>
   </section>
-
-  <!-- ============ PACKING MODE (packer KPI) ============ -->
-  <section id="screen-packing" class="hide">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
-      <button class="btn ghost" id="pgBack">← Platforms</button>
-      <h1 style="margin:0">📦 Packing</h1>
-      <div class="spacer"></div>
-      <span class="pgoff hide" id="pgOffline">⚠ offline — saved locally</span>
-    </div>
-    <div class="pgwrap" id="pgWrap"></div>
-  </section>
-
 
   <!-- ============ PRODUCT GUIDEBOOK (read-only reference) ============ -->
   <section id="screen-guide" class="hide">
@@ -838,6 +786,23 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
     <div id="plBody"></div>
   </section>
 
+  <!-- ============ REMOVED ORDERS (admin) ============ -->
+  <section id="screen-removed" class="hide">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap">
+      <div class="eyebrow" style="margin:0">Removed orders</div>
+      <div class="spacer"></div>
+      <button class="btn" id="rmCsvBtn">⬇ CSV</button>
+      <button class="btn" id="rmXlsBtn">⬇ Excel</button>
+      <button class="btn danger ghost" id="rmClearBtn">Clear the log</button>
+      <button class="btn ghost" id="rmBack">← Back</button>
+    </div>
+    <h1 id="rmTitle">Removed orders</h1>
+    <p class="sub" style="margin-bottom:12px">Orders that were already packed (or marked not packed) and then disappeared from the shift's workbook. Nothing here is counted in the shift report — keep what you need, delete the rest.</p>
+    <div class="shiftbar" id="rmShifts"></div>
+    <div class="statgrid" id="rmStats"></div>
+    <div id="rmBody"></div>
+  </section>
+
   <!-- ============ RECEIVING SYSTEM (independent of orders / shift) ============ -->
   <section id="screen-recv" class="hide">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap">
@@ -848,7 +813,6 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn ghost" id="rcList">☰ Receivings</button>
       <button class="btn ghost" id="rcCatBtn">⚙ Catalog</button>
     </div>
-    <div class="pill" id="rcDiag" style="margin-bottom:12px"></div>
     <div id="rcArea" class="rcwrap"></div>
   </section>
 </main>
@@ -924,12 +888,10 @@ const EXTERNAL_MODES = {
   inventory: 'inventory.html',
   stockup:   'stock-up-report.html',
   analyzer:  'analyzer.html',
-  kpi:       'kpi-tracking.html',
-  streamer:  'streamer-assist.html',
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-09e · streamer assist tile';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-10 · per-shift sync + removed log';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -957,8 +919,7 @@ const COL = {
   damaged:['damaged','damage','broken','defective','not usable','unusable'],
   type:['type','category','kind'],
   brand:['brand','make','manufacturer'],
-  series:['series','collection','line'],
-  packclass:['pack class','packclass','pack_class','pack size','packsize']
+  series:['series','collection','line']
 };
 function pickCol(h,kind){const hs=h.map(norm);for(const w of COL[kind]){const i=hs.indexOf(w);if(i>=0)return i;}for(let i=0;i<hs.length;i++)if(COL[kind].some(w=>hs[i].includes(w)))return i;return -1;}
 const INVENTORY_NAMES = ['inventory','stock','catalog'];
@@ -1038,8 +999,7 @@ function parseInventorySheet(arrayBuf){
   if(rows.length<2) throw new Error('Inventory sheet is empty.');
   const h=rows[0];
   const ci={name:pickCol(h,'name'),variation:pickCol(h,'variation'),location:pickCol(h,'location'),stock:pickCol(h,'stock'),barcode:pickCol(h,'barcode'),image:pickCol(h,'image'),qty:pickCol(h,'qty'),
-    damaged:pickCol(h,'damaged'),type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series'),
-    packclass:pickCol(h,'packclass')};
+    damaged:pickCol(h,'damaged'),type:pickCol(h,'type'),brand:pickCol(h,'brand'),series:pickCol(h,'series')};
   if(ci.name<0) throw new Error('Inventory needs an "item name" column.');
   const map={};
   for(let r=1;r<rows.length;r++){
@@ -1055,8 +1015,7 @@ function parseInventorySheet(arrayBuf){
       damaged:ci.damaged>=0?(parseInt(row[ci.damaged],10)||0):null,     // not-usable units
       type:ci.type>=0?String(row[ci.type]??'').trim():'',
       brand:ci.brand>=0?String(row[ci.brand]??'').trim():'',
-      series:ci.series>=0?String(row[ci.series]??'').trim():'',
-      packClass:ci.packclass>=0?String(row[ci.packclass]??'').trim().toUpperCase():''   // XS S M L XL — packing effort
+      series:ci.series>=0?String(row[ci.series]??'').trim():''
     };
   }
   if(Object.keys(map).length===0) throw new Error('No inventory rows found.');
@@ -1108,6 +1067,10 @@ function connect(){
 
 /* ---------- shifts ---------- */
 function shiftIds(){ return Object.keys(SHIFTS).sort((a,b)=>(SHIFTS[b].createdAt||0)-(SHIFTS[a].createdAt||0)); }
+/* every shift syncs against the workbook it was created from — never against
+   whatever file was loaded last */
+function shiftSource(id){ const s=SHIFTS[id]; return (s && s.source && s.source.input) ? s.source.input : ''; }
+function shiftFileName(id){ const s=SHIFTS[id]; return (s && s.fileName) || ''; }
 function shiftName(id){ const s=SHIFTS[id]; return (s&&s.name)||id||'—'; }
 function pickDefaultShift(){
   const ids=shiftIds(); if(!ids.length) return '';
@@ -1128,7 +1091,7 @@ function setShift(id){
   const cb=oref.on('value', snap=>{
     const platforms={};
     snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
-      platforms[pk].orders.push({_key:c.key, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null}); });
+      platforms[pk].orders.push({_key:c.key, platform:pk, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, syncNote:v.syncNote||null}); });
     S.platforms=platforms; renderCurrent();
   });
   ordersOff=()=>oref.off('value',cb);
@@ -1150,7 +1113,7 @@ async function migrateLegacyShift(){
     await root.update({
       ['shifts/'+id+'/meta']  : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, source:(v.meta&&v.meta.source)||null, migrated:true},
       ['shifts/'+id+'/orders']: v.orders,
-      ['shiftIndex/'+id]      : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, orders:n, migrated:true},
+      ['shiftIndex/'+id]      : {name, createdAt:(v.meta&&v.meta.seededAt)||Date.now(), createdBy:(v.meta&&v.meta.seededBy)||MY_NAME, orders:n, migrated:true, source:(v.meta&&v.meta.source)||null},
       ...(v.inventory ? {inventory:v.inventory} : {}),
       ...(v.settings  ? {settings:v.settings}   : {})
     });
@@ -1207,13 +1170,14 @@ async function createShift(){
   const id=newShiftId(), platforms=_pendingShift.platforms;
   const orders={};
   for(const pk in platforms) for(const o of platforms[pk].orders)
-    orders[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, items:o.items, status:'pending', claim:null, addedAt:Date.now()};
+    orders[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, items:o.items, status:'pending', claim:null};
   const meta={name, createdAt:Date.now(), createdBy:MY_NAME, source:_pendingShift.source||null};
   try{
     await root.update({
       ['shifts/'+id+'/meta']  : meta,
       ['shifts/'+id+'/orders']: orders,
-      ['shiftIndex/'+id]      : {name, createdAt:meta.createdAt, createdBy:MY_NAME, orders:_pendingShift.orders}
+      ['shiftIndex/'+id]      : {name, createdAt:meta.createdAt, createdBy:MY_NAME, orders:_pendingShift.orders,
+                                 source:_pendingShift.source||null, fileName:_pendingShift.fromName||''}
     });
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Create shift'; } toast('Could not create the shift: '+(e&&e.message||e),'err',4200); return; }
   _pendingShift=null; renderShiftStage();
@@ -1252,48 +1216,133 @@ async function loadInventory(buf, sourceMeta){
   toast('Inventory synced from table','ok',2400);
 }
 
-function itemsChanged(a,b){ a=a||[]; b=b||[]; if(a.length!==b.length) return true; for(let i=0;i<b.length;i++){ const x=a[i]||{},y=b[i]; if(norm(x.name)!==norm(y.name)||norm(x.variation)!==norm(y.variation)||(+x.qty||1)!==(+y.qty||1)) return true; } return false; }
+function lineKey(it){ return norm(it.name)+'||'+norm(it.variation||''); }
+function itemsChanged(a,b){ a=a||[]; b=b||[]; if(a.length!==b.length) return true;
+  const m={}; a.forEach(x=>{ m[lineKey(x)]=(m[lineKey(x)]||0)+(+x.qty||1); });
+  for(const y of b){ const k=lineKey(y); if(!(k in m)) return true; m[k]-=(+y.qty||1); }
+  for(const k in m) if(m[k]!==0) return true;
+  return false;
+}
 
-async function addNewOrders(buf){
-  let platforms; try{ platforms=parseOrders(buf); }catch(e){ toast(e.message,'err'); return; }
+/* Merge the file's item lines into what the shift already holds.
+   A line that is still in the file keeps everything the packer did to it —
+   packed flag, can't-pack reason — and only takes the quantity from the file.
+   A line the file dropped goes away; a line the file added comes in unpacked. */
+function mergeItems(existing, sheetItems){
+  const have={}; (existing||[]).forEach(it=>{ have[lineKey(it)]=it; });
+  const out=[]; const addedNames=[], removedNames=[], reqtyNames=[];
+  const seen={};
+  for(const s of (sheetItems||[])){
+    const k=lineKey(s); seen[k]=true;
+    const ex=have[k];
+    if(!ex){ out.push(Object.assign({}, s, {packed:false, status:'ok', reason:'', count:0}));
+      addedNames.push(s.name+(s.variation?' · '+s.variation:'')); continue; }
+    if((+ex.qty||1)!==(+s.qty||1)) reqtyNames.push(s.name+' ('+(+ex.qty||1)+'→'+(+s.qty||1)+')');
+    out.push(Object.assign({}, ex, {name:s.name, variation:s.variation, qty:s.qty, invKey:s.invKey||ex.invKey}));
+  }
+  for(const k in have) if(!seen[k]) removedNames.push(have[k].name+(have[k].variation?' · '+have[k].variation:''));
+  return {items:out, added:addedNames, removed:removedNames, reqty:reqtyNames,
+          changed:!!(addedNames.length||removedNames.length||reqtyNames.length)};
+}
+/* after a merge the order's status has to match its lines again */
+function statusFromItems(items, prev){
+  if(prev==='pending') return 'pending';
+  const list=items||[]; if(!list.length) return 'pending';
+  const packed=list.filter(it=>it.packed===true).length;
+  const blocked=list.filter(it=>it.packed!==true && it.status && it.status!=='ok').length;
+  if(packed===list.length) return 'packed';
+  if(packed===0 && blocked===list.length) return 'unpacked';
+  if(packed===0) return 'pending';           // only fresh lines left — back in the queue
+  return 'partial';
+}
+
+/* ------------------------------------------------------------------
+   SYNC ORDERS — reconcile one shift against its own workbook.
+   Nothing here touches any other shift: every write goes through the
+   open shift's own node.
+   ------------------------------------------------------------------ */
+async function syncShiftOrders(buf, label){
+  if(!shiftRef || !CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
+  const shiftId=CUR_SHIFT, shiftLabel=shiftName(shiftId);
+  let platforms; try{ platforms=parseOrders(buf); }catch(e){ toast(e.message,'err',4200); return; }
+
   const sheetPlatforms=new Set(Object.keys(platforms));
-  const sheetKeys=new Set();
-  for(const pk in platforms) for(const o of platforms[pk].orders) sheetKeys.add(safeKey(pk+'__'+o.trackingId));
+  const sheet={};                      // key -> {platform, trackingId, items}
+  for(const pk in platforms) for(const o of platforms[pk].orders)
+    sheet[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, items:o.items};
+
   const cur={}; for(const pk in S.platforms) S.platforms[pk].orders.forEach(o=>cur[o._key]=o);
   const now=Date.now();
   const claimedFresh=o=>o.claim && (now-(o.claim.at||0))<STALE_MS;
 
-  const updates={}; let added=0, updated=0;
-  // adds + item-detail updates (by tracking number)
-  for(const pk in platforms) for(const o of platforms[pk].orders){ const k=safeKey(pk+'__'+o.trackingId);
-    if(!(k in cur)){ updates['orders/'+k]={platform:pk,trackingId:o.trackingId,items:o.items,status:'pending',claim:null,addedAt:Date.now()}; added++; }
-    else { const ex=cur[k];
-      if(ex.status==='pending' && !claimedFresh(ex) && itemsChanged(ex.items,o.items)){ updates['orders/'+k+'/items']=o.items; updated++; }
+  const updates={};
+  const added=[], changed=[], removedPending=[], removedDone=[], skipped=[], untouchedPlatforms=[];
+
+  /* --- in the file --- */
+  for(const k in sheet){
+    const s=sheet[k], ex=cur[k];
+    if(!ex){ added.push(s.trackingId);
+      updates['orders/'+k]={platform:s.platform, trackingId:s.trackingId, items:s.items, status:'pending', claim:null};
+      continue;
     }
+    if(claimedFresh(ex)){ skipped.push(ex.trackingId); continue; }   // being packed right now
+    if(!itemsChanged(ex.items, s.items)) continue;                   // unchanged → left exactly as it is
+    const m=mergeItems(ex.items, s.items);
+    if(!m.changed) continue;
+    const st=statusFromItems(m.items, ex.status);
+    updates['orders/'+k+'/items']=m.items;
+    if(st!==ex.status) updates['orders/'+k+'/status']=st;
+    updates['orders/'+k+'/syncNote']={at:now, by:MY_NAME,
+      added:m.added.slice(0,20), removed:m.removed.slice(0,20), reqty:m.reqty.slice(0,20)};
+    changed.push({id:ex.trackingId, was:ex.status, now:st, m});
   }
 
-  // removals: gone from the sheet — now including packed / not-packed; only skip orders being packed right now
-  const removable=[]; let skippedActive=0;
-  for(const k in cur){ const o=cur[k];
-    if(sheetKeys.has(k)) continue;
-    if(!sheetPlatforms.has(o.platform)) continue;   // platform not in this refresh → leave alone
-    if(claimedFresh(o)){ skippedActive++; continue; } // someone is packing it right now → don't yank
-    removable.push(k);
+  /* --- in the shift but no longer in the file --- */
+  for(const k in cur){
+    const o=cur[k];
+    if(sheet[k]) continue;
+    if(!sheetPlatforms.has(o.platform)){                             // that tab is missing from this file
+      if(untouchedPlatforms.indexOf(o.platform)<0) untouchedPlatforms.push(o.platform);
+      continue;
+    }
+    if(claimedFresh(o)){ skipped.push(o.trackingId); continue; }
+    const done = o.status==='packed' || o.status==='partial' || o.status==='unpacked';
+    if(done) removedDone.push(o); else removedPending.push(o);
   }
 
-  if(removable.length){
-    let msg='Sync with the sheet:\n• add '+added+' new\n• update '+updated+' order contents\n• remove '+removable.length+' no longer in the sheet (incl. packed / not-packed)';
-    if(skippedActive) msg+='\n• skip '+skippedActive+' being packed right now';
-    msg+='\n\nRemoving packed orders also drops them from the report. Continue? (Cancel = add & update only)';
-    if(confirm(msg)){ for(const k of removable) updates['orders/'+k]=null; }
-    else removable.length=0;
+  /* --- what the manager is about to do --- */
+  const lines=['Sync “'+shiftLabel+'” with '+(label||'its workbook')+':',''];
+  lines.push('• add '+added.length+' new order(s)');
+  lines.push('• update '+changed.length+' order(s) whose contents changed');
+  lines.push('• remove '+removedPending.length+' order(s) not yet packed');
+  lines.push('• move '+removedDone.length+' finished order(s) to the removed-orders log');
+  if(skipped.length) lines.push('• skip '+skipped.length+' being packed right now');
+  if(untouchedPlatforms.length) lines.push('• leave '+untouchedPlatforms.join(', ')+' alone — that tab is not in this file');
+  lines.push('', 'Everything else keeps its current status. Continue?');
+
+  if(!added.length && !changed.length && !removedPending.length && !removedDone.length){
+    toast('“'+shiftLabel+'” already matches the file'+(skipped.length?(' · '+skipped.length+' being packed'):''),'info',3400);
+    return;
+  }
+  if(!confirm(lines.join('\n'))) { toast('Sync cancelled','info',2000); return; }
+
+  for(const o of removedPending) updates['orders/'+o._key]=null;
+  for(const o of removedDone){
+    updates['removed/'+o._key]={ platform:o.platform, trackingId:o.trackingId, items:o.items||[],
+      status:o.status, packedBy:o.packedBy||'', packedAt:o.packedAt||null, blockReason:o.blockReason||'',
+      removedAt:now, removedBy:MY_NAME, shift:shiftLabel };
+    updates['orders/'+o._key]=null;
   }
 
-  if(Object.keys(updates).length===0){ toast(skippedActive?('No changes · '+skippedActive+' active skipped'):'No changes','info',2800); return; }
-  await shiftRef.update(updates);
-  let t='Added '+added+', updated '+updated+', removed '+removable.length;
-  if(skippedActive) t+=' · '+skippedActive+' active skipped';
-  toast(t,'ok',4000);
+  try{ await shiftRef.update(updates); }
+  catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); return; }
+
+  let t='“'+shiftLabel+'”: +'+added.length+' new, '+changed.length+' changed, '+
+        (removedPending.length+removedDone.length)+' removed';
+  if(removedDone.length) t+=' ('+removedDone.length+' logged)';
+  if(skipped.length) t+=' · '+skipped.length+' skipped';
+  toast(t,'ok',5000);
+  if(removedDone.length) toast('Open “Removed orders” to review and export the '+removedDone.length+' finished one(s)','info',6000);
 }
 
 /* ============================================================
@@ -1350,7 +1399,7 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['menu','seed','platforms','pack','picking','packing','guide','reportview','report','packlog','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['menu','seed','platforms','pack','picking','guide','reportview','report','packlog','removed','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
@@ -1371,10 +1420,8 @@ const MODES=[
   {icon:'🚚', name:'NEW SHIPMENT',      desc:'Receive and count new stock', go:enterReceiving},
   {icon:'🏷️', name:'LABEL PRINT',       desc:'Print name and barcode labels', ext:'labels', ready:true},
   {icon:'🔢', name:'INVENTORY',         desc:'Count inventory by shelf and compare with SOH', ext:'inventory', ready:true},
-  {icon:'📈', name:'STOCK UP REPORT',   desc:'Count OP / Pokemon JP / CN stock and build a restock report', ext:'stockup', ready:true},
-  {icon:'📊', name:'ANALYZER',          desc:'Sales analytics by item, category and platform', ext:'analyzer', ready:true},
-  {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
-  {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
+  {icon:'📈', name:'STOCK UP REPORT',   desc:'Build restock reports', ext:'stockup'},
+  {icon:'📊', name:'ANALYZER',          desc:'Sales analysis', ext:'analyzer'},
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
 ];
 function openExternal(key){
@@ -1411,6 +1458,7 @@ function renderMenuAdmin(){
     '<p class="sub" style="font-size:13px">The same controls also live inside Pick &amp; Pack.</p><div class="arow">'+
     '<button class="btn" id="mFinishBtn">📋 Shift report</button>'+
     '<button class="btn" id="mPackLogBtn">🧾 Pack log</button>'+
+    '<button class="btn" id="mRemovedBtn">🗃 Removed orders</button>'+
     '<button class="btn" id="mReadReportBtn">📂 Read past reports</button>'+
     '<button class="btn" id="mLoadDataBtn">⚙ Load data</button>'+
     '<button class="btn" id="mPullOrdersBtn">🔄 Sync orders</button>'+
@@ -1420,6 +1468,7 @@ function renderMenuAdmin(){
     '</div></div>';
   $('#mFinishBtn').onclick=()=>doShiftReport('menu');
   $('#mPackLogBtn').onclick=()=>doPackLog('menu');
+  $('#mRemovedBtn').onclick=()=>doRemoved('menu');
   $('#mReadReportBtn').onclick=()=>doReadReports('menu');
   $('#mLoadDataBtn').onclick=()=>show('seed');
   $('#mPullOrdersBtn').onclick=doPullOrders;
@@ -1434,10 +1483,10 @@ function renderCurrent(){
   else if(curScreen==='platforms') renderPlatforms();
   else if(curScreen==='pack'){ renderPackHeader(); renderOrderArea(); }
   else if(curScreen==='picking') renderPicking();
-  else if(curScreen==='packing') pgRender();
   else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
   else if(curScreen==='report') renderReport();
   else if(curScreen==='packlog') renderPackLog();
+  else if(curScreen==='removed') renderRemoved();
   const cb=$('#continueBtn'); if(cb) cb.disabled = !CUR_SHIFT;
   renderShiftPill();
 }
@@ -1454,9 +1503,15 @@ function globalStats(){ let all=0,done=0; for(const k in S.platforms){const s=pl
 function renderPlatforms(){
   renderShiftBar();
   const pl=$('#packLogBtn'); if(pl) pl.classList.toggle('hide', !IS_ADMIN);
+  const rm=$('#removedBtn'); if(rm) rm.classList.toggle('hide', !IS_ADMIN);
   const wb=$('#wipeBtn'); if(wb) wb.textContent = CUR_SHIFT ? ('Clear shift “'+shiftName(CUR_SHIFT)+'”') : 'Clear shift (manager)';
   const aa=$('#adminActions'); if(aa) aa.classList.toggle('hide', !IS_ADMIN);
-  if(IS_ADMIN){ $('#pullOrdersBtn').classList.toggle('hide', !_ordSource); $('#updInvBtn').classList.remove('hide'); }
+  if(IS_ADMIN){
+    const pb=$('#pullOrdersBtn');
+    pb.classList.toggle('hide', !CUR_SHIFT);
+    pb.title = CUR_SHIFT ? ('Re-read the workbook of “'+shiftName(CUR_SHIFT)+'” and reconcile this shift only') : '';
+    $('#updInvBtn').classList.remove('hide');
+  }
   const g=$('#pgrid');
   if(Object.keys(S.platforms).length===0){
     if(IS_ADMIN) g.innerHTML='<div class="empty">No data loaded yet.<br><button class="btn primary" id="goSeedBtn" style="margin-top:12px">Load data →</button></div>';
@@ -1496,6 +1551,17 @@ function findByKey(key){ for(const k in S.platforms){ const o=S.platforms[k].ord
 function handleScan(raw){ const v=raw.trim(); if(!v)return; if(activeOrder) scanItem(v); else scanLabel(v); focusScan(); }
 
 function orderSummary(o){ return (o.items||[]).map(it=>esc(it.name)+((it.qty||1)>1?' ×'+it.qty:'')).join(', '); }
+/* the full story behind a ⟳ changed badge, shown above the item list */
+function syncBanner(o){
+  const n=o&&o.syncNote; if(!n) return '';
+  const parts=[];
+  if(n.added&&n.added.length)   parts.push('<b>added:</b> '+esc(n.added.join(', ')));
+  if(n.removed&&n.removed.length) parts.push('<b>removed:</b> '+esc(n.removed.join(', ')));
+  if(n.reqty&&n.reqty.length)   parts.push('<b>quantity:</b> '+esc(n.reqty.join(', ')));
+  if(!parts.length) return '';
+  return '<div class="syncbanner">⟳ This order changed in the workbook'+(n.by?' (sync by '+esc(n.by)+')':'')+
+    ' — '+parts.join(' · ')+'</div>';
+}
 
 async function scanLabel(val){
   pendingChoice=null;
@@ -1571,7 +1637,7 @@ async function repackOrder(key, wasDone){
   if(wasDone && !confirm('Reopen this order and pack it again? Its previous result (including packed time) will be cleared.')) return;
   try{
     // Stock is authoritative from the table (no recount) — reopening does not touch stock.
-    await shiftRef.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null});
+    await shiftRef.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null, syncNote:null});
   }catch(e){ toast('Could not reopen the order','err'); return; }
   const local=findByKey(key); if(local) local.status='pending';   // optimistic so claim proceeds
   toast('Order '+o.trackingId+' reopened','info',2600);
@@ -1701,10 +1767,7 @@ function scanFx(kind, item, statusText, raw){
 
 function reasonLabel(s){ return {out_of_stock:'Out of stock',damaged:'Damaged',other:'Other'}[s]||s; }
 
-function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) return esc(t);
-  for(let i=0;i<t.length;i++){ if(clean(t.slice(i))===c) return esc(t.slice(0,i))+'<b style="color:var(--accent)">'+esc(t.slice(i))+'</b>'; }
-  for(let i=t.length;i>0;i--){ if(clean(t.slice(0,i))===c) return '<b style="color:var(--accent)">'+esc(t.slice(0,i))+'</b>'+esc(t.slice(i)); }
-  return esc(t); }
+function trkHi(tid, code){ const t=String(tid); const c=clean(code); if(!c) return esc(t); for(let i=0;i<t.length;i++){ if(clean(t.slice(i))===c) return esc(t.slice(0,i))+'<b style="color:var(--accent)">'+esc(t.slice(i))+'</b>'; } return esc(t); }
 
 function updateKbdHint(){
   const el=$('#kbdHint'); if(!el) return;
@@ -1735,7 +1798,8 @@ function renderOrderArea(){
     const partial = order.status==='partial';
     const done = packed||partial;
     area.innerHTML='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+
-      orderStatusTag(order)+'</div>'+
+      orderStatusTag(order)+syncTag(order)+'</div>'+
+      syncBanner(order)+
       '<p class="sub" style="margin-top:10px">'+(done?'Packed by: ':'Last handled by: ')+'<b>'+esc(order.packedBy||'—')+'</b>'+(order.packedAt?' · <span class="mono">'+esc(fmtTime(order.packedAt))+'</span>':'')+'</p>'+
       (order.blockReason?'<p class="reasontag" style="margin-top:6px">⛔ '+esc(order.blockReason)+'</p>':'')+
       '<div class="orderfoot"><button class="btn ghost" onclick="backToScan()">← Scan next</button><div class="spacer"></div>'+
@@ -1746,7 +1810,8 @@ function renderOrderArea(){
   }
 
   const stTag='<span class="statustag st-pending">in progress · '+esc(MY_NAME)+'</span>';
-  let html='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+stTag+'<div class="spacer"></div><div class="pill">Items: <b>'+order.items.length+'</b></div></div><div class="items">';
+  let html='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+stTag+'<div class="spacer"></div><div class="pill">Items: <b>'+order.items.length+'</b></div></div>'+
+    syncBanner(order)+'<div class="items">';
   order.items.forEach((it,idx)=>{
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—'; const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
@@ -1797,6 +1862,18 @@ function renderOrderArea(){
   wireOrder(order);
 }
 
+/* a sync that touched this order leaves a note so the packer knows why it
+   is back in the queue — cleared the moment the order is confirmed again */
+function syncTag(o){
+  const n=o.syncNote; if(!n) return '';
+  const bits=[];
+  if(n.added&&n.added.length)   bits.push('+'+n.added.length);
+  if(n.removed&&n.removed.length) bits.push('−'+n.removed.length);
+  if(n.reqty&&n.reqty.length)   bits.push('qty '+n.reqty.length);
+  return '<span class="statustag st-sync" title="Contents changed on the last sync: '+
+    esc([].concat(n.added||[],(n.removed||[]).map(x=>'removed '+x),n.reqty||[]).join('; '))+
+    '">⟳ changed'+(bits.length?' '+bits.join(' '):'')+'</span>';
+}
 function orderStatusTag(o){
   if(o.status==='packed') return '<span class="statustag st-packed">packed</span>';
   if(o.status==='partial') return '<span class="statustag st-partial">partial</span>';
@@ -1825,7 +1902,7 @@ function renderPending(area){
       : list.length+' orders end with “'+esc(pendingChoice.code)+'” — choose the right one';
     let h='<div class="card"><div class="eyebrow"'+(isAll?'':' style="color:var(--warn)"')+'>'+head+'</div><div class="choices'+(isAll?' scroll':'')+'">';
     for(const o of list){
-      h+='<button class="choice" data-do-pick="'+esc(o._key)+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId, pendingChoice.code||'')+'</span>'+orderStatusTag(o)+'</span>'+
+      h+='<button class="choice" data-do-pick="'+esc(o._key)+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId, pendingChoice.code||'')+'</span>'+orderStatusTag(o)+syncTag(o)+'</span>'+
          '<span class="sub">'+(o.items||[]).length+' item(s) · '+orderSummary(o)+'</span></button>';
     }
     h+='</div><div class="orderfoot"><button class="btn ghost" data-cancel-pick>Cancel</button></div></div>';
@@ -1871,9 +1948,7 @@ async function confirmOrder(order){
       return {...it, packed:true, status:'ok', reason:'', count:p.count};   // picked (packed even in a partial order)
     });
     if(claimRef) claimRef.onDisconnect().cancel();
-    /* keep when the picker actually opened this order — the claim is about to be dropped */
-    const pickStartedAt = (order.claim && order.claim.at) || order.pickStartedAt || null;
-    await shiftRef.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, pickStartedAt, claim:null});
+    await shiftRef.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, claim:null, syncNote:null});
   }catch(e){ toast('Save failed, try again','err'); if(conf){conf.disabled=false; conf.textContent='✓ Confirm pick';} return; }
   /* KPI trail: one row per confirmed order, kept with the shift and cleared with it */
   try{
@@ -2527,6 +2602,127 @@ function renderPackLog(){
     renderPackLog();
   });
 }
+/* ============================================================
+   REMOVED ORDERS
+   A finished order that vanished from the workbook is parked here rather
+   than deleted outright — the work really happened, so the manager gets to
+   look at it, export it and remove it deliberately. Cleared with its shift.
+   ============================================================ */
+let RMV={ sel:[], rows:{}, from:'platforms', loading:false };
+const REMOVED_HEADERS=['Shift','Platform','Tracking Number','Status when removed','Packer','Packed at','Items','Units','Removed at','Removed by'];
+
+function doRemoved(from){
+  RMV.from=from||'platforms';
+  if(!IS_ADMIN){ toast('Manager view only','warn',2400); return; }
+  if(!RMV.sel.length || RMV.sel.some(id=>!SHIFTS[id])) RMV.sel = CUR_SHIFT ? [CUR_SHIFT] : shiftIds().slice(0,1);
+  show('removed'); renderRemoved(); loadRemovedShifts();
+}
+async function shiftRemoved(id){
+  if(!root) return [];
+  const snap=await root.child('shifts/'+id+'/removed').once('value');
+  const out=[]; const v=snap.val()||{};
+  for(const k in v){ const o=v[k]; if(o) out.push(Object.assign({key:k, shiftId:id, shiftName:shiftName(id)}, o)); }
+  out.sort((a,b)=>(b.removedAt||0)-(a.removedAt||0));
+  return out;
+}
+async function loadRemovedShifts(){
+  RMV.loading=true;
+  for(const id of RMV.sel.slice()){ try{ RMV.rows[id]=await shiftRemoved(id); }catch(e){ RMV.rows[id]=[]; } }
+  RMV.loading=false;
+  if(curScreen==='removed') renderRemoved();
+}
+function removedEntries(){ let all=[]; for(const id of RMV.sel) all=all.concat(RMV.rows[id]||[]); return all; }
+function removedRows(list){
+  const rows=[REMOVED_HEADERS.slice()];
+  for(const o of list){
+    const units=(o.items||[]).reduce((n,it)=>n+(+it.qty||1),0);
+    rows.push([o.shiftName||'', o.platform||'', o.trackingId||'', orderStatusText(o.status),
+      o.packedBy||'', fmtTime(o.packedAt), (o.items||[]).map(it=>it.name+(it.variation?' · '+it.variation:'')+((+it.qty||1)>1?' ×'+it.qty:'')).join('; '),
+      units, fmtTime(o.removedAt), o.removedBy||'']);
+  }
+  return rows;
+}
+function renderRemovedShiftBar(){
+  const bar=$('#rmShifts'); if(!bar) return;
+  const ids=shiftIds();
+  if(!ids.length){ bar.innerHTML=''; return; }
+  bar.innerHTML='<span class="sub" style="font-size:12.5px">Shifts:</span>'+
+    ids.map(id=>'<button class="shiftchip'+(RMV.sel.includes(id)?' on':'')+'" data-ms="'+esc(id)+'">'+
+      (RMV.sel.includes(id)?'✓ ':'')+esc(shiftName(id))+'</button>').join('')+
+    (ids.length>1?'<button class="shiftchip" id="rmAll">All shifts</button>':'');
+  $$('#rmShifts [data-ms]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.ms, i=RMV.sel.indexOf(id);
+    if(i>=0){ if(RMV.sel.length===1){ toast('Keep at least one shift selected','warn',2200); return; } RMV.sel.splice(i,1); }
+    else RMV.sel.push(id);
+    renderRemoved(); loadRemovedShifts();
+  });
+  const a=$('#rmAll'); if(a) a.onclick=()=>{ RMV.sel=shiftIds(); renderRemoved(); loadRemovedShifts(); };
+}
+function renderRemoved(){
+  renderRemovedShiftBar();
+  const list=removedEntries();
+  const names=RMV.sel.map(shiftName);
+  $('#rmTitle').innerHTML='🗃 Removed orders'+(names.length?' <span class="sub" style="font-size:15px">· '+esc(names.join(' + '))+'</span>':'')+
+    (RMV.loading?' <span class="sub" style="font-size:13px">· loading…</span>':'');
+  const units=list.reduce((n,o)=>n+(o.items||[]).reduce((m,it)=>m+(+it.qty||1),0),0);
+  const packed=list.filter(o=>o.status==='packed').length;
+  $('#rmStats').innerHTML = stat(list.length,'Orders in the log', list.length?'warn':'')+
+    stat(packed,'Were fully packed','')+stat(units,'Units','')+
+    stat(new Set(list.map(o=>o.packedBy).filter(Boolean)).size,'Packers','');
+  if(!list.length){
+    $('#rmBody').innerHTML='<div class="empty">'+(RMV.loading?'Loading…':'Nothing here — no finished order has fallen out of the workbook.')+'</div>';
+    return;
+  }
+  let b='<div class="tabsec"><h2>Removed — '+list.length+'</h2><table><thead><tr>'+
+    (RMV.sel.length>1?'<th>Shift</th>':'')+'<th>Platform</th><th>Label</th><th>Status</th><th>Packer</th>'+
+    '<th>Packed at</th><th>Items</th><th class="num">Units</th><th>Removed</th><th></th></tr></thead><tbody>';
+  for(const o of list){
+    const units=(o.items||[]).reduce((n,it)=>n+(+it.qty||1),0);
+    const tag = o.status==='partial' ? '<span class="statustag st-partial">partial</span>'
+              : o.status==='unpacked' ? '<span class="statustag st-blocked">not packed</span>'
+              : '<span class="statustag st-packed">packed</span>';
+    b+='<tr>'+(RMV.sel.length>1?'<td>'+esc(o.shiftName||'—')+'</td>':'')+
+      '<td>'+esc(o.platform||'—')+'</td><td class="mono">'+esc(o.trackingId||'—')+'</td><td>'+tag+'</td>'+
+      '<td>'+esc(o.packedBy||'—')+'</td><td class="mono">'+esc(fmtTime(o.packedAt)||'—')+'</td>'+
+      '<td>'+esc((o.items||[]).map(it=>it.name+((+it.qty||1)>1?' ×'+it.qty:'')).join(', ')||'—')+'</td>'+
+      '<td class="num">'+units+'</td>'+
+      '<td class="mono">'+esc(fmtTime(o.removedAt)||'—')+(o.removedBy?'<br><span class="sub" style="font-size:11px">'+esc(o.removedBy)+'</span>':'')+'</td>'+
+      '<td><button class="btn danger ghost" data-rmdel="'+esc(o.shiftId)+'|'+esc(o.key)+'">Delete</button></td></tr>';
+  }
+  b+='</tbody></table></div>';
+  $('#rmBody').innerHTML=b;
+  $$('#rmBody [data-rmdel]').forEach(btn=>btn.onclick=()=>{
+    const [sid,key]=btn.dataset.rmdel.split('|');
+    const row=(RMV.rows[sid]||[]).find(x=>x.key===key);
+    if(!confirm('Delete '+((row&&row.trackingId)||'this order')+' from the removed-orders log?\nThe log entry is gone for good; the order itself is already out of the shift.')) return;
+    root.child('shifts/'+sid+'/removed/'+key).remove()
+      .then(()=>{ RMV.rows[sid]=(RMV.rows[sid]||[]).filter(x=>x.key!==key); renderRemoved(); toast('Removed from the log','ok',2000); })
+      .catch(()=>toast('Could not delete it','err',3000));
+  });
+}
+function clearRemovedLog(){
+  const ids=RMV.sel.slice(); if(!ids.length) return;
+  const n=removedEntries().length; if(!n){ toast('The log is already empty','info',2000); return; }
+  if(!confirm('Delete all '+n+' entries from the removed-orders log of '+ids.map(shiftName).join(', ')+'?\nExport them first if you still need them.')) return;
+  Promise.all(ids.map(id=>root.child('shifts/'+id+'/removed').remove().catch(()=>{})))
+    .then(()=>{ ids.forEach(id=>RMV.rows[id]=[]); renderRemoved(); toast('Log cleared','ok',2400); });
+}
+function exportRemovedCSV(){
+  const list=removedEntries();
+  if(!list.length){ toast('Nothing to export','warn',2200); return; }
+  downloadCSV(removedRows(list), 'removed_orders_'+(RMV.sel.length>1?'combined':safeFile(shiftName(RMV.sel[0])||TODAY))+'.csv');
+  toast('Removed-orders log exported','ok',2000);
+}
+function exportRemovedXLSX(){
+  const all=removedEntries();
+  if(!all.length){ toast('Nothing to export','warn',2200); return; }
+  const sheets = RMV.sel.length>1
+    ? RMV.sel.map(id=>({name:shiftName(id).replace(/\//g,'-'), rows:removedRows(all.filter(o=>o.shiftId===id))}))
+    : [{name:'Removed orders', rows:removedRows(all)}];
+  downloadXLSX(sheets, 'removed_orders_'+(RMV.sel.length>1?'combined':safeFile(shiftName(RMV.sel[0])||TODAY))+'.xlsx');
+  toast('Excel exported','ok',2000);
+}
+
 function exportPacklogCSV(){
   const list=packlogSorted(applyPacklogFilters(packlogEntries()));
   if(!list.length){ toast('Nothing to export','warn',2200); return; }
@@ -2705,8 +2901,19 @@ $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the curre
 /* one implementation per admin action, wired from both the menu and pick & pack */
 function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
 async function doPullOrders(){
-  if(!_ordSource){ toast('Load the orders sheet first (⚙ Load data)','warn',3200); return; }
-  const buf=await fetchSheet(_ordSource,false,'ord'); if(buf) await addNewOrders(buf);
+  if(!CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
+  const src=shiftSource(CUR_SHIFT);
+  if(!src){
+    /* the shift came from a file on someone's computer — the browser cannot
+       re-open it by itself, so ask for it again */
+    toast('“'+shiftName(CUR_SHIFT)+'” was loaded from a file — pick that file again','info',4200);
+    $('#syncFile').click();
+    return;
+  }
+  toast('Reading the workbook for “'+shiftName(CUR_SHIFT)+'”…','info',2000);
+  const buf=await fetchSheet(src,false,'ord');
+  if(buf) await syncShiftOrders(buf, shiftFileName(CUR_SHIFT) || 'its Google Sheet');
+  else toast('Could not read that shift\u2019s workbook','err',4000);
 }
 async function doUpdateInventory(){
   toast('Reading the company inventory sheet…','info',2000);
@@ -2734,6 +2941,11 @@ $('#printBtn').onclick=()=>window.print();
 $('#packLogBtn').onclick=()=>doPackLog('platforms');
 $('#plBack').onclick=()=>{ PLOG.from==='menu'?goMenu():goPlatforms(); };
 $('#plCsvBtn').onclick=exportPacklogCSV;
+$('#removedBtn').onclick=()=>doRemoved('platforms');
+$('#rmBack').onclick=()=>{ RMV.from==='menu'?goMenu():goPlatforms(); };
+$('#rmCsvBtn').onclick=exportRemovedCSV;
+$('#rmXlsBtn').onclick=exportRemovedXLSX;
+$('#rmClearBtn').onclick=clearRemovedLog;
 $('#plXlsBtn').onclick=exportPacklogXLSX;
 $('#shiftPill').onclick=openShiftModal;
 $('#shiftClose').onclick=closeShiftModal;
@@ -2744,6 +2956,8 @@ $('#soundBtn').onclick=()=>{ soundOn=!soundOn; $('#soundBtn').textContent=soundO
 $('#onlinePill').onclick=()=>{ root.child('presence').once('value').then(s=>{ const names=[]; const now=Date.now(); s.forEach(c=>{const v=c.val(); if(v&&now-(v.at||0)<60000)names.push(v.name);}); toast('Online: '+(names.join(', ')||'—'),'info',4000); }); };
 
 $('#pullOrdersBtn').onclick=async()=>{ $('#pullOrdersBtn').disabled=true; await doPullOrders(); $('#pullOrdersBtn').disabled=false; };
+$('#syncFile').addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value='';
+  if(f) readFile(f, buf=>syncShiftOrders(buf, f.name)); });
 $('#updInvBtn').onclick=async()=>{ $('#updInvBtn').disabled=true; await doUpdateInventory(); $('#updInvBtn').disabled=false; };
 $('#wipeBtn').onclick=doWipeShift;
 
@@ -2878,347 +3092,7 @@ $('#camClose').onclick=closeCam;
 $('#pickCancel').onclick=closeItemPick;
 
 /* picking mode wiring */
-
-/* ============================================================================
-   PACKING MODE — the packer's own screen
-   One scan per finished box. Time is measured from Start / the previous scan /
-   the end of a pause, so queue time never lands on the packer. Everything is
-   timestamp-based, so a locked phone or a reload never loses the session.
-   ========================================================================== */
-const PG_CFG = {
-  longGapMs : 12*60*1000,        // ask "were you packing?" above this
-  slowMs    : 4*60*1000,         // cycle shown in amber above this
-  maxSessionMs: 16*60*60*1000,   // a forgotten session is auto-closed after this
-  LS        : 'cps-packing-session',
-  LSQ       : 'cps-packing-queue'
-};
-let PG=null, pgTick=null, pgWake=null, pgBuf='', pgBufAt=0, pgAsk=null, pgChoice=null, pgAskBeep=null;
-
-/* ---------- tiny durable write queue (survives a Wi-Fi drop) ---------- */
-let pgQueue=[];
-function pgQLoad(){ try{ pgQueue=JSON.parse(localStorage.getItem(PG_CFG.LSQ)||'[]')||[]; }catch(e){ pgQueue=[]; } }
-function pgQSave(){ try{ localStorage.setItem(PG_CFG.LSQ, JSON.stringify(pgQueue.slice(-500))); }catch(e){} }
-function pgWrite(path, val, op){
-  pgQueue.push({path, val, op:op||'set', id:Math.random().toString(36).slice(2)});
-  pgQSave(); pgFlush();
-}
-let pgFlushing=false;
-async function pgFlush(){
-  if(pgFlushing || !root || !pgQueue.length) return;
-  pgFlushing=true;
-  while(pgQueue.length){
-    const j=pgQueue[0];
-    try{
-      const r=root.child(j.path);
-      if(j.op==='push') await r.push(j.val);
-      else if(j.op==='update') await r.update(j.val);
-      else await r.set(j.val);
-      pgQueue.shift(); pgQSave();
-    }catch(e){ break; }
-  }
-  pgFlushing=false;
-  const off=$('#pgOffline'); if(off) off.classList.toggle('hide', pgQueue.length===0);
-}
-addEventListener('online', pgFlush);
-
-/* ---------- session persistence ---------- */
-function pgSave(){ try{ localStorage.setItem(PG_CFG.LS, JSON.stringify(PG)); }catch(e){} }
-function pgLoad(){
-  let v=null; try{ v=JSON.parse(localStorage.getItem(PG_CFG.LS)||'null'); }catch(e){}
-  if(!v || !v.sid) return null;
-  if(Date.now()-(v.startedAt||0) > PG_CFG.maxSessionMs){       // forgotten overnight — close it quietly
-    const last=(v.feed&&v.feed[0]&&v.feed[0].at)||v.anchor||v.startedAt;
-    pgWrite('packing/sessions/'+v.sid, {endedAt:last, autoClosed:true}, 'update');
-    try{ localStorage.removeItem(PG_CFG.LS); }catch(e){}
-    return null;
-  }
-  return v;
-}
-
-/* ---------- wake lock ---------- */
-async function pgWakeOn(){
-  try{ if(navigator.wakeLock && !pgWake) pgWake=await navigator.wakeLock.request('screen'); }catch(e){}
-}
-function pgWakeOff(){ try{ if(pgWake){ pgWake.release(); pgWake=null; } }catch(e){} }
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && PG && !PG.paused) pgWakeOn(); });
-
-/* ---------- helpers ---------- */
-const pgDur = ms => {
-  ms=Math.max(0, ms|0); const s=Math.round(ms/1000);
-  const m=Math.floor(s/60), r=s%60;
-  return (m>=60? Math.floor(m/60)+':'+String(m%60).padStart(2,'0')+':' : m+':') + String(r).padStart(2,'0');
-};
-const pgClock = ts => { const d=new Date(ts), p=n=>String(n).padStart(2,'0'); return p(d.getHours())+':'+p(d.getMinutes()); };
-function pgPausedMs(){ let t=(PG.pauses||[]).reduce((a,p)=>a+((p.to||Date.now())-p.from),0); if(PG.paused) t+=Date.now()-PG.paused.from; return t; }
-
-/* ---------- start / pause / end ---------- */
-function enterPacking(){ show('packing'); PG=PG||pgLoad(); pgRender(); pgStartTick(); if(PG&&!PG.paused) pgWakeOn(); }
-function pgStartTick(){ clearInterval(pgTick); pgTick=setInterval(()=>{ if(curScreen==='packing') pgPaint(); }, 500); }
-
-function pgStart(){
-  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume(); }catch(e){}
-  const now=Date.now();
-  PG={ sid:(crypto.randomUUID?crypto.randomUUID():'s'+now+Math.random().toString(36).slice(2,7)),
-       packer:MY_NAME||'—', startedAt:now, anchor:now, anchorKind:'start',
-       count:0, units:0, cycles:[], pauses:[], paused:null, feed:[], done:{}, device:(navigator.userAgent||'').slice(0,80) };
-  pgWrite('packing/sessions/'+PG.sid, {packer:PG.packer, startedAt:now, device:PG.device, shiftId:CUR_SHIFT||null});
-  pgSave(); pgWakeOn(); beep('ok'); pgRender();
-}
-function pgPause(kind){
-  if(!PG||PG.paused) return;
-  PG.paused={from:Date.now(), kind:kind};
-  pgWakeOff(); pgSave(); pgRender(); beep('warn');
-}
-function pgResume(){
-  if(!PG||!PG.paused) return;
-  const p=PG.paused; p.to=Date.now();
-  PG.pauses.push(p); PG.paused=null; PG.anchor=p.to; PG.anchorKind='resume';
-  pgWrite('packing/sessions/'+PG.sid+'/pauses', {from:p.from, to:p.to, kind:p.kind}, 'push');
-  pgSave(); pgWakeOn(); beep('ok'); pgRender();
-}
-function pgEnd(){
-  if(!PG) return;
-  if(!confirm('End this packing session?\nPacked: '+PG.count+' order(s).')) return;
-  if(PG.paused){ const p=PG.paused; p.to=Date.now(); PG.pauses.push(p);
-    pgWrite('packing/sessions/'+PG.sid+'/pauses', {from:p.from,to:p.to,kind:p.kind}, 'push'); PG.paused=null; }
-  pgWrite('packing/sessions/'+PG.sid, {endedAt:Date.now(), orders:PG.count, units:PG.units}, 'update');
-  pgWakeOff(); try{ localStorage.removeItem(PG_CFG.LS); }catch(e){}
-  toast('Session ended — '+PG.count+' order(s) packed','ok',3200);
-  PG=null; pgRender();
-}
-
-/* ---------- scanning ---------- */
-function pgCanScan(){ return curScreen==='packing' && PG && !PG.paused && !pgAsk; }
-document.addEventListener('keydown', e=>{
-  if(!pgCanScan()) return;
-  const t=e.target;
-  if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return;
-  if(e.ctrlKey||e.metaKey||e.altKey) return;
-  const now=Date.now();
-  if(now-pgBufAt>400) pgBuf='';
-  pgBufAt=now;
-  if(e.key==='Enter'){ const v=pgBuf; pgBuf=''; if(v) pgResolve(v); e.preventDefault(); pgPaint(); return; }
-  if(e.key && e.key.length===1){ pgBuf+=e.key; pgPaint(); }
-});
-
-/* A shipping label does not always come back byte-for-byte: scanners and label
-   printers truncate, and the order file sometimes carries a couple of extra
-   characters. So the match is a ladder — exact first, then a long common start
-   or end. One hit is taken as the same parcel; several hits are shown so the
-   packer picks the right one. */
-const PG_MIN_PARTIAL = 8;      // characters that must line up for a partial match
-function pgMatchOrders(cv){
-  const all=allOrdersFlat();
-  const ct=x=>clean(x.order.trackingId);
-  const exact=all.filter(x=>ct(x)===cv);
-  if(exact.length) return {tier:'exact', list:exact};
-  if(cv.length>=PG_MIN_PARTIAL){
-    const head=all.filter(x=>{ const t=ct(x); if(!t||t.length<PG_MIN_PARTIAL) return false;
-      return t.indexOf(cv)===0 || cv.indexOf(t)===0; });                 // one is the start of the other
-    if(head.length) return {tier:'partial', list:head};
-    const tail=all.filter(x=>{ const t=ct(x); if(!t||t.length<PG_MIN_PARTIAL) return false;
-      return t.endsWith(cv) || cv.endsWith(t); });                       // one is the end of the other
-    if(tail.length) return {tier:'partial', list:tail};
-  }
-  const last4=all.filter(x=>{ const t=ct(x); if(!t) return false;        // typed last digits
-    return cv.length>=t.length ? (t.length>=4 && cv.endsWith(t)) : (cv.length>=4 && t.endsWith(cv)); });
-  if(last4.length) return {tier:'suffix', list:last4};
-  return {tier:'none', list:[]};
-}
-
-let _pgLastCode='', _pgLastAt=0;
-function pgResolve(raw){
-  const val=(raw||'').trim(); if(!val) return;
-  pgChoice=null;
-  const cv=clean(val);
-  if(cv.length<3){ flash('err'); beep('err'); toast('Scan the shipping label','err',2600); return; }
-  /* a scanner beam can fire twice on one label — ignore the echo silently */
-  if(cv===_pgLastCode && Date.now()-_pgLastAt<1500) return;
-  _pgLastCode=cv; _pgLastAt=Date.now();
-
-  const m=pgMatchOrders(cv);
-  if(!m.list.length){
-    beep('err'); toast('No order with label '+val,'err',3400);
-    pgWrite('packing/misscans', {at:Date.now(), kind:'unknown', code:val, packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
-    pgRender(); return;
-  }
-  if(m.list.length>1){ pgChoice={list:m.list, code:val, tier:m.tier}; beep('warn'); pgRender(); return; }
-  pgTake(m.list[0], {scanned:val, match:m.tier});
-}
-function pgTake(x, how){
-  const o=x.order, now=Date.now();
-  how = how || {};
-  /* 1. this session, on this device — catches a second scan before the database
-        has echoed the first one back, and works offline */
-  const mine = PG.done && PG.done[o._key];
-  if(mine){
-    flash('err'); beep('err');
-    toast('Already scanned at '+pgClock(mine)+' — this parcel is counted','warn',3800);
-    pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
-      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null}, 'push');
-    pgRender(); return;
-  }
-  /* 2. anyone, any session — the stamp written on the order itself */
-  if(o.packing && o.packing.at){
-    flash('err'); beep('err');
-    toast('Already packed at '+pgClock(o.packing.at)+' by '+(o.packing.by||'—'),'warn',3800);
-    pgWrite('packing/misscans', {at:now, kind:'duplicate', code:how.scanned||o.trackingId, tracking:o.trackingId,
-      packer:PG.packer, sid:PG.sid, shiftId:CUR_SHIFT||null, alreadyBy:o.packing.by||''}, 'push');
-    pgRender(); return;
-  }
-  const gap=now-PG.anchor;
-  if(gap>PG_CFG.longGapMs){ pgOpenAsk(x, now, gap, how); return; }
-  pgCommit(x, now, gap, [], how);
-}
-function pgCommit(x, at, cycleMs, flags, how){
-  const o=x.order; how = how || {};
-  const items=(o.items||[]).map(it=>{
-    const iv=S.inventory[it.invKey]||{};
-    return {name:it.name, variation:it.variation||'', qty:+it.qty||1, packClass:(iv.packClass||'').toUpperCase()||null};
-  });
-  const units=items.reduce((n,i)=>n+i.qty,0);
-  if(o.status==='pending') flags=flags.concat(['not-picked']);
-  if(items.some(i=>!i.packClass)) flags=flags.concat(['no-class']);
-  if(how.match && how.match!=='exact') flags=flags.concat(['partial-match']);
-
-  pgWrite('packing/events', {
-    at, sid:PG.sid, packer:PG.packer,
-    tracking:o.trackingId, scanned:how.scanned||null, match:how.match||'exact', platform:x.platform,
-    shiftId:CUR_SHIFT||null, orderKey:o._key,
-    cycleMs:(cycleMs==null?null:Math.round(cycleMs)), since:PG.anchorKind,
-    lines:items.length, units, items,
-    addedAt:o.addedAt||null, pickStartedAt:o.pickStartedAt||null, pickConfirmedAt:o.packedAt||null,
-    orderStatus:o.status||null, flags:flags.length?flags:null
-  }, 'push');
-
-  if(CUR_SHIFT) pgWrite('shifts/'+CUR_SHIFT+'/orders/'+o._key+'/packing',
-    {at, by:PG.packer, sid:PG.sid, cycleMs:(cycleMs==null?null:Math.round(cycleMs))});
-
-  PG.done = PG.done || {}; PG.done[o._key]=at;      // local duplicate guard, survives a reload
-  PG.count++; PG.units+=units;
-  if(cycleMs!=null) PG.cycles.push(Math.round(cycleMs));
-  PG.feed.unshift({at, trk:o.trackingId, platform:x.platform, cycleMs:(cycleMs==null?null:Math.round(cycleMs)), units, lines:items.length});
-  PG.feed=PG.feed.slice(0,40);
-  PG.anchor=at; PG.anchorKind='prev';
-  pgSave(); flash('ok'); beep('ok');
-  try{ if(navigator.vibrate) navigator.vibrate(60); }catch(e){}
-  pgRender();
-}
-
-/* ---------- "were you packing?" prompt ---------- */
-function pgOpenAsk(x, at, gap, how){
-  pgAsk={x, at, gap, how:how||{}};
-  try{ if(navigator.vibrate) navigator.vibrate([200,120,200]); }catch(e){}
-  clearInterval(pgAskBeep); beep('warn');
-  pgAskBeep=setInterval(()=>beep('warn'), 2200);
-  pgRender();
-}
-function pgAnswer(worked){
-  clearInterval(pgAskBeep); pgAskBeep=null;
-  const a=pgAsk; pgAsk=null; if(!a) return;
-  if(worked){ pgCommit(a.x, a.at, a.gap, ['long-cycle'], a.how); return; }
-  const p={from:PG.anchor, to:a.at, kind:'auto'};
-  PG.pauses.push(p);
-  pgWrite('packing/sessions/'+PG.sid+'/pauses', p, 'push');
-  PG.anchor=a.at; PG.anchorKind='resume';
-  pgCommit(a.x, a.at, null, ['gap-discarded'], a.how);
-}
-
-/* ---------- render ---------- */
-function pgRender(){
-  const host=$('#pgWrap'); if(!host) return;
-  if(!PG){
-    host.innerHTML='<div class="pgidle"><h2>Ready to pack</h2>'+
-      '<p class="sub" style="margin-bottom:22px">Press start, then scan the shipping label of every box you finish, right before it goes to the shipping zone.</p>'+
-      '<button class="pgstart" id="pgStart">▶ START PACKING</button>'+
-      '<p class="sub" style="margin-top:16px;font-size:12.5px">Packing as <b>'+esc(MY_NAME||'—')+'</b></p></div>';
-    $('#pgStart').onclick=pgStart;
-    pgWakeOff(); return;
-  }
-  if(PG.paused){
-    host.innerHTML='<div class="pgpaused"><div class="k">'+(PG.paused.kind==='break'?'☕ On break':'⏸ Paused')+'</div>'+
-      '<div class="t" id="pgPauseT">0:00</div><div class="sub">Nothing is being counted right now</div></div>'+
-      '<button class="pgstart resume" id="pgResume">▶ BACK TO PACKING</button>'+
-      '<div class="pgacts" style="margin-top:12px"><button class="btn danger" id="pgEnd">⏹ End session</button></div>';
-    $('#pgResume').onclick=pgResume; $('#pgEnd').onclick=pgEnd;
-    pgPaint(); return;
-  }
-  if(pgChoice){
-    let h='<div class="card"><div class="eyebrow" style="color:var(--warn)">'+pgChoice.list.length+' orders match — choose one</div>'+
-      '<p class="sub" style="margin:0 0 10px">Scanned <span class="mono" style="color:var(--ink)">'+esc(pgChoice.code)+'</span> — the label is not a full match, pick the right parcel.</p>'+
-      '<div class="choices scroll">';
-    pgChoice.list.forEach((x,i)=>{ const done=x.order.packing&&x.order.packing.at;
-      h+='<button class="choice" data-pg-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(x.order.trackingId, clean(pgChoice.code))+'</span>'+
-      '<span class="chip loc">'+esc(x.platform)+'</span></span><span class="sub">'+(x.order.items||[]).length+' item(s)'+
-      (done?' · <span style="color:var(--warn)">already packed '+pgClock(x.order.packing.at)+'</span>':'')+'</span></button>'; });
-    h+='</div><div class="orderfoot"><button class="btn ghost" id="pgChoiceCancel">Cancel</button></div></div>';
-    host.innerHTML=h;
-    $$('#pgWrap [data-pg-pick]').forEach(b=>b.onclick=()=>{ const c=pgChoice; const x=c.list[+b.dataset.pgPick]; pgChoice=null;
-      pgTake(x, {scanned:c.code, match:c.tier}); });
-    $('#pgChoiceCancel').onclick=()=>{ pgChoice=null; pgRender(); };
-    return;
-  }
-
-  const avg=PG.cycles.length? PG.cycles.reduce((a,b)=>a+b,0)/PG.cycles.length : 0;
-  let h='<div class="pgbig"><div class="lbl">Current order</div>'+
-        '<div class="pgtimer" id="pgTimer">0:00</div>'+
-        '<div class="sub" id="pgSince">since start</div></div>'+
-        '<div class="pgstats">'+
-          '<div class="pgstat"><div class="n">'+PG.count+'</div><div class="l">packed</div></div>'+
-          '<div class="pgstat"><div class="n">'+PG.units+'</div><div class="l">units</div></div>'+
-          '<div class="pgstat"><div class="n">'+(avg?pgDur(avg):'—')+'</div><div class="l">avg / order</div></div>'+
-        '</div>'+
-        '<div class="pgscan" id="pgScan">Scan the shipping label…</div>'+
-        '<div class="pgacts">'+
-          '<button class="btn" id="pgBreak">☕ Break</button>'+
-          '<button class="btn" id="pgPause">⏸ Pause</button>'+
-          '<button class="btn ghost" id="pgManual">⌨ Type label</button>'+
-          '<button class="btn danger ghost" id="pgEnd">⏹ End</button>'+
-        '</div>';
-  if(PG.feed.length){
-    h+='<div class="pgfeed"><div class="eyebrow">This session</div>';
-    PG.feed.forEach(f=>{ const cls=f.cycleMs==null?'none':(f.cycleMs>PG_CFG.slowMs?'slow':'');
-      h+='<div class="pgrow"><span class="trk mono">'+esc(f.trk)+'</span>'+
-         '<span class="mt">'+f.lines+'×items · '+f.units+'u</span>'+
-         '<span class="cyc '+cls+'">'+(f.cycleMs==null?'—':pgDur(f.cycleMs))+'</span>'+
-         '<span class="mt">'+pgClock(f.at)+'</span></div>'; });
-    h+='</div>';
-  }
-  if(pgAsk){
-    h+='<div class="pgask"><div class="pgaskcard"><h3>Were you packing all this time?</h3>'+
-       '<div class="gap">'+pgDur(pgAsk.gap)+'</div>'+
-       '<p class="sub">Order '+esc(pgAsk.x.order.trackingId)+'. If you stepped away, the time will not be counted.</p>'+
-       '<button class="btn primary" id="pgAskYes">✓ I was packing</button>'+
-       '<button class="btn" id="pgAskNo">⏸ I stepped away</button></div></div>';
-  }
-  host.innerHTML=h;
-  $('#pgBreak').onclick=()=>pgPause('break');
-  $('#pgPause').onclick=()=>pgPause('pause');
-  $('#pgEnd').onclick=pgEnd;
-  $('#pgManual').onclick=()=>{ const v=prompt('Tracking number or last 4 digits'); if(v) pgResolve(v); };
-  if(pgAsk){ $('#pgAskYes').onclick=()=>pgAnswer(true); $('#pgAskNo').onclick=()=>pgAnswer(false); }
-  pgPaint();
-}
-
-function pgPaint(){
-  if(!PG) return;
-  if(PG.paused){ const t=$('#pgPauseT'); if(t) t.textContent=pgDur(Date.now()-PG.paused.from); return; }
-  const el=$('#pgTimer'); if(!el) return;
-  const ms=Date.now()-PG.anchor;
-  el.textContent=pgDur(ms);
-  el.className='pgtimer'+(ms>PG_CFG.longGapMs?' over':(ms>PG_CFG.slowMs?' warn':''));
-  const s=$('#pgSince'); if(s) s.textContent = PG.anchorKind==='start'?'since start of session'
-      : PG.anchorKind==='resume'?'since you came back':'since the previous box';
-  const sc=$('#pgScan');
-  if(sc){ if(pgBuf && Date.now()-pgBufAt<1200){ sc.classList.add('live'); sc.innerHTML='<b>'+esc(pgBuf)+'</b>'; }
-          else { sc.classList.remove('live'); sc.textContent='Scan the shipping label…'; } }
-  const off=$('#pgOffline'); if(off) off.classList.toggle('hide', pgQueue.length===0);
-}
-
 $('#pickingBtn').onclick=enterPicking;
-$('#packingBtn').onclick=enterPacking;
-$('#pgBack').onclick=goPlatforms;
-pgQLoad();
 $('#pkBack').onclick=goPlatforms;
 $('#pkGo').onclick=pkSubmit;
 $('#pkCam').onclick=openCam;
@@ -3270,7 +3144,7 @@ const RC_LS_CAT   = 'rc_catalog_v1';
 const RC_ARCHIVE_MAX = 30;
 
 let RC = { sessions:[], learned:{} };   // every receiving, open and finished, newest first
-let RCCAT = { main:[], pending:[], at:0, sharedAt:0, source:'' };
+let RCCAT = { main:[], pending:[], at:0, source:'' };
 let rcIdx = {};                 // barcode -> [catalog entries]
 let rcView = 'home';
 let rcUnitN = null;             // pallet/package being counted
@@ -3309,52 +3183,10 @@ function rcDeleteSession(id){
    keeps the screen usable if the connection drops mid-count.
    Writes are per receiving — two people on two shipments never overwrite each
    other — and they are debounced so a fast scanner does not hammer the wire. */
-
-/* Firebase does not store empty arrays or objects: an uncounted pallet is saved
-   without its `items` key, and a session read back from the wire then has
-   `u.items === undefined`. rcTotals iterates it, throws, and the whole receiving
-   screen renders as blank. Everything that arrives from the database goes
-   through here first so the shapes are always what the UI expects. */
-function rcArr(v){
-  if(Array.isArray(v)) return v.filter(x=>x!=null);
-  if(v && typeof v==='object') return Object.keys(v).sort((a,b)=>(+a)-(+b)).map(k=>v[k]).filter(x=>x!=null);
-  return [];
-}
-function rcNormalizeSession(raw){
-  if(!raw || typeof raw!=='object' || !raw.id) return null;
-  const s=Object.assign({}, raw);
-  s.supplier = s.supplier||''; s.carrier = s.carrier||''; s.dateStr = s.dateStr||'';
-  s.method = s.method||''; s.stage = s.stage||'setup';
-  s.startedAt = +s.startedAt || 0;
-  s.finished = !!s.finished;
-  s.units = rcArr(raw.units).map(u=>{
-    const x=Object.assign({}, u||{});
-    x.items = rcArr(x.items).map(i=>Object.assign({name:'', variation:'', qty:0}, i||{}));
-    x.n = (+x.n)||0;
-    x.type = x.type||(s.method==='package'?'package':'pallet');
-    x.counted = !!x.counted; x.code = x.code||'';
-    x.tracking = x.tracking||''; x.noTracking = !!x.noTracking;
-    return x;
-  });
-  const pz = Object.assign({asked:false, use:false}, raw.palletize||{});
-  pz.asked=!!pz.asked; pz.use=!!pz.use;
-  pz.pallets = rcArr(pz.pallets).map(pl=>{
-    const y=Object.assign({n:0, code:'', confirmed:false}, pl||{});
-    y.items = rcArr(y.items).map(i=>Object.assign({name:'', variation:'', qty:0}, i||{}));
-    return y;
-  });
-  s.palletize = pz;
-  return s;
-}
-
 let rcRef=null;                 // packstation/receiving
 let _rcPush={};                 // id -> pending write timer
 let _rcDirty={};                // id -> this device has unsent or unconfirmed changes
-let _rcSent={};                 // id -> JSON of the last state this device put on the wire
 let _rcSuppressRender=false;
-
-const RC_TOP_FIELDS=['id','startedAt','dateStr','supplier','method','carrier','stage','palletize','finished','finishedAt','finishedBy'];
-const _j = v => JSON.stringify(v===undefined?null:v);
 
 function rcSaveLocal(){
   try{ localStorage.setItem(RC_LS_STATE, JSON.stringify({v:2, sessions:RC.sessions, learned:RC.learned})); }
@@ -3367,32 +3199,16 @@ function rcSave(session){
   if(s && !rcDraft) rcPushSession(s.id);      // a draft is not a receiving yet
   else if(s && rcDraft && s.id===rcDraft.id){ /* nothing to publish yet */ }
 }
-
-/* Only the parts this device actually changed go on the wire. Two people on the
-   same receiving touch different pallets, so their writes never collide — the
-   old whole-session write made the last one win and threw the other's count away. */
-function rcSessionDiff(s){
-  const sent = _rcSent[s.id] ? JSON.parse(_rcSent[s.id]) : null;
-  if(!sent) return null;                                  // never sent → write it whole
-  if((sent.units||[]).length !== (s.units||[]).length) return null;   // list rebuilt → write it whole
-  const up={};
-  RC_TOP_FIELDS.forEach(f=>{ if(_j(s[f])!==_j(sent[f])) up[f]=(s[f]===undefined?null:s[f]); });
-  (s.units||[]).forEach((u,i)=>{ if(_j(u)!==_j((sent.units||[])[i])) up['units/'+i]=u; });
-  return up;
-}
 function rcPushSession(id){
   if(!rcRef || !id) return;
-  _rcDirty[id]=true;                       // hold this device's edits until the write lands
+  _rcDirty[id]=true;                       // hold the local copy until the write lands
   clearTimeout(_rcPush[id]);
   _rcPush[id]=setTimeout(()=>{
     const s=RC.sessions.find(x=>x.id===id);
     if(!s){ delete _rcDirty[id]; return; }
-    const snapshot=JSON.parse(JSON.stringify(s));
-    const diff=rcSessionDiff(s);
-    const ref=rcRef.child('sessions/'+safeKey(id));
-    const done=()=>{ _rcSent[id]=JSON.stringify(snapshot); if(!_rcPush[id]) delete _rcDirty[id]; };
-    if(diff && Object.keys(diff).length===0){ done(); return; }
-    (diff ? ref.update(diff) : ref.set(s)).then(done).catch(()=>{});
+    rcRef.child('sessions/'+safeKey(id)).set(s)
+      .then(()=>{ if(!_rcPush[id]) delete _rcDirty[id]; })
+      .catch(()=>{});
     _rcPush[id]=null;
   }, 350);
 }
@@ -3402,62 +3218,42 @@ function rcPushLearned(code, rec){
 }
 function rcRemoveLearned(code){ if(rcRef&&code) rcRef.child('learned/'+safeKey(code)).remove().catch(()=>{}); }
 
-/* live feed — merges what other devices write without disturbing this one. */
+/* live feed — merges what other devices write without disturbing this one.
+   The listener is attached only after this device's own receivings are on the
+   wire, so an empty shared node can never wipe a count in progress. */
 function rcConnect(){
   if(!root) return;
   rcRef = root.child('receiving');
   rcRef.child('sessions').once('value')
-    .then(snap=>{
-      const remote={}; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote[v.id]=v; });
-      /* Anything this device has locally that is not on the wire goes up now —
-         receivings counted offline, or started on an older build, used to stay
-         invisible to everyone else and were then wiped by the first feed. */
-      return rcPublishMissing(remote);
-    })
+    .then(snap=>{ if(snap.exists()) return; return rcPublishLocal(); })
     .catch(()=>{})
     .then(rcAttachFeed, rcAttachFeed);
 }
-function rcPublishMissing(remote){
-  const up={};
-  (RC.sessions||[]).forEach(s=>{ if(s && s.id && !remote[s.id]) up['sessions/'+safeKey(s.id)]=s; });
+function rcPublishLocal(){
+  const local=(RC.sessions||[]).filter(s=>s && s.id);
   const learned=RC.learned||{};
+  if(!local.length && !Object.keys(learned).length) return Promise.resolve();
+  const up={};
+  local.forEach(s=>up['sessions/'+safeKey(s.id)]=s);
   for(const code in learned) up['learned/'+safeKey(code)]=Object.assign({code}, learned[code]);
-  for(const id in remote) _rcSent[id]=JSON.stringify(remote[id]);
-  (RC.sessions||[]).forEach(s=>{ if(s&&s.id&&!remote[s.id]) _rcSent[s.id]=JSON.stringify(s); });
-  if(!Object.keys(up).length) return Promise.resolve();
   return rcRef.update(up).catch(()=>{});
-}
-/* remote wins, except for the parts this device changed and has not sent yet */
-function rcMergeSession(local, remote){
-  const sent = _rcSent[remote.id] ? JSON.parse(_rcSent[remote.id]) : null;
-  if(!sent) return local;                                  // nothing confirmed yet — trust this device
-  const out = JSON.parse(JSON.stringify(remote));
-  RC_TOP_FIELDS.forEach(f=>{ if(_j(local[f])!==_j(sent[f])) out[f]=local[f]; });
-  const lu=local.units||[], ru=out.units||[];
-  if(lu.length===(sent.units||[]).length){
-    lu.forEach((u,i)=>{ if(_j(u)!==_j((sent.units||[])[i])) ru[i]=u; });   // this device edited it — keep it
-  }
-  out.units=ru;
-  return out;
 }
 function rcAttachFeed(){
   rcRef.child('sessions').on('value', snap=>{
     const remote=[];
-    snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
-    const seen={};
+    snap.forEach(c=>{ const v=c.val(); if(v && v.id) remote.push(v); });
+    /* A receiving this device is still writing keeps its local copy — otherwise
+       an echo of the previous write would undo the scan just made. Everything
+       else comes straight from the shared database. */
     const merged=remote.map(r=>{
-      seen[r.id]=true;
-      const local=RC.sessions.find(s=>s.id===r.id);
-      if(!local) { _rcSent[r.id]=JSON.stringify(r); return r; }
-      if(!_rcDirty[r.id]){ _rcSent[r.id]=JSON.stringify(r); return r; }
-      return rcMergeSession(local, r);
+      if(!_rcDirty[r.id]) return r;
+      return RC.sessions.find(s=>s.id===r.id) || r;
     });
-    /* a receiving that lives only on this device is kept and pushed up, never dropped */
-    (RC.sessions||[]).forEach(l=>{
-      if(!l || !l.id || seen[l.id]) return;
-      merged.push(l);
-      if(rcRef && !rcDraft) rcPushSession(l.id);
-    });
+    for(const id in _rcDirty){
+      if(merged.some(s=>s.id===id)) continue;
+      const local=RC.sessions.find(s=>s.id===id);
+      if(local) merged.push(local);                       // created here, not on the wire yet
+    }
     RC.sessions=merged.sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
     rcSaveLocal();
     if(!_rcSuppressRender && curScreen==='recv') rcRenderKeepingFocus();
@@ -3468,21 +3264,6 @@ function rcAttachFeed(){
     RC.learned=m; rcSaveLocal(); rcBuildIdx();
     if(!_rcSuppressRender && curScreen==='recv' && (rcView==='catalog'||rcView==='home')) rcRenderKeepingFocus();
   });
-  /* the product catalog (inventory + Pending) is shared too, so a second person
-     does not have to load the workbook on their own device before they can scan */
-  rcRef.child('catalog').on('value', snap=>{
-    const v=snap.val(); if(!v || !v.at) return;
-    if((RCCAT.sharedAt||0) >= v.at) return;                       // already applied this one
-    RCCAT={main:v.main||[], pending:v.pending||[], at:v.at, sharedAt:v.at, source:v.source||'shared'};
-    rcSaveCat(); rcBuildIdx();
-    if(!_rcSuppressRender && curScreen==='recv') rcRenderKeepingFocus();
-  });
-}
-function rcPushCatalog(){
-  if(!rcRef) return;
-  RCCAT.sharedAt=RCCAT.at||Date.now();
-  if(!RCCAT.main.length && !RCCAT.pending.length) return;
-  rcRef.child('catalog').set({main:RCCAT.main, pending:RCCAT.pending, at:RCCAT.at||Date.now(), source:RCCAT.source||''}).catch(()=>{});
 }
 /* A live update from another device must never disturb what this one is doing:
    half-typed fields keep their text and the scan box keeps the caret. The
@@ -3503,28 +3284,12 @@ function rcRenderKeepingFocus(){
 function rcLoad(){
   try{ const raw=localStorage.getItem(RC_LS_STATE); if(!raw) return;
     const o=JSON.parse(raw)||{}; RC.learned=o.learned||{};
-    const list = Array.isArray(o.sessions) ? o.sessions
-               : [].concat(o.session?[o.session]:[], o.archive||[]);          // migrate v1
-    RC.sessions = list.map(rcNormalizeSession).filter(Boolean);
+    if(Array.isArray(o.sessions)) RC.sessions=o.sessions;
+    else { RC.sessions=[]; if(o.session) RC.sessions.push(o.session); (o.archive||[]).forEach(a=>RC.sessions.push(a)); }  // migrate v1
   }catch(e){}
 }
 function rcSaveCat(){ try{ localStorage.setItem(RC_LS_CAT, JSON.stringify(RCCAT)); }catch(e){ toast('Catalog too large for local storage','warn',3500); } }
-function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,sharedAt:o.sharedAt||0,source:o.source||''}; } }catch(e){} }
-
-/* Manual re-read: answers "is my screen out of date, or is nothing there?" */
-function rcReloadFromCloud(){
-  if(!rcRef){ toast('Not connected to the shared database — this device is offline','err',4200); return; }
-  toast('Reading the shared database…','info',1800);
-  rcRef.child('sessions').once('value').then(snap=>{
-    const remote=[]; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
-    const seen={}; remote.forEach(r=>seen[r.id]=true);
-    const keep=(RC.sessions||[]).filter(l=>l&&l.id&&!seen[l.id]);
-    RC.sessions=remote.concat(keep).sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
-    remote.forEach(r=>{ _rcSent[r.id]=JSON.stringify(r); });
-    rcSaveLocal(); rcRender();
-    toast(remote.length+' receiving(s) in the shared database'+(keep.length?(' · '+keep.length+' only on this device'):''),'ok',4200);
-  }).catch(e=>toast('Could not read: '+((e&&e.message)||e),'err',5000));
-}
+function rcLoadCat(){ try{ const raw=localStorage.getItem(RC_LS_CAT); if(raw){ const o=JSON.parse(raw)||{}; RCCAT={main:o.main||[],pending:o.pending||[],at:o.at||0,source:o.source||''}; } }catch(e){} }
 
 /* ---------- catalog ---------- */
 function rcBuildIdx(){
@@ -3581,8 +3346,8 @@ function rcParseCatalog(buf){
 }
 async function rcLoadCatalogFromBuf(buf, source){
   let cat; try{ cat=rcParseCatalog(buf); }catch(e){ gstatus('rcCat', e.message, 'err'); return; }
-  RCCAT={main:cat.main, pending:cat.pending, at:Date.now(), sharedAt:0, source:source||'file'};
-  rcSaveCat(); rcBuildIdx(); rcPushCatalog(); rcRender();
+  RCCAT={main:cat.main, pending:cat.pending, at:Date.now(), source:source||'file'};
+  rcSaveCat(); rcBuildIdx(); rcRender();
   if(!cat.pending.length){
     gstatus('rcCat','✓ '+cat.main.length+' inventory items — but NO Pending rows were read. Tabs found: '+
       (cat.sheets||[]).join(', ')+'. The Pending tab must be named "Pending" and have an item-name column.','err');
@@ -3606,13 +3371,13 @@ function rcMakeUnits(s,count){
   s.units=[]; for(let i=1;i<=count;i++) s.units.push({n:i, type:s.method, tracking:'', noTracking:false, counted:false, code:'', items:[]});
 }
 function rcUnit(n){ const s=rcCur(); return s?s.units.find(u=>u.n===n)||null:null; }
-function rcAllCounted(){ const s=rcCur(); return !!s && (s.units||[]).length>0 && s.units.every(u=>u.counted); }
+function rcAllCounted(){ const s=rcCur(); return !!s && s.units.length>0 && s.units.every(u=>u.counted); }
 function rcUnitWord(s,cap){ const w = s.method==='pallet' ? 'pallet' : 'package'; return cap ? w[0].toUpperCase()+w.slice(1) : w; }
 
 /* totals across the whole shipment, aggregated by product */
 function rcTotals(s){
   const m=new Map();
-  for(const u of (s.units||[])) for(const it of (u.items||[])){
+  for(const u of s.units) for(const it of u.items){
     const k=norm(it.name)+'||'+norm(it.variation||'');
     if(!m.has(k)) m.set(k,{name:it.name, variation:it.variation||'', qty:0});
     m.get(k).qty += (+it.qty||0);
@@ -3991,35 +3756,6 @@ function rcStepBar(active){
 }
 const RC_VIEWS_NEEDING_SESSION = ['setup','units','unit','palletask','pallets','pallet','report'];
 function rcRender(){
-  try{ rcRenderInner(); }
-  catch(e){
-    /* a warehouse screen must never go blank and silent — say what broke */
-    const a=$('#rcArea');
-    if(a) a.innerHTML='<div class="card" style="border-color:#4a2128">'+
-      '<div class="eyebrow" style="color:var(--err)">Receiving screen error</div>'+
-      '<p class="sub" style="color:var(--err)">'+esc((e&&e.message)||String(e))+'</p>'+
-      '<p class="sub" style="font-size:12.5px">Your counts are safe in the database. Send this line to the developer.</p>'+
-      '<div class="rcrow" style="margin-top:12px"><button class="btn" id="rcErrHome">☰ Receivings</button>'+
-      '<button class="btn ghost" id="rcErrReload">⟳ Reload</button></div></div>';
-    const h=$('#rcErrHome'); if(h) h.onclick=()=>{ rcActiveId=null; rcDraft=null; rcView='home'; rcRender(); };
-    const r=$('#rcErrReload'); if(r) r.onclick=()=>location.reload();
-    try{ console.error('rcRender', e); }catch(_){}
-  }
-  rcDiagPaint();
-}
-/* a one-line answer to "why is it empty?" — connection, count, last update */
-function rcDiagPaint(){
-  const d=$('#rcDiag'); if(!d) return;
-  const n=(RC.sessions||[]).length, open=(RC.sessions||[]).filter(s=>!s.finished).length;
-  const on = !!rcRef;
-  d.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;display:inline-block;background:'+
-      (on?'var(--ok)':'var(--err)')+'"></span>'+
-      (on?'shared':'offline — this device only')+' · <b>'+n+'</b> receiving'+(n===1?'':'s')+
-      (n?(' · <b>'+open+'</b> in progress'):'')+
-      ' · catalog <b>'+(RCCAT.main.length+RCCAT.pending.length)+'</b>';
-}
-function rcRenderInner(){
-
   const cc=$('#rcCatCount'); if(cc) cc.textContent=(RCCAT.main.length+RCCAT.pending.length);
   const a=$('#rcArea'); if(!a) return;
   /* the open receiving can disappear under us — a manager deleted it, or it was
@@ -4041,7 +3777,7 @@ function rcRenderInner(){
 /* ---------- home ---------- */
 function rcSessionRow(s){
   const fin=!!s.finished;
-  const counted=(s.units||[]).filter(u=>u.counted).length;
+  const counted=s.units.filter(u=>u.counted).length;
   const units=rcTotals(s).reduce((n,t)=>n+t.qty,0);
   const how=(s.method==='pallet'?'pallets':(s.carrier||'packages'));
   const W=rcUnitWord(s,false);
@@ -4077,30 +3813,13 @@ function rcViewHome(){
        '<div class="rcarch">'+done.map(rcSessionRow).join('')+'</div>'+
        (IS_ADMIN?'':'<p class="sub" style="font-size:12.5px;margin-top:11px">Deleting a receiving is an admin action.</p>')+'</div>';
   }
-  h+='<div class="rcrow" style="margin-top:14px"><button class="btn ghost" id="rcReload">⟳ Reload from the shared database</button></div>';
   return h;
 }
 function rcWireHome(){
   const n=$('#rcNew'); if(n) n.onclick=()=>{ rcDraft=rcNewSession(); rcActiveId=null; rcGo('setup'); };
-  const rl=$('#rcReload'); if(rl) rl.onclick=rcReloadFromCloud;
   $$('#rcArea [data-open]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.open));
   $$('#rcArea [data-report]').forEach(b=>b.onclick=()=>rcOpenSession(b.dataset.report));
   $$('#rcArea [data-del]').forEach(b=>b.onclick=()=>rcDeleteSession(b.dataset.del));
-}
-
-/* Manual re-read: answers "is my screen out of date, or is nothing there?" */
-function rcReloadFromCloud(){
-  if(!rcRef){ toast('Not connected to the shared database — this device is offline','err',4200); return; }
-  toast('Reading the shared database…','info',1800);
-  rcRef.child('sessions').once('value').then(snap=>{
-    const remote=[]; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote.push(v); });
-    const seen={}; remote.forEach(r=>seen[r.id]=true);
-    const keep=(RC.sessions||[]).filter(l=>l&&l.id&&!seen[l.id]);
-    RC.sessions=remote.concat(keep).sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));
-    remote.forEach(r=>{ _rcSent[r.id]=JSON.stringify(r); });
-    rcSaveLocal(); rcRender();
-    toast(remote.length+' receiving(s) in the shared database'+(keep.length?(' · '+keep.length+' only on this device'):''),'ok',4200);
-  }).catch(e=>toast('Could not read: '+((e&&e.message)||e),'err',5000));
 }
 
 /* ---------- catalog ---------- */
@@ -4234,11 +3953,11 @@ function rcViewUnits(){
     '<div class="spacer" style="flex:1"></div><div class="pill">Counted <b>'+s.units.filter(u=>u.counted).length+'</b>/'+s.units.length+'</div></div>'+
     '<p class="sub">Pick a '+rcUnitWord(s,false)+' to count. Counted ones turn green.</p>';
   h+='<div class="rcunits">'+s.units.map(u=>{
-    const qty=(u.items||[]).reduce((n,i)=>n+(+i.qty||0),0);
+    const qty=u.items.reduce((n,i)=>n+(+i.qty||0),0);
     return '<button class="rcunit '+(u.counted?'done':'todo')+'" data-u="'+u.n+'">'+
       '<div class="ubadge">'+(u.counted?'✓ DONE':'TO COUNT')+'</div>'+
       '<div class="un">'+W+' '+u.n+'</div>'+
-      '<div class="us">'+((u.items||[]).length? u.items.length+' items · '+qty+' units' : 'not counted')+
+      '<div class="us">'+(u.items.length? u.items.length+' items · '+qty+' units' : 'not counted')+
       (u.tracking?'<br>trk …'+esc(u.tracking):(u.noTracking?'<br>no tracking':''))+
       (u.code?'<br><span class="mono" style="font-size:11px">'+esc(u.code)+'</span>':'')+'</div></button>';
   }).join('')+'</div>';
