@@ -1069,8 +1069,45 @@ function connect(){
 function shiftIds(){ return Object.keys(SHIFTS).sort((a,b)=>(SHIFTS[b].createdAt||0)-(SHIFTS[a].createdAt||0)); }
 /* every shift syncs against the workbook it was created from — never against
    whatever file was loaded last */
-function shiftSource(id){ const s=SHIFTS[id]; return (s && s.source && s.source.input) ? s.source.input : ''; }
-function shiftFileName(id){ const s=SHIFTS[id]; return (s && s.fileName) || ''; }
+function shiftSource(id){
+  const s=SHIFTS[id];
+  if(s && s.source && s.source.input) return s.source.input;
+  const m=SHIFT_META[id];                                    // older shifts kept it only in meta
+  return (m && m.source && m.source.input) ? m.source.input : '';
+}
+function shiftFileName(id){
+  const s=SHIFTS[id]; if(s && s.fileName) return s.fileName;
+  const m=SHIFT_META[id]; return (m && m.fileName) || '';
+}
+/* The shift's own meta node, read on demand. Shifts created before the
+   per-shift-sync build keep their workbook here and nowhere else, so this is
+   what makes Sync orders work on them without reloading anything. */
+let SHIFT_META={};
+async function loadShiftMeta(id){
+  if(!id || !root) return null;
+  if(SHIFT_META[id]) return SHIFT_META[id];
+  try{ const s=await root.child('shifts/'+id+'/meta').once('value'); SHIFT_META[id]=s.val()||{}; }
+  catch(e){ SHIFT_META[id]={}; }
+  return SHIFT_META[id];
+}
+/* returns the workbook link for a shift, copying it up into the index the
+   first time a manager needs it so later loads find it straight away */
+async function resolveShiftSource(id){
+  const fromIndex=(SHIFTS[id] && SHIFTS[id].source && SHIFTS[id].source.input) || '';
+  if(fromIndex) return fromIndex;
+  const m=await loadShiftMeta(id);
+  const src=(m && m.source && m.source.input) ? m.source : null;
+  if(!src) return '';
+  if(IS_ADMIN) root.child('shiftIndex/'+id+'/source').set(src).catch(()=>{});
+  return src.input;
+}
+async function setShiftSource(id, url, fileName){
+  const s={type:'gsheet', input:url};
+  SHIFT_META[id]=Object.assign(SHIFT_META[id]||{}, {source:s});
+  const up={ ['shifts/'+id+'/meta/source']:s, ['shiftIndex/'+id+'/source']:s };
+  if(fileName){ up['shifts/'+id+'/meta/fileName']=fileName; up['shiftIndex/'+id+'/fileName']=fileName; }
+  try{ await root.update(up); }catch(e){}
+}
 function shiftName(id){ const s=SHIFTS[id]; return (s&&s.name)||id||'—'; }
 function pickDefaultShift(){
   const ids=shiftIds(); if(!ids.length) return '';
@@ -1087,6 +1124,7 @@ function setShift(id){
   if(!shiftRef){ renderCurrent(); return; }
   const meta=SHIFTS[CUR_SHIFT]||{};
   S.date=meta.name||''; S.startedAt=meta.createdAt||null;
+  loadShiftMeta(CUR_SHIFT).then(()=>{ if(curScreen==='platforms') renderShiftBar(); });
   const oref=shiftRef.child('orders');
   const cb=oref.on('value', snap=>{
     const platforms={};
@@ -1196,6 +1234,7 @@ async function clearShift(id){
   try{
     await root.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null });
   }catch(e){ toast('Could not clear the shift','err',3600); return; }
+  delete SHIFT_META[id];
   toast('Shift “'+nm+'” cleared','ok',3000);
   if(CUR_SHIFT===id) setShift(pickDefaultShift());
 }
@@ -2212,6 +2251,8 @@ function closeShiftModal(){ $('#shiftModal').classList.add('hide'); }
 function renderShiftModal(){
   const box=$('#shiftList'); if(!box) return;
   const ids=shiftIds();
+  if(IS_ADMIN) ids.forEach(id=>{ if(!SHIFT_META[id]) loadShiftMeta(id).then(()=>{
+    if(!$('#shiftModal').classList.contains('hide')) renderShiftModal(); }); });
   $('#shiftNewBtn').classList.toggle('hide', !IS_ADMIN);
   if(!ids.length){
     box.innerHTML='<div class="empty">No shift loaded yet.'+(IS_ADMIN?'<br><span style="font-size:13px">Load an orders workbook to create one.</span>':'<br><span style="font-size:13px">Waiting for the manager to load one.</span>')+'</div>';
@@ -2219,9 +2260,12 @@ function renderShiftModal(){
   }
   box.innerHTML=ids.map(id=>{
     const m=shiftMeta(id);
+    const wb=shiftFileName(id) || (shiftSource(id) ? 'Google Sheet' : '');
     return '<div class="shiftrow'+(id===CUR_SHIFT?' cur':'')+'" data-sh="'+esc(id)+'">'+
       '<div><div class="snm">'+esc(m.name||id)+(id===CUR_SHIFT?' <span class="sub" style="font-size:12px">· open</span>':'')+'</div>'+
-      '<div class="smeta">'+(m.orders||0)+' orders'+(m.createdBy?' · loaded by '+esc(m.createdBy):'')+(m.createdAt?' · '+esc(fmtTime(m.createdAt)):'')+'</div></div>'+
+      '<div class="smeta">'+(m.orders||0)+' orders'+(m.createdBy?' · loaded by '+esc(m.createdBy):'')+(m.createdAt?' · '+esc(fmtTime(m.createdAt)):'')+'</div>'+
+      (IS_ADMIN?'<div class="smeta">'+(wb?'📄 '+esc(wb):'<span style="color:var(--warn)">📄 no workbook linked yet</span>')+'</div>':'')+
+      '</div>'+
       (IS_ADMIN?'<button class="btn danger ghost sdel" data-del="'+esc(id)+'">Delete</button>':'')+
     '</div>';
   }).join('');
@@ -2902,18 +2946,26 @@ $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the curre
 function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
 async function doPullOrders(){
   if(!CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
-  const src=shiftSource(CUR_SHIFT);
+  const nm=shiftName(CUR_SHIFT);
+  let src=await resolveShiftSource(CUR_SHIFT);
   if(!src){
-    /* the shift came from a file on someone's computer — the browser cannot
-       re-open it by itself, so ask for it again */
-    toast('“'+shiftName(CUR_SHIFT)+'” was loaded from a file — pick that file again','info',4200);
-    $('#syncFile').click();
-    return;
+    /* No link on record — a shift loaded from a file on someone's computer, or
+       one created before shifts remembered their workbook. Ask once, keep it. */
+    const typed=prompt('“'+nm+'” has no workbook link on record.\n\n'+
+      'Paste the Google Sheet link for THIS shift and it will be remembered,\n'+
+      'or leave it empty to pick the .xlsx file from this device instead.','');
+    if(typed===null){ toast('Sync cancelled','info',2000); return; }
+    const url=typed.trim();
+    if(!url){ toast('Pick the workbook for “'+nm+'”','info',3600); $('#syncFile').click(); return; }
+    if(!gsheetToExportUrl(url)){ toast('That does not look like a Google Sheet link','err',3600); return; }
+    await setShiftSource(CUR_SHIFT, url);
+    toast('“'+nm+'” is now linked to that sheet','ok',3000);
+    src=url;
   }
-  toast('Reading the workbook for “'+shiftName(CUR_SHIFT)+'”…','info',2000);
+  toast('Reading the workbook for “'+nm+'”…','info',2000);
   const buf=await fetchSheet(src,false,'ord');
   if(buf) await syncShiftOrders(buf, shiftFileName(CUR_SHIFT) || 'its Google Sheet');
-  else toast('Could not read that shift\u2019s workbook','err',4000);
+  else toast('Could not read the workbook of “'+nm+'”','err',4000);
 }
 async function doUpdateInventory(){
   toast('Reading the company inventory sheet…','info',2000);
