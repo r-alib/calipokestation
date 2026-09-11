@@ -371,7 +371,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-09-09a · streamer assist v1';
+const BUILD = '2026-09-11a · streamer assist v1.1';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -591,12 +591,29 @@ function nextNumber(){
   let mx=0; LOTS.forEach(l=>{ if((l.n||0)>mx) mx=l.n; });
   return mx+1;
 }
+function bridgeFresh(){
+  return !!(bridgeState && bridgeState.online && (Date.now()-(bridgeState.lastSeen||0) < BRIDGE_STALE_MS));
+}
+function bridgeSeen(){
+  return !!(bridgeState && bridgeState.lastSeen && (Date.now()-bridgeState.lastSeen < BRIDGE_STALE_MS));
+}
 function renderBridge(){
-  const fresh = bridgeState && bridgeState.online && (Date.now()-(bridgeState.lastSeen||0) < BRIDGE_STALE_MS);
-  const led=$('#ledBridge');
-  led.className = 'led '+(fresh?'on':(bridgeState&&bridgeState.lastSeen?'warn':'off'));
+  const fresh=bridgeFresh(), seen=bridgeSeen();
+  $('#ledBridge').className = 'led '+(fresh?'on':(seen?'warn':'off'));
   $('#pillBridge').title = fresh ? ('bridge online'+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):''))
-                                 : 'bridge silent — type the username by hand';
+                : seen ? 'bridge is running but the room is not live yet'
+                       : 'bridge is not running';
+  if(!chatRows.length) renderChat(false);
+}
+function chatEmptyText(){
+  if(bridgeFresh())
+    return '<div class="empty">Bridge online'+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):'')+
+           '.<br>Waiting for the first chat message…</div>';
+  if(bridgeSeen())
+    return '<div class="empty">Bridge is running, but the room is not live yet.<br>'+
+           'It connects by itself when the stream starts.</div>';
+  return '<div class="empty">Bridge is not connected.<br>Start <b>start.bat</b> on this PC,<br>'+
+         'or type the username by hand — everything else works.</div>';
 }
 
 /* ============================================================
@@ -612,7 +629,7 @@ function renderChat(scroll){
   if(!rows.length){
     box.innerHTML = chatRows.length
       ? '<div class="empty">Nothing matches the filter.</div>'
-      : '<div class="empty">Bridge is not connected.<br>Type the username by hand — everything else works.</div>';
+      : chatEmptyText();
     return;
   }
   const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
