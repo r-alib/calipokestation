@@ -66,9 +66,10 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:18px}
 .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:9px}
 .sub{color:var(--muted);font-size:13.5px}
-input[type=text],input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);
+input[type=text],input[type=number],select{width:100%;background:var(--panel2);border:1px solid var(--line);
   border-radius:10px;padding:11px 13px;outline:none;transition:.15s}
-input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--panel2);color:var(--ink)}
 label.fld{display:block;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
   font-weight:600;margin:0 0 6px}
 
@@ -180,6 +181,7 @@ table.rep td.mono{font-family:var(--mono)}
   <span class="pill" id="pillPrn"><span class="led" id="ledPrn"></span>DYMO</span>
   <span class="pill" id="pillCount"><b>0</b>&nbsp;lots</span>
   <span class="pill" id="pillMe">—</span>
+  <button class="iconbtn" id="btnSwitch">⇄ Account</button>
   <button class="iconbtn" id="btnEnd">🏁 End stream</button>
   <button class="iconbtn" id="btnMenu">← Menu</button>
 </div>
@@ -208,7 +210,16 @@ table.rep td.mono{font-family:var(--mono)}
 
       <div class="field">
         <label class="fld">Room</label>
-        <input type="text" id="setRoom" readonly>
+        <select id="setRoom"></select>
+      </div>
+      <div class="field">
+        <label class="fld">TikTok account to listen to</label>
+        <select id="setAcct"></select>
+        <input type="text" id="setAcctManual" class="hide" placeholder="@another_account"
+               autocomplete="off" spellcheck="false" style="margin-top:8px">
+        <p class="sub" style="font-size:12px;color:var(--faint);margin:7px 0 0">
+          The bridge follows this choice on its own — no restart, no editing files.
+        </p>
       </div>
       <div class="field">
         <label class="fld">Streamer on camera</label>
@@ -355,10 +366,11 @@ table.rep td.mono{font-family:var(--mono)}
    writes only under streamerassist/.
    ============================================================ */
 
-/* >>> THE ROOM THIS COPY SERVES.  One room for now — change these
-       two lines to run the module for another room. <<< */
-const ROOM        = 'TT1';
-const ROOM_HANDLE = '@calipokehouse';     // TikTok account, used by bridge.js
+/* >>> ROOMS and TIKTOK ACCOUNTS the assistant can choose from.
+       Add a line to either list when the business adds one — nothing else
+       in the file has to change. <<< */
+const ROOMS    = ['CPH'];
+const ACCOUNTS = ['@calipokehouse', '@koislabs', '@calitoys', '@dolldropofficial'];
 
 /* >>> Same Firebase project as the station <<< */
 const firebaseConfig = {
@@ -409,6 +421,8 @@ function beep(ok){
 /* ---------- runtime state ---------- */
 let db=null, saRef=null;
 let MY_NAME='';
+let CUR_ROOM   = ROOMS[0];      // room chosen on the start screen
+let CUR_HANDLE = ACCOUNTS[0];   // TikTok account the bridge must listen to
 let INV={}, BC={};                 // inventory by ikey, barcode -> [ikey]
 let BUYERS={};                     // key -> {u,n,wins,last}
 let SESS=null;                     // {id, room, streamer, assistant, startedAt}
@@ -417,7 +431,7 @@ let lotsOff=null;
 let pickedItem=null;               // inventory record chosen for the current lot
 let editingId=null;                // lot id being edited
 let lastPrinted=null;              // last saved record (for F2)
-let chatRows=[], chatOff=null, pinnedUser=null;
+let chatRows=[], chatOff=null, bridgeOff=null, pinnedUser=null;
 let bridgeState={online:false,lastSeen:0};
 let dymoReady=false, dymoTried=false;
 
@@ -460,39 +474,55 @@ function connect(){
   /* buyer directory */
   saRef.child('buyers').on('value', snap=>{ BUYERS = snap.val()||{}; });
 
-  /* bridge heartbeat */
-  saRef.child('bridge/'+ROOM).on('value', snap=>{
-    bridgeState = snap.val()||{online:false,lastSeen:0};
-    renderBridge();
-  });
   setInterval(renderBridge, 15000);
-
-  /* chat feed */
-  attachChat();
+  attachRoom(CUR_ROOM);
   return true;
 }
 
-function attachChat(){
-  if(chatOff) chatOff();
-  const ref = saRef.child('chat/'+ROOM).limitToLast(120);
-  const onAdd = ref.on('child_added', snap=>{
+function attachRoom(room){
+  CUR_ROOM = room;
+  if(chatOff){ chatOff(); chatOff=null; }
+  if(bridgeOff){ bridgeOff(); bridgeOff=null; }
+  chatRows=[]; bridgeState={online:false,lastSeen:0};
+
+  const bref = saRef.child('bridge/'+room);
+  const bh = bref.on('value', snap=>{ bridgeState = snap.val()||{online:false,lastSeen:0}; renderBridge(); });
+  bridgeOff = ()=>bref.off('value', bh);
+
+  const cref = saRef.child('chat/'+room).limitToLast(120);
+  const ch = cref.on('child_added', snap=>{
     const v=snap.val(); if(!v||!v.u) return;
     chatRows.push({k:snap.key,u:v.u,n:v.n||'',t:v.t||'',ts:v.ts||Date.now()});
     if(chatRows.length>160) chatRows=chatRows.slice(-160);
     renderChat(true);
   });
-  chatOff = ()=>ref.off('child_added', onAdd);
+  chatOff = ()=>cref.off('child_added', ch);
+
+  renderChat(false); renderBridge();
+}
+
+/* the page TELLS the bridge which account to listen to — the bridge polls
+   this node every few seconds and switches by itself, no restart needed */
+function setControl(handle){
+  CUR_HANDLE = handle;
+  renderRoomPill();
+  if(!saRef) return;
+  saRef.child('control/'+CUR_ROOM).set({handle:handle, setBy:MY_NAME, at:Date.now()})
+    .catch(e=>toast('Could not tell the bridge: '+e.message,'err',3600));
 }
 
 /* ============================================================
    SESSION
    ============================================================ */
-function newSession(streamer){
-  const id = ROOM+'_'+fmtDate(Date.now())+'_'+Date.now().toString(36);
-  const meta = {room:ROOM, handle:ROOM_HANDLE, streamer:streamer, assistant:MY_NAME,
+function newSession(streamer, room, handle){
+  const id = room+'_'+fmtDate(Date.now())+'_'+Date.now().toString(36);
+  const meta = {room:room, handle:handle, streamer:streamer, assistant:MY_NAME,
                 startedAt:Date.now(), endedAt:null, lastN:0};
   saRef.child('sessions/'+id).set(meta)
-    .then(()=>{ SESS=Object.assign({id:id}, meta); rememberSession(); openWork(); })
+    .then(()=>{
+      SESS=Object.assign({id:id}, meta); rememberSession();
+      attachRoom(room); setControl(handle); openWork();
+    })
     .catch(e=>toast('Could not create the stream: '+e.message,'err',4000));
 }
 function rememberSession(){ try{ localStorage.setItem(LS_SESS, SESS?SESS.id:''); }catch(e){} }
@@ -509,7 +539,7 @@ function findOpenSession(cb){
     let best=null;
     s.forEach(c=>{
       const v=c.val()||{};
-      if(v.room!==ROOM) return;
+      if(ROOMS.indexOf(v.room)<0) return;
       if(v.endedAt) return;
       if(!best || (v.startedAt||0) > (best.startedAt||0)) best=Object.assign({id:c.key}, v);
     });
@@ -548,17 +578,24 @@ function endSession(){
 function showOnly(id){
   ['gate','setup','work','summary'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
   $('#btnEnd').classList.toggle('hide', id!=='work');
+  $('#btnSwitch').classList.toggle('hide', id!=='work');
 }
 function openGate(){
   showOnly('gate');
-  $('#gateNote').textContent = 'Room: '+ROOM+' · build '+BUILD;
+  $('#gateNote').textContent = 'Room: '+CUR_ROOM+' · build '+BUILD;
   setTimeout(()=>$('#nameInput').focus(), 60);
+}
+function fillSelect(el, values, chosen, extra){
+  el.innerHTML = values.map(v=>'<option value="'+esc(v)+'"'+(v===chosen?' selected':'')+'>'+esc(v)+'</option>').join('')
+    + (extra?'<option value="__other">'+esc(extra)+'</option>':'');
 }
 function openSetup(){
   showOnly('setup');
-  $('#setRoom').value = ROOM+'  ('+ROOM_HANDLE+')';
+  fillSelect($('#setRoom'), ROOMS, CUR_ROOM, null);
+  fillSelect($('#setAcct'), ACCOUNTS, CUR_HANDLE, 'Other account…');
+  $('#setAcctManual').classList.add('hide');
   $('#setAssistant').value = MY_NAME;
-  $('#pillRoom').textContent = ROOM;
+  renderRoomPill();
   $('#resumeBox').classList.add('hide');
   findOpenSession(s=>{
     if(!s) return;
@@ -569,9 +606,14 @@ function openSetup(){
   });
   setTimeout(()=>$('#setStreamer').focus(), 60);
 }
+function renderRoomPill(){
+  const p=$('#pillRoom'); if(!p) return;
+  p.innerHTML = '<b>'+esc(CUR_ROOM)+'</b> · '+esc(CUR_HANDLE)+
+    (SESS&&SESS.streamer?(' · '+esc(SESS.streamer)):'');
+}
 function openWork(){
   showOnly('work');
-  $('#pillRoom').textContent = ROOM+' · '+esc(SESS.streamer||'—');
+  renderRoomPill();
   attachLots();
   clearForm();
   renderChat(false); renderBridge(); probeDymo();
@@ -597,20 +639,30 @@ function bridgeFresh(){
 function bridgeSeen(){
   return !!(bridgeState && bridgeState.lastSeen && (Date.now()-bridgeState.lastSeen < BRIDGE_STALE_MS));
 }
+function bridgeHandle(){ return (bridgeState && bridgeState.handle) || ''; }
+function handleMatches(){
+  const b=norm(bridgeHandle()).replace(/^@/,''), c=norm(CUR_HANDLE).replace(/^@/,'');
+  return !b || !c || b===c;
+}
 function renderBridge(){
-  const fresh=bridgeFresh(), seen=bridgeSeen();
-  $('#ledBridge').className = 'led '+(fresh?'on':(seen?'warn':'off'));
-  $('#pillBridge').title = fresh ? ('bridge online'+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):''))
-                : seen ? 'bridge is running but the room is not live yet'
-                       : 'bridge is not running';
+  const fresh=bridgeFresh(), seen=bridgeSeen(), match=handleMatches();
+  $('#ledBridge').className = 'led '+((fresh&&match)?'on':(seen?'warn':'off'));
+  $('#pillBridge').title = !seen ? 'bridge is not running'
+      : !match ? ('bridge is still on '+bridgeHandle()+' — switching to '+CUR_HANDLE)
+      : fresh  ? ('bridge online on '+bridgeHandle()+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):''))
+               : 'bridge is running but the account is not live yet';
   if(!chatRows.length) renderChat(false);
 }
 function chatEmptyText(){
+  if(bridgeSeen() && !handleMatches())
+    return '<div class="empty">Bridge is still on '+esc(bridgeHandle())+'.<br>'+
+           'Switching to '+esc(CUR_HANDLE)+' — a few seconds.</div>';
   if(bridgeFresh())
-    return '<div class="empty">Bridge online'+(bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):'')+
+    return '<div class="empty">Bridge online on '+esc(bridgeHandle()||CUR_HANDLE)+
+           (bridgeState.viewers?(' · '+bridgeState.viewers+' viewers'):'')+
            '.<br>Waiting for the first chat message…</div>';
   if(bridgeSeen())
-    return '<div class="empty">Bridge is running, but the room is not live yet.<br>'+
+    return '<div class="empty">Bridge is running, but '+esc(CUR_HANDLE)+' is not live yet.<br>'+
            'It connects by itself when the stream starts.</div>';
   return '<div class="empty">Bridge is not connected.<br>Start <b>start.bat</b> on this PC,<br>'+
          'or type the username by hand — everything else works.</div>';
@@ -903,7 +955,7 @@ function textObject(name, value, x, y, w, h, size, bold, align, gray){
 }
 
 function buildLabelXml(rec){
-  const meta = '#'+pad3(rec.n||0)+' · '+ROOM;
+  const meta = '#'+pad3(rec.n||0)+' · '+CUR_ROOM;
   const objs =
     textObject('ITEM', rec.itemName||'',   332, 110, 4460, 380, 11, true,  'Left',  false)+
     textObject('VAR',  rec.variation||'',  332, 500, 4460, 290,  9, false, 'Left',  true)+
@@ -991,7 +1043,7 @@ function printFallback(rec){
     '<div class="i">'+esc(rec.itemName||'')+'</div>'+
     '<div class="v">'+esc(rec.variation||'')+'</div>'+
     '<div class="b"><div class="u">'+esc(rec.user||'')+'</div>'+
-    '<div class="m">#'+pad3(rec.n||0)+' · '+ROOM+'</div></div>'+
+    '<div class="m">#'+pad3(rec.n||0)+' · '+CUR_ROOM+'</div></div>'+
     '</body></html>');
   d.close();
   setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast('Print failed','err',3000); } }, 180);
@@ -1007,7 +1059,7 @@ function reportRows(){
     variation: l.variation||'',
     user: l.user||'',
     time: fmtTime(l.at),
-    room: ROOM
+    room: CUR_ROOM
   }));
 }
 function csvText(){
@@ -1017,7 +1069,7 @@ function csvText(){
   return [head.map(q).join(',')].concat(rows.map(r=>[r.n,r.item,r.variation,r.user,r.time,r.room].map(q).join(','))).join('\r\n');
 }
 function downloadCsv(){
-  const name='streamer_assist_'+ROOM+'_'+(SESS?fmtDate(SESS.startedAt):fmtDate(Date.now()))+'.csv';
+  const name='streamer_assist_'+CUR_ROOM+'_'+(SESS?fmtDate(SESS.startedAt):fmtDate(Date.now()))+'.csv';
   const blob=new Blob(['﻿'+csvText()],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
@@ -1034,7 +1086,7 @@ function openSummary(){
   const money=LOTS.filter(l=>!l.void && typeof l.price==='number').reduce((s,l)=>s+l.price,0);
   const unknown=LOTS.filter(l=>!l.void && l.unknown).length;
 
-  $('#sumTitle').textContent = ROOM+' · '+fmtDate(SESS.startedAt);
+  $('#sumTitle').textContent = CUR_ROOM+' · '+fmtDate(SESS.startedAt);
   $('#sumSub').textContent   = 'Streamer '+(SESS.streamer||'—')+' · assistant '+(SESS.assistant||'—')+
                                ' · '+fmtTime(SESS.startedAt)+'–'+fmtTime(Date.now());
   $('#sumStats').innerHTML =
@@ -1110,6 +1162,38 @@ document.addEventListener('keydown', e=>{
 $('#btnMenu').onclick = ()=>{ if(history.length>1) history.back(); else location.href='index.html'; };
 $('#btnEnd').onclick  = openSummary;
 
+/* ---------- switch the account mid-stream ---------- */
+$('#btnSwitch').onclick = ()=>{
+  const wrap=document.createElement('div');
+  wrap.className='modal';
+  wrap.innerHTML='<div class="box"><h3>Listen to another account</h3>'+
+    '<p class="sub" style="margin:0 0 14px">The bridge switches by itself — the auction log and '+
+    'the numbering of this stream are not affected.</p>'+
+    '<label class="fld">Account</label><select id="swAcct"></select>'+
+    '<input type="text" id="swManual" class="hide" placeholder="@another_account" '+
+      'autocomplete="off" spellcheck="false" style="margin-top:8px">'+
+    '<div style="display:flex;gap:9px;margin-top:16px">'+
+      '<button class="btn primary" id="swOk">Switch</button>'+
+      '<button class="btn" id="swCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  fillSelect(wrap.querySelector('#swAcct'), ACCOUNTS, CUR_HANDLE, 'Other account…');
+  const sel=wrap.querySelector('#swAcct'), man=wrap.querySelector('#swManual');
+  sel.onchange=()=>{ const o=sel.value==='__other'; man.classList.toggle('hide', !o); if(o) man.focus(); };
+  const close=()=>wrap.remove();
+  wrap.querySelector('#swCancel').onclick=close;
+  wrap.onclick=e=>{ if(e.target===wrap) close(); };
+  wrap.querySelector('#swOk').onclick=()=>{
+    let v=sel.value;
+    if(v==='__other'){ v=man.value.trim(); if(v && v[0]!=='@') v='@'+v; }
+    if(!v || v.length<3){ man.focus(); return; }
+    setControl(v);
+    if(SESS) saRef.child('sessions/'+SESS.id+'/handle').set(v);
+    chatRows=[]; renderChat(false); renderBridge();
+    toast('Bridge switching to '+v,'ok',2600);
+    close();
+  };
+};
+
 $('#enterBtn').onclick = ()=>{
   const v=$('#nameInput').value.trim();
   if(v.length<2){ $('#nameInput').focus(); toast('Enter your name','warn'); return; }
@@ -1119,13 +1203,33 @@ $('#enterBtn').onclick = ()=>{
 };
 $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#enterBtn').click(); });
 
+function chosenAccount(){
+  const v=$('#setAcct').value;
+  if(v!=='__other') return v;
+  let m=$('#setAcctManual').value.trim();
+  if(m && m[0]!=='@') m='@'+m;
+  return m;
+}
+$('#setAcct').addEventListener('change', ()=>{
+  const other = $('#setAcct').value==='__other';
+  $('#setAcctManual').classList.toggle('hide', !other);
+  if(other) $('#setAcctManual').focus();
+});
 $('#startBtn').onclick = ()=>{
   const s=$('#setStreamer').value.trim();
+  const room=$('#setRoom').value;
+  const acct=chosenAccount();
+  if(!acct || acct.length<3){ $('#setAcctManual').focus(); toast('Which TikTok account?','warn'); return; }
   if(s.length<2){ $('#setStreamer').focus(); toast('Who is on camera?','warn'); return; }
-  newSession(s);
+  newSession(s, room, acct);
 };
 $('#setStreamer').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#startBtn').click(); });
-$('#resumeBtn').onclick = ()=>{ if(window._openSess){ SESS=window._openSess; rememberSession(); openWork(); } };
+$('#resumeBtn').onclick = ()=>{
+  if(!window._openSess) return;
+  SESS=window._openSess; rememberSession();
+  CUR_HANDLE = SESS.handle || CUR_HANDLE;
+  attachRoom(SESS.room || CUR_ROOM); setControl(CUR_HANDLE); openWork();
+};
 $('#closeOldBtn').onclick = ()=>{
   if(!window._openSess) return;
   saRef.child('sessions/'+window._openSess.id+'/endedAt').set(Date.now())
@@ -1158,14 +1262,16 @@ $('#sumClose').onclick = ()=>{ if(confirm('Close this stream? The report stays a
 (function boot(){
   try{ MY_NAME = localStorage.getItem(LS_NAME)||''; }catch(e){}
   if(!connect()) return;
-  $('#pillRoom').textContent = ROOM;
+  renderRoomPill();
   if(!MY_NAME){ openGate(); return; }
   $('#pillMe').textContent = MY_NAME;
 
   let saved=''; try{ saved=localStorage.getItem(LS_SESS)||''; }catch(e){}
   if(saved){
     loadSession(saved, s=>{
-      if(s && !s.endedAt && s.room===ROOM){ SESS=s; openWork(); }
+      if(s && !s.endedAt && ROOMS.indexOf(s.room)>=0){
+        SESS=s; CUR_HANDLE=s.handle||CUR_HANDLE; attachRoom(s.room||CUR_ROOM); openWork();
+      }
       else openSetup();
     });
   } else openSetup();
