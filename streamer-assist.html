@@ -97,6 +97,13 @@ label.fld{display:block;font-size:11.5px;letter-spacing:.1em;text-transform:uppe
 .pinned{background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:10px}
 .empty{color:var(--faint);font-size:13px;text-align:center;padding:26px 10px;line-height:1.6}
 
+/* auction winner banner */
+.auction{background:#12251a;border:1px solid #1e4c30;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.auction .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ok);font-weight:700}
+.auction .w{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:3px;word-break:break-all}
+.auction .m{font-size:12.5px;color:var(--muted);margin-top:2px}
+.auction .row{display:flex;gap:9px;align-items:center;margin-top:9px;flex-wrap:wrap}
+
 /* center */
 .lotno{font-family:var(--mono);font-size:34px;font-weight:700;letter-spacing:.02em;color:var(--accent)}
 .field{margin-bottom:14px}
@@ -278,6 +285,8 @@ table.rep td.mono{font-family:var(--mono)}
     </div>
     <div class="colbody">
 
+      <div id="auctionBox"></div>
+
       <div class="field">
         <label class="fld">Winner — username</label>
         <div style="display:flex;gap:8px">
@@ -383,7 +392,7 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-09-11a · streamer assist v1.1';
+const BUILD = '2026-09-11b · streamer assist v1.2';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -432,6 +441,7 @@ let pickedItem=null;               // inventory record chosen for the current lo
 let editingId=null;                // lot id being edited
 let lastPrinted=null;              // last saved record (for F2)
 let chatRows=[], chatOff=null, bridgeOff=null, pinnedUser=null;
+let auctionOff=null, auctionRec=null, lastAuctionAt=0;
 let bridgeState={online:false,lastSeen:0};
 let dymoReady=false, dymoTried=false;
 
@@ -483,11 +493,17 @@ function attachRoom(room){
   CUR_ROOM = room;
   if(chatOff){ chatOff(); chatOff=null; }
   if(bridgeOff){ bridgeOff(); bridgeOff=null; }
+  if(auctionOff){ auctionOff(); auctionOff=null; }
   chatRows=[]; bridgeState={online:false,lastSeen:0};
+  auctionRec=null; lastAuctionAt=0; renderAuction();
 
   const bref = saRef.child('bridge/'+room);
   const bh = bref.on('value', snap=>{ bridgeState = snap.val()||{online:false,lastSeen:0}; renderBridge(); });
   bridgeOff = ()=>bref.off('value', bh);
+
+  const aref = saRef.child('auction/'+room);
+  const ah = aref.on('value', snap=>{ onAuction(snap.val()); });
+  auctionOff = ()=>aref.off('value', ah);
 
   const cref = saRef.child('chat/'+room).limitToLast(120);
   const ch = cref.on('child_added', snap=>{
@@ -707,6 +723,39 @@ function renderPin(){
     '<button class="btn small" id="pinUse">use</button><button class="btn small" id="pinDrop">×</button></div></div>';
   $('#pinUse').onclick=()=>setUser(pinnedUser.u, pinnedUser.n);
   $('#pinDrop').onclick=()=>{ pinnedUser=null; renderPin(); };
+}
+
+/* ============================================================
+   TIKTOK'S OWN AUCTION WIDGET
+   The winner is announced outside the chat.  TikTok gives the winner's
+   display name and numeric id; the bridge resolves the @handle from the
+   chat when that person has written something, which bidders normally have.
+   ============================================================ */
+function auctionName(r){ return r ? (r.handle || r.nick || ('id '+r.userId)) : ''; }
+function onAuction(rec){
+  auctionRec = rec || null;
+  renderAuction();
+  if(!rec || !rec.at || rec.at <= lastAuctionAt) return;
+  const first = lastAuctionAt === 0;
+  lastAuctionAt = rec.at;
+  if(first && (Date.now()-rec.at) > 120000) return;   // an old record, not a fresh win
+  beep(true);
+  if(!$('#userInput').value.trim() && rec.handle) setUser(rec.handle, rec.nick||'');
+  toast('Auction winner: '+auctionName(rec), 'ok', 2600);
+}
+function renderAuction(){
+  const box=$('#auctionBox'); if(!box) return;
+  const r=auctionRec;
+  if(!r || !r.at || (Date.now()-r.at) > 900000){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="auction"><div class="k">TikTok auction winner</div>'+
+    '<div class="w">'+esc(auctionName(r))+'</div>'+
+    '<div class="m">'+(r.nick&&r.handle?esc(r.nick)+' · ':'')+
+      (r.price?esc(r.price)+' · ':'')+fmtTime(r.at)+
+      (r.handle?'':' · TikTok gave only the display name — check it against the chat')+'</div>'+
+    '<div class="row"><button class="btn small" id="auUse">Use this name</button>'+
+    '<button class="btn small" id="auHide">Hide</button></div></div>';
+  $('#auUse').onclick=()=>setUser(r.handle||r.nick||'', r.nick||'');
+  $('#auHide').onclick=()=>{ auctionRec=null; renderAuction(); };
 }
 
 /* ============================================================
