@@ -103,6 +103,11 @@ input.q{width:74px;background:var(--bg);border:1.5px solid var(--line);border-ra
   font-family:var(--mono);font-weight:700;font-size:14px;text-align:right;outline:none;transition:.12s}
 input.q:focus{border-color:var(--tab);background:#0b0e13}
 input.q.filled{color:var(--ink)}
+table.grid td.gtot{font-family:var(--mono);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+table.grid td.gtot.tot{background:#11211a;color:var(--ink)}
+table.grid td.gtot.tot.warncase{background:#2c2413;color:var(--warn)}
+table.grid thead th.tot{color:var(--ink)}
+.casewarn{font-size:12px;padding:5px 11px;border-radius:99px;background:#2c2413;border:1px solid #473a1c;color:var(--warn)}
 input.q::placeholder{color:#3d4552;font-weight:500}
 input.q::-webkit-outer-spin-button,input.q::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 input.q[type=number]{-moz-appearance:textfield}
@@ -165,7 +170,8 @@ table.rep td.total{font-weight:700;background:#E9F0F9 !important;color:#101317}
 table.rep tbody tr.flag td.total{background:#FBE7B4 !important}
 table.rep td.lvl0{color:#B3261E;font-weight:700}
 table.rep td.lvl1{color:#B26A00;font-weight:700}
-table.rep td.zeroish{color:#A8B0BC}
+table.rep td.zeroish{color:#E4E8EE}                     /* a zero should barely register */
+
 table.rep tfoot td{background:#E7EDF5;font-family:var(--mono);font-weight:700;color:#101317;text-align:center;
   border-top:2px solid var(--tab);padding:4px 8px;white-space:nowrap}
 table.rep tfoot td.item{text-align:left;font-family:var(--body)}
@@ -224,17 +230,22 @@ const TABS = [
     id: 'op', name: 'OP Japanese', accent: '#d95926', soft: '#FBE7DD', softInk: '#8A3410',
     threshold: false,
     fields: [
+      {k: 'qtyCase',   label: 'QTY / case',      group: '', hint: 'units inside one case', entryOnly: true},
       {k: 'lsCase',    label: 'LS Case',         group: 'Live Stream / Store'},
       {k: 'lsLoose',   label: 'LS Loose',        group: 'Live Stream / Store'},
       {k: 'whLoose',   label: 'WH Loose',        group: 'Arcadia WH'},
       {k: 'whDamaged', label: 'WH Damaged',      group: 'Arcadia WH'},
       {k: 'cannot',    label: 'Cannot Pack',     group: ''},
       {k: 'deliver',   label: 'To be delivered', group: ''}
+    ],
+    totals: [
+      {k: 'totWh', label: 'Total WH', how: 'WH Loose + WH Damaged'},
+      {k: 'totLs', label: 'Total LS', how: 'LS Case \u00d7 QTY / case + LS Loose'}
     ]
   },
   {
     id: 'pj', name: 'Pokemon Japanese', accent: '#3987e5', soft: '#E3EEFB', softInk: '#134079',
-    threshold: true, totalOf: ['wh', 'ls'],
+    threshold: true, totalOf: ['wh', 'ls'], legend: false,
     fields: [
       {k: 'wh',      label: 'WH QTY'},
       {k: 'ls',      label: 'LS QTY'},
@@ -244,7 +255,7 @@ const TABS = [
   },
   {
     id: 'pc', name: 'Pokemon Chinese', accent: '#8b64d6', soft: '#EDE6FA', softInk: '#4B2A87',
-    threshold: true, totalOf: ['wh', 'ls'],
+    threshold: true, totalOf: ['wh', 'ls'], legend: false,
     fields: [
       {k: 'wh',      label: 'WH QTY'},
       {k: 'ls',      label: 'LS QTY'},
@@ -254,11 +265,19 @@ const TABS = [
   }
 ];
 const TAB = {}; TABS.forEach(t => TAB[t.id] = t);
-/* what "quantity" means per tab for the "hide zero" filter — stock actually on hand */
-const STOCK_KEYS = {
-  op: ['lsCase', 'lsLoose', 'whLoose', 'whDamaged'],
-  pj: ['wh', 'ls'],
-  pc: ['wh', 'ls']
+/* ---------------------------------------------------------------------------
+   Total WH / Total LS — the two figures the report is really about.
+   OP Japanese is counted in cases at the live-stream store, so its LS total
+   only comes out right once QTY / case is filled in; everything else is
+   already counted in units.
+   --------------------------------------------------------------------------- */
+const TOTALS = {
+  op: {
+    totWh: it => num(it.v.whLoose) + num(it.v.whDamaged),
+    totLs: it => num(it.v.lsCase) * (num(it.v.qtyCase) || 1) + num(it.v.lsLoose)
+  },
+  pj: { totWh: it => num(it.v.wh), totLs: it => num(it.v.ls) },
+  pc: { totWh: it => num(it.v.wh), totLs: it => num(it.v.ls) }
 };
 const STORE_KEY = 'cps-stockup-v1';
 
@@ -538,9 +557,18 @@ function totalOf(tabId, item) {
   if (!t.totalOf) return null;
   return t.totalOf.reduce((a, k) => a + num(item.v[k]), 0);
 }
-/* units actually on hand — WH + LS for Pokemon, the four stock columns for OP */
+function totalCol(tabId, key, item) {
+  const f = (TOTALS[tabId] || {})[key];
+  return f ? f(item) : 0;
+}
+/* cases entered but nobody has said how many units a case holds — the LS total
+   is still counting cases as single units, so it has to be flagged, not hidden */
+function caseUnconverted(tabId, item) {
+  return tabId === 'op' && num(item.v.lsCase) > 0 && !num(item.v.qtyCase);
+}
+/* units actually on hand = Total WH + Total LS */
 function stockOf(tabId, item) {
-  return (STOCK_KEYS[tabId] || []).reduce((a, k) => a + num(item.v[k]), 0);
+  return totalCol(tabId, 'totWh', item) + totalCol(tabId, 'totLs', item);
 }
 
 /* ============================================================================
@@ -640,18 +668,25 @@ function renderGrid() {
     host.innerHTML = '<div class="empty">Paste item names on the left and they show up here.</div>';
     return;
   }
+  const tots = t.totals || [];
   let head = '<tr><th class="cbx" title="Include / highlight">✓</th><th class="left">Item</th>' +
-    t.fields.map(f => '<th>' + esc(f.label) + '</th>').join('') +
-    (t.totalOf ? '<th>Total</th>' : '') + '<th></th></tr>';
+    t.fields.map(f => '<th' + (f.hint ? ' title="' + esc(f.hint) + '"' : '') + '>' + esc(f.label) + '</th>').join('') +
+    (t.totalOf ? '<th>Total</th>' : '') +
+    tots.map(x => '<th class="tot" title="' + esc(x.how || '') + '">' + esc(x.label) + '</th>').join('') +
+    '<th></th></tr>';
   let body = st.items.map((it, r) => {
     const tot = totalOf(CUR, it);
+    const warn = caseUnconverted(CUR, it);
     return '<tr class="' + (it.checked ? 'on' : '') + (it.dup ? ' dup' : '') + '" data-row="' + r + '">' +
       '<td class="cbx"><input type="checkbox" data-chk="' + r + '"' + (it.checked ? ' checked' : '') + '></td>' +
       '<td class="iname" title="' + esc(it.name) + (it.dup ? ' — duplicate line' : '') + '">' + esc(it.name) + '</td>' +
       t.fields.map((f, c) => '<td><input class="q' + (it.v[f.k] !== undefined && it.v[f.k] !== '' ? ' filled' : '') +
         '" type="number" inputmode="numeric" placeholder="0" data-r="' + r + '" data-c="' + c + '" data-k="' + f.k +
         '" value="' + esc(it.v[f.k] == null ? '' : it.v[f.k]) + '"></td>').join('') +
-      (t.totalOf ? '<td class="mono" style="text-align:right;font-weight:700">' + fmtN(tot) + '</td>' : '') +
+      (t.totalOf ? '<td class="gtot">' + fmtN(tot) + '</td>' : '') +
+      tots.map(x => '<td class="gtot tot' + (warn && x.k === 'totLs' ? ' warncase' : '') + '" data-tot="' + x.k + '"' +
+        (warn && x.k === 'totLs' ? ' title="LS Case is not converted yet — fill in QTY / case"' : '') + '>' +
+        fmtN(totalCol(CUR, x.k, it)) + '</td>').join('') +
       '<td class="del"><button data-del="' + r + '" title="Remove row">×</button></td>' +
     '</tr>';
   }).join('');
@@ -662,10 +697,19 @@ function renderGrid() {
       const it = st.items[+inp.dataset.r]; if (!it) return;
       it.v[inp.dataset.k] = inp.value;
       inp.classList.toggle('filled', inp.value !== '');
+      const tr = inp.closest('tr');
       if (t.totalOf) {
-        const tr = inp.closest('tr'), cell = tr.children[2 + t.fields.length];
+        const cell = tr.children[2 + t.fields.length];
         if (cell) cell.textContent = fmtN(totalOf(CUR, it));
       }
+      const warn = caseUnconverted(CUR, it);
+      $$('td[data-tot]', tr).forEach(td => {
+        td.textContent = fmtN(totalCol(CUR, td.dataset.tot, it));
+        const flag = warn && td.dataset.tot === 'totLs';
+        td.classList.toggle('warncase', flag);
+        if (flag) td.title = 'LS Case is not converted yet — fill in QTY / case';
+        else td.removeAttribute('title');
+      });
       saveState(); scheduleReport();
     });
     inp.addEventListener('keydown', e => {
@@ -707,10 +751,11 @@ function renderCtrls() {
             (st.sort === k ? ' selected' : '') + '>' + esc(SORTS[k].label) + '</option>').join('') +
         '</select></div>';
   }
-  html += '<label class="chk" title="' +
-    (t.totalOf ? 'Leaves out items with WH QTY + LS QTY = 0'
-               : 'Leaves out items with nothing on hand (LS Case + LS Loose + WH Loose + WH Damaged = 0)') +
+  html += '<label class="chk" title="Leaves out items with Total WH + Total LS = 0' +
     '"><input type="checkbox" id="cbZero"' + (st.hideZero ? ' checked' : '') + '> Hide zero-qty items</label>';
+  const unconv = st.items.filter(i => caseUnconverted(CUR, i)).length;
+  if (unconv) html += '<span class="casewarn" title="Their Total LS counts each case as one unit until QTY / case is filled in">' +
+    '\u26a0 ' + unconv + ' row(s) need QTY / case</span>';
   html += '<div class="spacer" style="flex:1"></div><div class="statchips">' +
     '<span class="statchip">Items <b>' + st.items.length + '</b></span>' +
     '<span class="statchip">In report <b>' + rows.length + '</b></span>' +
@@ -823,12 +868,14 @@ function renderReport() {
     return '<tr class="' + (it.checked ? 'flag' : '') + '">' + tds + '</tr>';
   }).join('');
 
-  const legend = '<div class="legend">' +
+  /* the Pokemon tabs read the report at a glance — no legend under the table */
+  const legend = (t.legend === false) ? '<div class="legend"></div>' : ('<div class="legend">' +
     (rows.some(r => r.checked) ? '<span class="lg"><i class="sw" style="background:#FFF6DC"></i> flagged item</span>' : '') +
     (t.threshold ? '<span class="lg"><i class="sw" style="background:#EEF3FA"></i> total qty</span>' +
       '<span class="lg" style="color:#B3261E">■ out of stock</span>' +
       '<span class="lg" style="color:#B26A00">■ critical</span>' : '') +
-    '</div>';
+    '</div>');
+
 
   host.innerHTML = head +
     '<div class="paperwrap"><div class="paper" id="paper">' +
@@ -847,14 +894,19 @@ function renderReport() {
 
 function reportColumns(t) {
   const cols = [{item: true, label: 'ITEM', group: ''}];
+  /* entryOnly fields — QTY / case — are there to make the working totals come
+     out right; they are not part of the sheet anybody reads */
+  const shown = t.fields.filter(f => !f.entryOnly);
   if (t.totalOf) {
-    t.fields.forEach(f => {
+    shown.forEach(f => {
       cols.push({k: f.k, label: f.label, group: ''});
       if (f.k === t.totalOf[t.totalOf.length - 1]) cols.push({total: true, label: 'Total QTY', group: ''});
     });
   } else {
-    t.fields.forEach(f => cols.push({k: f.k, label: f.label, group: f.group || ''}));
+    shown.forEach(f => cols.push({k: f.k, label: f.label, group: f.group || ''}));
   }
+  /* Total WH / Total LS and QTY / case are working columns — they live in the
+     entry grid only. The report sheet stays exactly as it was. */
   return cols;
 }
 
