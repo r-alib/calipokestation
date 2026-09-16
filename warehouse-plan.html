@@ -2,59 +2,1292 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WAREHOUSE PLAN — CALIPOKE STATION</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Warehouse Plan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
-  --border:#262D38; --line:#2C3543; --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
-  --accent:#21C063; --r:14px;
-  --disp:'Space Grotesk',system-ui,sans-serif; --body:'Inter',system-ui,sans-serif;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --accent-d:#18742F;
+  --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --floor:#12161C; --grid-minor:#1E242D; --grid-major:#2C3543;
+  --isl-l:19%; --isl-s:30%; --isl-bl:55%; --isl-bs:46%; --isl-tl:82%; --isl-ts:58%;
+  color-scheme:dark;
 }
-*{box-sizing:border-box} html,body{margin:0;height:100%}
-body{background:var(--bg); color:var(--ink); font-family:var(--body); display:grid; place-items:center; padding:24px}
-.box{width:min(560px,94vw); text-align:center}
-.logo{height:96px; width:auto; max-width:70vw; object-fit:contain; margin:0 auto 6px; display:block; mix-blend-mode:screen}
-.dot{width:16px;height:16px;border-radius:5px;background:var(--accent);box-shadow:0 0 14px var(--accent);display:inline-block}
-.station{font-family:var(--disp); font-weight:700; font-size:15px; letter-spacing:.16em; color:var(--muted); margin:10px 0 26px}
-.icon{width:92px;height:92px;border-radius:26px;background:var(--panel); border:1px solid var(--border);
-  display:grid; place-items:center; font-size:44px; margin:0 auto 20px}
-h1{font-family:var(--disp); font-weight:700; font-size:29px; letter-spacing:.03em; margin:0 0 8px}
-.desc{color:var(--muted); font-size:15px; margin:0 0 26px}
-.tag{display:inline-block; font-family:var(--disp); font-weight:700; font-size:12px; letter-spacing:.18em;
-  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:8px 20px}
-.note{margin-top:30px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r);
-  padding:15px 18px; font-size:13px; color:var(--muted); text-align:left; line-height:1.55}
-.note b{color:var(--ink)}
-.note code{font-family:ui-monospace,Menlo,monospace; color:var(--ink); background:var(--bg); padding:1px 6px; border-radius:5px}
-.back{display:inline-block; margin-top:22px; color:var(--muted); font-size:13.5px; text-decoration:none;
-  border:1px solid var(--line); border-radius:11px; padding:11px 18px}
-.back:hover{color:var(--ink); border-color:var(--faint)}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+*{box-sizing:border-box}
+img{max-width:100%}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--body);
+  font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;color:inherit}
+input,select,textarea{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--raised);border-radius:99px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--line)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-rows:auto 1fr;height:100%;min-height:0}
+header{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:rgba(14,17,22,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
+}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:700;letter-spacing:.02em;font-size:15px}
+.dot{width:11px;height:11px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent);flex:none}
+.brand small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.spacer{flex:1}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 11px;
+  background:var(--panel);border:1px solid var(--border);border-radius:99px;
+  font-size:12.5px;color:var(--muted);white-space:nowrap;
+}
+.pill b{color:var(--ink);font-family:var(--mono);font-weight:700}
+.pill.good{color:var(--ok);border-color:#1d4530}
+.pill.alert{color:var(--err);border-color:#4a2128}
+.pill.alert b{color:var(--err)}
+
+.app{display:grid;grid-template-columns:330px 1fr;min-height:0}
+.rail{background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.rail-scroll{overflow-y:auto;overscroll-behavior:contain;flex:1 1 auto;min-height:0}
+.main{display:grid;grid-template-rows:auto 1fr auto;min-width:0;min-height:0}
+
+/* ---------- rail blocks ---------- */
+section.block{border-bottom:1px solid var(--border);padding:16px}
+.block > h2{
+  margin:0 0 12px;font-family:var(--body);font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint);font-weight:600;
+}
+.row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap}
+.field-ctl{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1 1 0}
+.field-ctl label{font-size:11px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+input[type=text],input[type=number],select{
+  width:100%;min-width:0;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;
+  font-family:var(--mono);font-size:13px;padding:9px 11px;outline:none;transition:.15s;
+}
+select{font-family:var(--body)}
+input:focus,select:focus{border-color:var(--accent)}
+input::placeholder{color:var(--faint)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 14px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--ink);font-family:var(--body);font-weight:600;
+  font-size:13px;white-space:nowrap;transition:.15s;
+}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#06210F}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--err);border-color:#3a2730}
+.btn.danger:hover{background:#1f1417}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.icon{padding:0;width:34px;height:34px;font-size:15px;font-family:var(--mono);flex:none}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.swatches{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sw{width:22px;height:22px;border-radius:7px;border:1.5px solid transparent;padding:0;background:none}
+.sw span{display:block;width:100%;height:100%;border-radius:5px;
+  background:hsl(var(--h) var(--isl-s) var(--isl-l));border:1.5px solid hsl(var(--h) var(--isl-bs) var(--isl-bl))}
+.sw[aria-pressed="true"]{border-color:var(--accent)}
+
+.toggle{display:flex;align-items:center;gap:9px;padding:6px 0;cursor:pointer;font-size:13.5px}
+.toggle input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+
+/* island list */
+.search{margin-bottom:9px}
+.list{max-height:280px;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg)}
+.list-item{
+  display:grid;grid-template-columns:9px 1fr auto;gap:10px;align-items:center;
+  width:100%;text-align:left;padding:7px 11px;background:none;border:0;
+  border-bottom:1px solid var(--border);color:var(--ink);font-family:var(--body);transition:.12s;
+}
+.list-item:last-child{border-bottom:0}
+.list-item:hover{background:var(--panel2)}
+.list-item[aria-selected="true"]{background:#11211a}
+.list-item[aria-selected="true"] .nm{color:var(--accent)}
+.cdot{width:9px;height:9px;border-radius:3px;background:hsl(var(--h) var(--isl-bs) var(--isl-bl))}
+.list-item .nm{font-family:var(--mono);font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-item .mt{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.empty{padding:16px;text-align:center;color:var(--faint);font-size:13px}
+
+.hint{margin:12px 0 0;font-size:12.5px;color:var(--muted);line-height:1.55}
+.hint b{color:var(--ink);font-weight:600}
+kbd{font-family:var(--mono);font-size:10.5px;background:var(--raised);border:1px solid var(--line);
+  border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--muted);margin:0 1px}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  display:flex;align-items:center;gap:7px;padding:9px 14px;flex-wrap:wrap;
+  background:var(--panel);border-bottom:1px solid var(--border);
+}
+.tb-sep{width:1px;height:22px;background:var(--border);margin:0 4px}
+.tb-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.zoom-val{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:46px;text-align:center}
+.drawer-btn{display:none}
+
+/* ---------- stage ---------- */
+.stage{display:grid;grid-template-columns:30px 1fr;grid-template-rows:22px 1fr;min-height:0;min-width:0;background:var(--bg)}
+.corner{border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--panel)}
+.ruler{position:relative;overflow:hidden;background:var(--panel)}
+.ruler-x{border-bottom:1px solid var(--border)}
+.ruler-y{border-right:1px solid var(--border)}
+.ruler-inner{position:absolute;inset:0}
+.tick{position:absolute;font-family:var(--mono);font-size:9.5px;color:var(--faint);font-weight:500}
+.ruler-x .tick{top:4px;transform:translateX(-50%)}
+.ruler-x .tick::after{content:"";position:absolute;left:50%;bottom:-4px;width:1px;height:4px;background:var(--line)}
+.ruler-y .tick{left:0;width:100%;text-align:center;transform:translateY(-50%)}
+
+.pane{overflow:auto;position:relative;background:var(--bg);overscroll-behavior:contain}
+.field{
+  position:relative;margin:26px;background:var(--floor);
+  border:1px solid var(--line);border-radius:4px;
+  box-shadow:0 24px 60px -34px #000;
+  background-image:
+    linear-gradient(to right,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(to right,var(--grid-minor) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--grid-minor) 1px,transparent 1px);
+  background-repeat:repeat;
+  touch-action:none;
+}
+
+.island{
+  position:absolute;border:1.5px solid hsl(var(--h) var(--isl-bs) var(--isl-bl));
+  background:hsl(var(--h) var(--isl-s) var(--isl-l));
+  color:hsl(var(--h) var(--isl-ts) var(--isl-tl));
+  border-radius:3px;cursor:grab;transform-origin:50% 50%;
+  display:flex;align-items:center;justify-content:center;
+  will-change:transform,left,top;
+}
+.island:hover{filter:brightness(1.25)}
+.island.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 0 20px -5px var(--accent);z-index:5;cursor:grabbing}
+.island.collide{border-color:var(--err);box-shadow:0 0 0 2px var(--err);z-index:4}
+.island.collide::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(45deg,transparent 0 4px,rgba(240,82,77,.3) 4px 8px);
+}
+.island.locked{cursor:not-allowed;border-style:dashed}
+.island.dim{opacity:.16}
+.island .lbl{
+  font-family:var(--mono);font-weight:700;letter-spacing:-.03em;
+  white-space:nowrap;pointer-events:none;line-height:1;position:absolute;left:50%;top:50%;
+}
+.nolabels .island .lbl{display:none}
+.island.drag{opacity:.92}
+.marquee{position:absolute;border:1px solid var(--accent);background:rgba(33,192,99,.12);border-radius:3px;pointer-events:none;z-index:20}
+
+/* ---------- status ---------- */
+.status{
+  display:flex;align-items:center;gap:16px;padding:7px 14px;flex-wrap:wrap;
+  background:var(--panel);border-top:1px solid var(--border);
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);
+}
+.status .k{color:var(--faint)}
+.status .warn{color:var(--err);font-weight:700}
+.status .spacer{flex:1 1 auto}
+
+/* ---------- modal ---------- */
+dialog{
+  border:1px solid var(--border);border-radius:var(--r);background:var(--panel);color:var(--ink);
+  padding:0;max-width:min(560px,92vw);width:100%;box-shadow:0 30px 80px -30px #000;font-family:var(--body);
+}
+dialog::backdrop{background:rgba(7,9,12,.72)}
+.dlg-head{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dlg-head h3{margin:0;font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:-.01em}
+.dlg-body{padding:16px 18px}
+.dlg-body p{margin:0 0 12px;font-size:13.5px;color:var(--muted)}
+.dlg-foot{padding:12px 18px 16px;display:flex;gap:9px;justify-content:flex-end}
+textarea{
+  width:100%;height:200px;padding:11px;border:1.5px solid var(--line);border-radius:10px;
+  background:var(--bg);font-family:var(--mono);font-size:11.5px;resize:vertical;outline:none;
+}
+textarea:focus{border-color:var(--accent)}
+#pngBox{max-width:100%;border:1px solid var(--border);border-radius:var(--r-sm);display:block}
+
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(10px);
+  display:flex;align-items:center;gap:11px;padding:13px 16px;border-radius:12px;
+  background:var(--panel2);border:1px solid var(--border);box-shadow:0 16px 40px -16px #000;
+  font-size:14px;color:var(--ink);opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s;z-index:90;
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- narrow ---------- */
+@media (max-width:980px){ .pill.opt{display:none} }
+@media (max-width:880px){
+  .app{grid-template-columns:1fr}
+  .rail{
+    position:fixed;inset:0 auto 0 0;width:min(340px,90vw);z-index:60;
+    transform:translateX(-102%);transition:transform .2s ease;box-shadow:0 0 60px -10px #000;
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .rail.open{transform:none}
+  .drawer-btn{display:inline-flex}
+  .scrim{position:fixed;inset:0;background:rgba(7,9,12,.6);z-index:59}
+  header{padding:9px 12px}
+  .brand{font-size:13.5px}
+}
 </style>
 </head>
 <body>
-  <div class="box">
-    <img class="logo" src="https://i.postimg.cc/VkfXDqWf/images.jpg" alt="" onerror="this.style.display='none';document.getElementById('d').style.display='inline-block'">
-    <span class="dot" id="d" style="display:none"></span>
-    <div class="station">CALIPOKE STATION</div>
-    <div class="icon">🗺️</div>
-    <h1>WAREHOUSE PLAN</h1>
-    <p class="desc">Warehouse map</p>
-    <span class="tag">COMING SOON</span>
-    <div class="note">
-      <b>Placeholder.</b> Replace this file with the real module when it is ready —
-      keep the file name <code>warehouse-plan.html</code> and keep it next to <code>index.html</code>,
-      and the tile in the main menu will open it with no other change.
-      The file name is set in <code>EXTERNAL_MODES</code> at the top of the index.html script.
-      <br><br><b>What the station already gives you:</b> the signed-in name is in
-      <code>localStorage.ps_name</code> (the literal <code>admin</code> means the manager),
-      the company inventory workbook is the one link in <code>INVENTORY_SHEET_URL</code>,
-      and the receiving module caches that catalog in <code>localStorage.rc_catalog_v1</code>
-      (<code>{main:[], pending:[]}</code>) plus assigned barcodes in <code>localStorage.rc_state_v1</code>.
-    </div>
-    <a class="back" href="javascript:window.close()">✕ Close this tab</a>
+<div class="shell">
+<header>
+  <div class="brand">
+    <span class="dot"></span>
+    <div>WAREHOUSE PLAN<small>Calipokehouse · warehouse station</small></div>
   </div>
+  <span class="spacer"></span>
+  <span class="pill opt">islands <b id="hdIslands">0</b></span>
+  <span class="pill opt">cells <b id="hdCells">0</b></span>
+  <span class="pill" id="hdOverlap">—</span>
+</header>
+
+<div class="app">
+  <aside class="rail" id="rail">
+    <div class="rail-scroll">
+      <section class="block">
+        <h2>Field</h2>
+        <div class="row">
+          <div class="field-ctl">
+            <label for="fCols">Columns</label>
+            <input type="number" id="fCols" min="4" max="400" step="1" value="66">
+          </div>
+          <div class="field-ctl">
+            <label for="fRows">Rows</label>
+            <input type="number" id="fRows" min="4" max="400" step="1" value="54">
+          </div>
+          <button class="btn" id="applySize">Apply</button>
+        </div>
+        <label class="toggle"><input type="checkbox" id="optInside" checked> Keep islands inside the field</label>
+        <label class="toggle"><input type="checkbox" id="optCollide" checked> Highlight overlaps</label>
+        <label class="toggle"><input type="checkbox" id="optLabels" checked> Show labels</label>
+      </section>
+
+      <section class="block">
+        <h2>New island</h2>
+        <div class="row">
+          <div class="field-ctl" style="flex:2 1 110px">
+            <label for="nLabel">Name</label>
+            <input type="text" id="nLabel" placeholder="e.g. R-15" maxlength="14">
+          </div>
+          <div class="field-ctl" style="max-width:62px">
+            <label for="nW">W</label>
+            <input type="number" id="nW" min="1" max="200" step="1" value="4">
+          </div>
+          <div class="field-ctl" style="max-width:62px">
+            <label for="nH">H</label>
+            <input type="number" id="nH" min="1" max="200" step="1" value="2">
+          </div>
+        </div>
+        <div class="swatches" id="newSwatches"></div>
+        <button class="btn primary" id="addIsland" style="width:100%;margin-top:10px">Add island</button>
+      </section>
+
+      <section class="block" id="inspector">
+        <h2>Selection</h2>
+        <div id="inspBody"></div>
+      </section>
+
+      <section class="block">
+        <h2>Islands <span id="countBadge" class="mt" style="font-family:'IBM Plex Mono',monospace;color:var(--ink-3);font-weight:500"></span></h2>
+        <input type="text" id="search" class="search" placeholder="Filter by name…">
+        <div class="list" id="list"></div>
+      </section>
+
+      <section class="block">
+        <h2>Layout file</h2>
+        <div class="btn-grid">
+          <button class="btn" id="expJson">Export JSON</button>
+          <button class="btn" id="impJson">Import JSON</button>
+          <button class="btn" id="expPng">Export PNG</button>
+          <button class="btn" id="resetPlan">Reset to plan</button>
+        </div>
+        <button class="btn danger" id="clearAll" style="width:100%;margin-top:6px">Clear the field</button>
+        <p class="hint">Your layout auto-saves in this browser. Export JSON to keep a copy or hand it to someone else.</p>
+      </section>
+
+      <section class="block">
+        <h2>Controls</h2>
+        <p class="hint">
+          <b>Drag</b> an island to move it — it always lands on whole cells.<br>
+          <b>Scroll wheel</b> over an island rotates it 45° per notch.<br>
+          <b>Shift-click</b> adds to the selection; drag on empty floor to box-select.<br>
+          <b>Arrows</b> nudge, <kbd>R</kbd>/<kbd>Shift R</kbd> rotate, <kbd>Del</kbd> remove, <kbd>Ctrl D</kbd> duplicate, <kbd>Ctrl Z</kbd> undo.<br>
+          <b>Ctrl + wheel</b> zooms the floor. Hold <kbd>Alt</kbd> while dragging a diagonal island for half-cell steps.
+        </p>
+      </section>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="toolbar">
+      <button class="btn icon drawer-btn" id="drawerBtn" title="Panel" aria-label="Open panel">☰</button>
+      <span class="tb-label">Zoom</span>
+      <button class="btn icon" id="zoomOut" title="Zoom out">−</button>
+      <span class="zoom-val" id="zoomVal">14 px</span>
+      <button class="btn icon" id="zoomIn" title="Zoom in">+</button>
+      <button class="btn" id="zoomFit">Fit</button>
+      <div class="tb-sep"></div>
+      <span class="tb-label">Selection</span>
+      <button class="btn icon" id="rotL" title="Rotate −45°">⟲</button>
+      <button class="btn icon" id="rotR" title="Rotate +45°">⟳</button>
+      <button class="btn" id="dupBtn">Duplicate</button>
+      <button class="btn danger" id="delBtn">Delete</button>
+      <div class="tb-sep"></div>
+      <button class="btn icon" id="undoBtn" title="Undo">↶</button>
+      <button class="btn icon" id="redoBtn" title="Redo">↷</button>
+      <div class="tb-sep"></div>
+      <button class="btn" id="alignBtn" title="Snap every island back onto whole cells">Re-snap all</button>
+    </div>
+
+    <div class="stage">
+      <div class="corner"></div>
+      <div class="ruler ruler-x" id="rulerX"><div class="ruler-inner" id="rulerXi"></div></div>
+      <div class="ruler ruler-y" id="rulerY"><div class="ruler-inner" id="rulerYi"></div></div>
+      <div class="pane" id="pane">
+        <div class="field" id="field"></div>
+      </div>
+    </div>
+
+    <div class="status">
+      <span><span class="k">cell</span> <span id="stCell">—</span></span>
+      <span><span class="k">islands</span> <span id="stCount">0</span></span>
+      <span><span class="k">selected</span> <span id="stSel">0</span></span>
+      <span><span class="k">cells used</span> <span id="stArea">0</span></span>
+      <span id="stCollide"></span>
+      <span class="spacer"></span>
+      <span id="stSaved" class="k">saved</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head"><h3 id="dlgTitle">Export</h3><button class="btn icon" id="dlgX" aria-label="Close">✕</button></div>
+  <div class="dlg-body" id="dlgBody"></div>
+  <div class="dlg-foot" id="dlgFoot"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileIn" accept="application/json,.json" hidden>
+
+<script>
+(() => {
+"use strict";
+
+/* ====================== data ====================== */
+const PLAN_COLS = 66, PLAN_ROWS = 54;
+const PLAN = [["T-01",6,0,4,8],["A301",12,0,4,2],["A302",16,0,4,2],["A303",20,0,4,2],["A304",24,0,4,2],["B409",28,0,4,4],["B410",32,0,4,4],["A307",36,0,4,1],["A308",40,0,4,1],["A309",44,0,4,2],["A310",48,0,4,2],["A311",52,0,4,2],["A312",56,0,4,2],["A105",36,1,4,1],["A106",40,1,4,1],["A201",12,2,4,2],["A202",16,2,4,2],["A203",20,2,4,2],["A204",24,2,4,2],["A205",36,2,4,2],["A206",40,2,4,2],["A-3",44,2,4,2],["A-4",48,2,4,2],["B-5",52,2,4,2],["B-6",56,2,4,2],["A101",12,4,4,2],["A102",16,4,4,2],["D102",20,4,4,2],["D101",24,4,4,2],["D305",28,4,4,2],["D306",32,4,4,2],["F223",36,4,4,2],["F224",40,4,4,2],["A-1",44,4,4,2],["A-2",48,4,4,2],["B-3",52,4,4,1],["B-4",56,4,4,1],["B-1",52,5,4,1],["B-2",56,5,4,1],["C-3",60,6,2,4],["C-5",62,6,2,4],["B301",64,6,2,4],["T-02",0,8,4,2],["C-4",60,10,2,4],["C-6",62,10,2,4],["B302",64,10,2,4],["R-09",30,12,4,2],["R-10",34,12,4,2],["R-11",38,12,4,2],["R-12",42,12,4,2],["R-13",46,12,4,2],["R-14",50,12,4,2],["R-05",56,14,2,4],["D-1",60,14,1,4],["D-3",61,14,1,4],["D-5",62,14,2,4],["B303",64,14,2,4],["R-01",34,18,2,4],["S-08",36,18,8,2],["S-07",44,18,8,2],["R-03",52,18,2,4],["R-06",56,18,2,4],["D-2",60,18,1,4],["D-4",61,18,1,4],["D-6",62,18,2,4],["B304",64,18,2,4],["S-05",36,20,8,2],["S-06",44,20,8,2],["CT-01",30,22,2,4],["R-07",56,22,2,4],["E-1",60,22,1,4],["E-3",61,22,1,4],["E-5",62,22,2,4],["B305",64,22,2,4],["R-02",34,26,2,4],["S-04",36,26,8,2],["S-03",44,26,8,2],["R-04",52,26,2,4],["R-08",56,26,2,4],["E-2",60,26,1,4],["E-4",61,26,1,4],["E-6",62,26,2,4],["B306",64,26,2,4],["S-01",36,28,8,2],["S-02",44,28,8,2],["F-1",60,30,1,4],["F-3",61,30,1,4],["F-5",62,30,2,4],["B307",64,30,2,4],["F-2",60,34,1,4],["F-4",61,34,1,4],["F-6",62,34,2,4],["B308",64,34,2,4],["B311",60,38,1,4],["B111",61,38,1,4],["B209",62,38,2,4],["B309",64,38,2,4],["B312",60,42,1,4],["B112",61,42,1,4],["B210",62,42,2,4],["B310",64,42,2,4],["",60,46,6,8]];
+
+const HUES = {A:214, B:264, C:302, D:344, E:24, F:48, R:152, S:188, T:2, X:210};
+function hueFor(label){
+  const m = String(label||"").trim().toUpperCase().match(/^([A-Z]+)/);
+  if(!m) return HUES.X;
+  const k = m[1][0];
+  return HUES[k] !== undefined ? HUES[k] : HUES.X;
+}
+const SWATCH_HUES = [214,264,302,344,24,48,152,188,2,210];
+
+let uid = 1;
+const nid = () => "i" + (uid++);
+
+function planIslands(){
+  return PLAN.map(([label,x,y,w,h]) => ({
+    id:nid(), label, w, h, cx:x + w/2, cy:y + h/2, rot:0, hue:hueFor(label), locked:false
+  }));
+}
+
+/* ====================== state ====================== */
+const S = {
+  cols:PLAN_COLS, rows:PLAN_ROWS, cell:14,
+  islands:planIslands(),
+  sel:new Set(),
+  inside:true, collide:true, labels:true,
+  newHue:152,
+  filter:""
+};
+const EPS = 1e-7;
+const KEY = "wtcg.floorplan.v1";
+
+/* ====================== dom ====================== */
+const $ = id => document.getElementById(id);
+const field = $("field"), pane = $("pane");
+const els = new Map();
+
+/* ====================== geometry ====================== */
+function footprint(it){
+  const q = ((it.rot % 360) + 360) % 360;
+  if (q % 90 !== 0) return null;
+  return (q % 180 === 0) ? [it.w, it.h] : [it.h, it.w];
+}
+function halfExtent(it){
+  const a = it.rot * Math.PI / 180;
+  const c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+  return [(it.w*c + it.h*s)/2, (it.w*s + it.h*c)/2];
+}
+/** Snap a centre to the grid: whole cells when square to the field,
+ *  grid intersections (or half-cells with Alt) when diagonal. */
+function snapCentre(it, cx, cy, half){
+  const fp = footprint(it);
+  let step;
+  if (fp){
+    cx = Math.round(cx - fp[0]/2) + fp[0]/2;
+    cy = Math.round(cy - fp[1]/2) + fp[1]/2;
+    step = 1;
+  } else {
+    step = half ? 0.5 : 1;
+    cx = Math.round(cx/step)*step;
+    cy = Math.round(cy/step)*step;
+  }
+  if (S.inside){
+    const [hx,hy] = halfExtent(it);
+    if (2*hx >= S.cols) cx = S.cols/2;
+    else {
+      if (cx - hx < -EPS) cx += Math.ceil((hx - cx)/step - EPS)*step;
+      if (cx + hx > S.cols + EPS) cx -= Math.ceil((cx + hx - S.cols)/step - EPS)*step;
+    }
+    if (2*hy >= S.rows) cy = S.rows/2;
+    else {
+      if (cy - hy < -EPS) cy += Math.ceil((hy - cy)/step - EPS)*step;
+      if (cy + hy > S.rows + EPS) cy -= Math.ceil((cy + hy - S.rows)/step - EPS)*step;
+    }
+  }
+  return [cx, cy];
+}
+function corners(it){
+  const a = it.rot*Math.PI/180, co = Math.cos(a), si = Math.sin(a);
+  const hw = it.w/2, hh = it.h/2;
+  return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y]) =>
+    [it.cx + x*co - y*si, it.cy + x*si + y*co]);
+}
+function project(pts, ax, ay){
+  let mn = Infinity, mx = -Infinity;
+  for (const p of pts){ const d = p[0]*ax + p[1]*ay; if (d<mn) mn=d; if (d>mx) mx=d; }
+  return [mn,mx];
+}
+/** SAT overlap for two oriented boxes. Touching edges do not count. */
+function overlaps(a, b){
+  const A = corners(a), B = corners(b);
+  const axes = [];
+  for (const [p,q] of [[A[0],A[1]],[A[1],A[2]],[B[0],B[1]],[B[1],B[2]]]){
+    const dx = q[0]-p[0], dy = q[1]-p[1], L = Math.hypot(dx,dy) || 1;
+    axes.push([dx/L, dy/L]);
+  }
+  for (const [ax,ay] of axes){
+    const [a0,a1] = project(A,ax,ay), [b0,b1] = project(B,ax,ay);
+    if (Math.min(a1,b1) - Math.max(a0,b0) <= 1e-4) return false;
+  }
+  return true;
+}
+function aabb(it){
+  const [hx,hy] = halfExtent(it);
+  return [it.cx-hx, it.cy-hy, it.cx+hx, it.cy+hy];
+}
+function computeCollisions(){
+  const hit = new Set();
+  if (!S.collide) return hit;
+  const boxes = S.islands.map(aabb);
+  for (let i=0;i<S.islands.length;i++){
+    for (let j=i+1;j<S.islands.length;j++){
+      const A = boxes[i], B = boxes[j];
+      if (A[2] <= B[0]+1e-4 || B[2] <= A[0]+1e-4 || A[3] <= B[1]+1e-4 || B[3] <= A[1]+1e-4) continue;
+      if (overlaps(S.islands[i], S.islands[j])){ hit.add(S.islands[i].id); hit.add(S.islands[j].id); }
+    }
+  }
+  return hit;
+}
+
+/* ====================== rendering ====================== */
+function applyFieldSize(){
+  const c = S.cell;
+  field.style.width  = (S.cols*c) + "px";
+  field.style.height = (S.rows*c) + "px";
+  field.style.backgroundSize =
+    `${c*5}px ${c*5}px, ${c*5}px ${c*5}px, ${c}px ${c}px, ${c}px ${c}px`;
+  $("zoomVal").textContent = c + " px";
+  buildRulers();
+}
+function buildRulers(){
+  const c = S.cell, xi = $("rulerXi"), yi = $("rulerYi");
+  xi.style.width = (S.cols*c) + "px"; yi.style.height = (S.rows*c) + "px";
+  const stepX = c >= 14 ? 5 : (c >= 8 ? 10 : 20);
+  const stepY = c >= 14 ? 5 : (c >= 8 ? 10 : 20);
+  let hx = "";
+  for (let i=0;i<=S.cols;i+=stepX) hx += `<span class="tick" style="left:${i*c}px">${i}</span>`;
+  xi.innerHTML = hx;
+  let hy = "";
+  for (let i=0;i<=S.rows;i+=stepY) hy += `<span class="tick" style="top:${i*c}px">${i}</span>`;
+  yi.innerHTML = hy;
+  syncRulers();
+}
+function syncRulers(){
+  const c = S.cell;
+  $("rulerXi").style.transform = `translateX(${24 - pane.scrollLeft}px)`;
+  $("rulerYi").style.transform = `translateY(${24 - pane.scrollTop}px)`;
+}
+function labelGeom(it){
+  const c = S.cell;
+  const local = (it.w >= it.h) ? 0 : 90;
+  let screen = ((it.rot + local) % 360 + 360) % 360;
+  let ang = local;
+  if (screen > 90.001 && screen < 270.001) ang = local + 180;
+  const long = Math.max(it.w, it.h) * c, thin = Math.min(it.w, it.h) * c;
+  const n = Math.max(1, String(it.label||"").length);
+  const fs = Math.min(thin*0.54, (long*0.88)/(n*0.64), 14);
+  return [ang, fs];
+}
+function place(el, it){
+  const c = S.cell;
+  el.style.left   = ((it.cx - it.w/2)*c) + "px";
+  el.style.top    = ((it.cy - it.h/2)*c) + "px";
+  el.style.width  = (it.w*c) + "px";
+  el.style.height = (it.h*c) + "px";
+  el.style.transform = `rotate(${it.rot}deg)`;
+  const lbl = el.firstElementChild;
+  const [ang, fs] = labelGeom(it);
+  if (fs < 5.2){ lbl.style.display = "none"; }
+  else {
+    lbl.style.display = "";
+    lbl.style.fontSize = fs.toFixed(1) + "px";
+    lbl.style.transform = `translate(-50%,-50%) rotate(${ang}deg)`;
+  }
+}
+function makeEl(it){
+  const el = document.createElement("div");
+  el.className = "island";
+  el.dataset.id = it.id;
+  el.style.setProperty("--h", it.hue);
+  const lbl = document.createElement("span");
+  lbl.className = "lbl";
+  lbl.textContent = it.label;
+  el.appendChild(lbl);
+  return el;
+}
+let collideSet = new Set();
+function render(){
+  const seen = new Set();
+  for (const it of S.islands){
+    seen.add(it.id);
+    let el = els.get(it.id);
+    if (!el){ el = makeEl(it); els.set(it.id, el); field.appendChild(el); }
+    el.style.setProperty("--h", it.hue);
+    if (el.firstElementChild.textContent !== it.label) el.firstElementChild.textContent = it.label;
+    place(el, it);
+    el.classList.toggle("sel", S.sel.has(it.id));
+    el.classList.toggle("locked", !!it.locked);
+    const f = S.filter;
+    el.classList.toggle("dim", !!f && !it.label.toLowerCase().includes(f));
+  }
+  for (const [id, el] of els) if (!seen.has(id)){ el.remove(); els.delete(id); }
+  paintCollisions();
+  renderStatus();
+  renderList();
+  renderInspector();
+}
+function paintCollisions(){
+  collideSet = computeCollisions();
+  for (const [id, el] of els) el.classList.toggle("collide", collideSet.has(id));
+  const n = collideSet.size;
+  $("stCollide").innerHTML = n
+    ? `<span class="warn">${n} overlapping</span>`
+    : (S.collide ? `<span style="color:var(--ok)">no overlaps</span>` : "");
+  const hd = $("hdOverlap");
+  if (!S.collide){ hd.className = "pill"; hd.textContent = "overlap check off"; }
+  else if (n){ hd.className = "pill alert"; hd.innerHTML = `⚠ <b>${n}</b> overlapping`; }
+  else { hd.className = "pill good"; hd.textContent = "no overlaps"; }
+}
+function renderStatus(){
+  const area = S.islands.reduce((a,i)=>a+i.w*i.h,0);
+  $("stCount").textContent = S.islands.length;
+  $("stSel").textContent = S.sel.size;
+  $("stArea").textContent = area;
+  $("countBadge").textContent = `(${S.islands.length})`;
+  $("hdIslands").textContent = S.islands.length;
+  $("hdCells").textContent = area;
+}
+function renderList(){
+  const host = $("list"), f = S.filter;
+  const rows = S.islands
+    .filter(i => !f || i.label.toLowerCase().includes(f))
+    .slice()
+    .sort((a,b) => a.label.localeCompare(b.label, undefined, {numeric:true}));
+  if (!rows.length){ host.innerHTML = `<div class="empty">Nothing matches.</div>`; return; }
+  host.innerHTML = rows.map(i => `
+    <button class="list-item" data-id="${i.id}" aria-selected="${S.sel.has(i.id)}" style="--h:${i.hue}">
+      <span class="cdot"></span>
+      <span class="nm">${esc(i.label) || "—"}</span>
+      <span class="mt">${i.w}×${i.h}${i.rot ? " · " + i.rot + "°" : ""}</span>
+    </button>`).join("");
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+function renderInspector(){
+  const host = $("inspBody");
+  const ids = [...S.sel];
+  if (!ids.length){
+    host.innerHTML = `<p class="hint" style="margin:0">Click an island to edit it. Nothing is selected.</p>`;
+    return;
+  }
+  if (ids.length > 1){
+    host.innerHTML = `
+      <p class="hint" style="margin:0 0 10px"><b>${ids.length} islands</b> selected. Drag any one of them to move the whole group.</p>
+      <div class="btn-grid">
+        <button class="btn" data-act="rotL">Rotate −45°</button>
+        <button class="btn" data-act="rotR">Rotate +45°</button>
+        <button class="btn" data-act="dup">Duplicate</button>
+        <button class="btn danger" data-act="del">Delete</button>
+      </div>
+      <div class="swatches" id="selSwatches"></div>`;
+    paintSwatches($("selSwatches"), null);
+    return;
+  }
+  const it = byId(ids[0]);
+  const fp = footprint(it);
+  const pos = fp ? `col ${(it.cx - fp[0]/2)}, row ${(it.cy - fp[1]/2)}` : `centre ${it.cx}, ${it.cy}`;
+  host.innerHTML = `
+    <div class="row" style="margin-bottom:8px">
+      <div class="field-ctl" style="flex:2 1 110px">
+        <label for="iLabel">Name</label>
+        <input type="text" id="iLabel" maxlength="14" value="${esc(it.label)}">
+      </div>
+      <div class="field-ctl" style="max-width:62px">
+        <label for="iW">W</label>
+        <input type="number" id="iW" min="1" max="200" step="1" value="${it.w}">
+      </div>
+      <div class="field-ctl" style="max-width:62px">
+        <label for="iH">H</label>
+        <input type="number" id="iH" min="1" max="200" step="1" value="${it.h}">
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:6px">
+      <div class="field-ctl">
+        <label for="iRot">Rotation</label>
+        <select id="iRot">${[0,45,90,135,180,225,270,315].map(a=>`<option value="${a}"${a===it.rot?" selected":""}>${a}°</option>`).join("")}</select>
+      </div>
+      <div class="field-ctl" style="justify-content:flex-end">
+        <label>Position</label>
+        <div class="mt" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-2);padding:6px 0">${pos}</div>
+      </div>
+    </div>
+    <div class="swatches" id="selSwatches"></div>
+    <label class="toggle"><input type="checkbox" id="iLock"${it.locked?" checked":""}> Lock in place</label>
+    <div class="btn-grid" style="margin-top:6px">
+      <button class="btn" data-act="dup">Duplicate</button>
+      <button class="btn danger" data-act="del">Delete</button>
+    </div>`;
+  paintSwatches($("selSwatches"), it.hue);
+  $("iLabel").addEventListener("input", e => { it.label = e.target.value; place(els.get(it.id), it); els.get(it.id).firstElementChild.textContent = it.label; renderList(); saveSoon(); });
+  $("iW").addEventListener("change", e => resize(it, +e.target.value, it.h));
+  $("iH").addEventListener("change", e => resize(it, it.w, +e.target.value));
+  $("iRot").addEventListener("change", e => { pushUndo(); it.rot = +e.target.value; reseat(it); render(); save(); });
+  $("iLock").addEventListener("change", e => { it.locked = e.target.checked; render(); save(); });
+}
+function paintSwatches(host, active){
+  if (!host) return;
+  host.innerHTML = SWATCH_HUES.map(h =>
+    `<button type="button" class="sw" style="--h:${h}" data-h="${h}" aria-pressed="${active===h}" aria-label="Colour ${h}"><span></span></button>`).join("");
+}
+function resize(it, w, h){
+  pushUndo();
+  it.w = Math.max(1, Math.min(200, Math.round(w) || 1));
+  it.h = Math.max(1, Math.min(200, Math.round(h) || 1));
+  reseat(it); render(); save();
+}
+function reseat(it){
+  const [cx,cy] = snapCentre(it, it.cx, it.cy, false);
+  it.cx = cx; it.cy = cy;
+}
+const byId = id => S.islands.find(i => i.id === id);
+
+/* ====================== undo ====================== */
+const undoStack = [], redoStack = [];
+function snapshot(){ return JSON.stringify(S.islands); }
+function pushUndo(){
+  undoStack.push(snapshot());
+  if (undoStack.length > 60) undoStack.shift();
+  redoStack.length = 0;
+  refreshUndoBtns();
+}
+function restore(json){
+  S.islands = JSON.parse(json);
+  S.sel = new Set([...S.sel].filter(id => S.islands.some(i => i.id === id)));
+  render(); save();
+}
+function undo(){ if (!undoStack.length) return; redoStack.push(snapshot()); restore(undoStack.pop()); refreshUndoBtns(); }
+function redo(){ if (!redoStack.length) return; undoStack.push(snapshot()); restore(redoStack.pop()); refreshUndoBtns(); }
+function refreshUndoBtns(){ $("undoBtn").disabled = !undoStack.length; $("redoBtn").disabled = !redoStack.length; }
+
+/* ====================== persistence ====================== */
+let saveTimer = null;
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify({
+      cols:S.cols, rows:S.rows, cell:S.cell, islands:S.islands,
+      inside:S.inside, collide:S.collide, labels:S.labels
+    }));
+    flagSaved("saved");
+  }catch(e){ flagSaved("not saved in this browser"); }
+}
+function saveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+function flagSaved(t){ $("stSaved").textContent = t; }
+function load(){
+  let raw = null;
+  try{ raw = localStorage.getItem(KEY); }catch(e){ return false; }
+  if (!raw) return false;
+  try{
+    const d = JSON.parse(raw);
+    if (!d || !Array.isArray(d.islands)) return false;
+    S.cols = d.cols || PLAN_COLS; S.rows = d.rows || PLAN_ROWS; S.cell = d.cell || 14;
+    S.islands = d.islands.map(i => ({...i, id: i.id || nid()}));
+    S.inside = d.inside !== false; S.collide = d.collide !== false; S.labels = d.labels !== false;
+    for (const i of S.islands){ const n = +String(i.id).replace(/\D/g,""); if (n >= uid) uid = n+1; }
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ====================== pointer interaction ====================== */
+function fieldPoint(e){
+  const r = field.getBoundingClientRect();
+  return [(e.clientX - r.left)/S.cell, (e.clientY - r.top)/S.cell];
+}
+let drag = null, marquee = null, marqEl = null;
+
+field.addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const target = e.target.closest(".island");
+  const [px,py] = fieldPoint(e);
+
+  if (!target){
+    if (!e.shiftKey){ S.sel.clear(); }
+    marquee = {x0:px, y0:py, x1:px, y1:py, add:e.shiftKey, base:new Set(S.sel)};
+    marqEl = document.createElement("div");
+    marqEl.className = "marquee";
+    field.appendChild(marqEl);
+    field.setPointerCapture(e.pointerId);
+    render();
+    return;
+  }
+
+  const it = byId(target.dataset.id);
+  if (!it) return;
+  if (e.shiftKey){ S.sel.has(it.id) ? S.sel.delete(it.id) : S.sel.add(it.id); render(); return; }
+  if (!S.sel.has(it.id)){ S.sel.clear(); S.sel.add(it.id); render(); }
+  if (it.locked) return;
+
+  const moving = [...S.sel].map(byId).filter(i => i && !i.locked);
+  if (!moving.length) return;
+  drag = {
+    primary:it, px, py, moved:false,
+    start:moving.map(i => ({it:i, cx:i.cx, cy:i.cy}))
+  };
+  field.setPointerCapture(e.pointerId);
+  moving.forEach(i => els.get(i.id).classList.add("drag"));
+});
+
+field.addEventListener("pointermove", e => {
+  const [px,py] = fieldPoint(e);
+  $("stCell").textContent = `${Math.floor(px)}, ${Math.floor(py)}`;
+
+  if (marquee && marqEl){
+    marquee.x1 = px; marquee.y1 = py;
+    const x = Math.min(marquee.x0,px)*S.cell, y = Math.min(marquee.y0,py)*S.cell;
+    marqEl.style.left = x+"px"; marqEl.style.top = y+"px";
+    marqEl.style.width = Math.abs(px-marquee.x0)*S.cell+"px";
+    marqEl.style.height = Math.abs(py-marquee.y0)*S.cell+"px";
+    return;
+  }
+  if (!drag) return;
+
+  if (!drag.moved){
+    if (Math.abs(px-drag.px)*S.cell < 2 && Math.abs(py-drag.py)*S.cell < 2) return;
+    drag.moved = true; pushUndo();
+  }
+  const p0 = drag.start.find(s => s.it === drag.primary);
+  const [sx,sy] = snapCentre(drag.primary, p0.cx + (px - drag.px), p0.cy + (py - drag.py), e.altKey);
+  const dx = sx - p0.cx, dy = sy - p0.cy;
+  for (const s of drag.start){
+    let nx = s.cx + dx, ny = s.cy + dy;
+    if (s.it !== drag.primary) [nx, ny] = snapCentre(s.it, nx, ny, e.altKey);
+    s.it.cx = nx; s.it.cy = ny;
+    place(els.get(s.it.id), s.it);
+  }
+  paintCollisions();
+});
+
+function endPointer(e){
+  if (marquee && marqEl){
+    const x0 = Math.min(marquee.x0, marquee.x1), x1 = Math.max(marquee.x0, marquee.x1);
+    const y0 = Math.min(marquee.y0, marquee.y1), y1 = Math.max(marquee.y0, marquee.y1);
+    if ((x1-x0)*S.cell > 3 || (y1-y0)*S.cell > 3){
+      S.sel = new Set(marquee.add ? marquee.base : []);
+      for (const it of S.islands){
+        const [ax,ay,bx,by] = aabb(it);
+        if (bx > x0 && ax < x1 && by > y0 && ay < y1) S.sel.add(it.id);
+      }
+    }
+    marqEl.remove(); marqEl = null; marquee = null;
+    render();
+    return;
+  }
+  if (drag){
+    drag.start.forEach(s => els.get(s.it.id)?.classList.remove("drag"));
+    const moved = drag.moved;
+    drag = null;
+    if (moved){ render(); save(); }
+  }
+}
+field.addEventListener("pointerup", endPointer);
+field.addEventListener("pointercancel", endPointer);
+field.addEventListener("pointerleave", () => { $("stCell").textContent = "—"; });
+
+/* ---- wheel: rotate over an island, ctrl+wheel to zoom ---- */
+pane.addEventListener("wheel", e => {
+  if (e.ctrlKey || e.metaKey){
+    e.preventDefault();
+    setZoom(S.cell + (e.deltaY < 0 ? 1 : -1), e);
+    return;
+  }
+  const target = e.target.closest(".island");
+  if (!target) return;
+  const it = byId(target.dataset.id);
+  if (!it || it.locked) return;
+  e.preventDefault();
+  const dir = e.deltaY > 0 ? 1 : -1;
+  const group = S.sel.has(it.id) ? [...S.sel].map(byId).filter(i => i && !i.locked) : [it];
+  if (!S.sel.has(it.id)){ S.sel.clear(); S.sel.add(it.id); }
+  pushUndo();
+  for (const i of group){
+    i.rot = (((i.rot + dir*45) % 360) + 360) % 360;
+    reseat(i);
+  }
+  render(); save();
+}, {passive:false});
+
+pane.addEventListener("scroll", syncRulers, {passive:true});
+
+/* ====================== zoom ====================== */
+function setZoom(px, evt){
+  const next = Math.max(5, Math.min(44, Math.round(px)));
+  if (next === S.cell) return;
+  const r = pane.getBoundingClientRect();
+  const ax = evt ? evt.clientX - r.left : r.width/2;
+  const ay = evt ? evt.clientY - r.top : r.height/2;
+  const gx = (pane.scrollLeft + ax - 24)/S.cell, gy = (pane.scrollTop + ay - 24)/S.cell;
+  S.cell = next;
+  applyFieldSize();
+  for (const it of S.islands){ const el = els.get(it.id); if (el) place(el, it); }
+  pane.scrollLeft = gx*S.cell + 24 - ax;
+  pane.scrollTop  = gy*S.cell + 24 - ay;
+  syncRulers(); save();
+}
+function fitZoom(){
+  const r = pane.getBoundingClientRect();
+  const c = Math.floor(Math.min((r.width - 56)/S.cols, (r.height - 56)/S.rows));
+  S.cell = Math.max(5, Math.min(44, c || 14));
+  applyFieldSize();
+  for (const it of S.islands){ const el = els.get(it.id); if (el) place(el, it); }
+  pane.scrollLeft = 0; pane.scrollTop = 0;
+  syncRulers(); save();
+}
+
+/* ====================== actions ====================== */
+function rotateSel(dir){
+  const g = [...S.sel].map(byId).filter(i => i && !i.locked);
+  if (!g.length) return;
+  pushUndo();
+  for (const i of g){ i.rot = (((i.rot + dir*45) % 360) + 360) % 360; reseat(i); }
+  render(); save();
+}
+function deleteSel(){
+  const g = [...S.sel].filter(id => { const i = byId(id); return i && !i.locked; });
+  if (!g.length) return;
+  pushUndo();
+  S.islands = S.islands.filter(i => !g.includes(i.id));
+  S.sel.clear(); render(); save();
+  toast(g.length === 1 ? "Island deleted" : g.length + " islands deleted");
+}
+function duplicateSel(){
+  const g = [...S.sel].map(byId).filter(Boolean);
+  if (!g.length) return;
+  pushUndo();
+  const copies = g.map(i => {
+    const c = {...i, id:nid(), cx:i.cx + 1, cy:i.cy + 1};
+    reseat(c); return c;
+  });
+  S.islands.push(...copies);
+  S.sel = new Set(copies.map(c => c.id));
+  render(); save();
+}
+function nudge(dx, dy){
+  const g = [...S.sel].map(byId).filter(i => i && !i.locked);
+  if (!g.length) return;
+  pushUndo();
+  for (const i of g){ const [cx,cy] = snapCentre(i, i.cx + dx, i.cy + dy, false); i.cx = cx; i.cy = cy; }
+  render(); save();
+}
+function addIsland(){
+  const label = $("nLabel").value.trim();
+  const w = Math.max(1, Math.min(200, +$("nW").value || 1));
+  const h = Math.max(1, Math.min(200, +$("nH").value || 1));
+  const r = pane.getBoundingClientRect();
+  const it = {
+    id:nid(), label, w, h, rot:0, hue:S.newHue, locked:false,
+    cx:(pane.scrollLeft + r.width/2 - 24)/S.cell,
+    cy:(pane.scrollTop + r.height/2 - 24)/S.cell
+  };
+  reseat(it);
+  pushUndo();
+  S.islands.push(it);
+  S.sel = new Set([it.id]);
+  render(); save();
+  $("nLabel").value = "";
+  $("nLabel").focus();
+}
+function resnapAll(){
+  pushUndo();
+  for (const i of S.islands) reseat(i);
+  render(); save();
+  toast("All islands re-snapped to the grid");
+}
+
+/* ====================== export / import ====================== */
+function layoutJSON(){
+  return JSON.stringify({
+    format:"wtcg-floorplan", version:1, savedAt:new Date().toISOString(),
+    field:{cols:S.cols, rows:S.rows},
+    islands:S.islands.map(i => {
+      const fp = footprint(i);
+      return {
+        name:i.label, w:i.w, h:i.h, rotation:i.rot, hue:i.hue, locked:!!i.locked,
+        centre:{x:i.cx, y:i.cy},
+        cell: fp ? {col:i.cx - fp[0]/2, row:i.cy - fp[1]/2} : null
+      };
+    })
+  }, null, 2);
+}
+function importJSON(text){
+  const d = JSON.parse(text);
+  if (!d || !Array.isArray(d.islands)) throw new Error("No islands in that file.");
+  pushUndo();
+  if (d.field){ S.cols = +d.field.cols || S.cols; S.rows = +d.field.rows || S.rows; }
+  S.islands = d.islands.map(o => {
+    const w = Math.max(1, +o.w || 1), h = Math.max(1, +o.h || 1);
+    const it = {
+      id:nid(), label:String(o.name ?? o.label ?? ""), w, h,
+      rot:((+o.rotation || 0) % 360 + 360) % 360,
+      hue:(o.hue !== undefined ? +o.hue : hueFor(o.name)),
+      locked:!!o.locked,
+      cx:o.centre ? +o.centre.x : ((o.cell ? +o.cell.col : 0) + w/2),
+      cy:o.centre ? +o.centre.y : ((o.cell ? +o.cell.row : 0) + h/2)
+    };
+    return it;
+  });
+  S.sel.clear();
+  $("fCols").value = S.cols; $("fRows").value = S.rows;
+  applyFieldSize(); render(); save();
+  toast(`Loaded ${S.islands.length} islands`);
+}
+async function offerFile(filename, data){
+  if (window.claude && window.claude.use){
+    try{
+      const dl = await claudeUse("downloads");
+      if (dl){ await dl.save({filename, data}); toast("Saved " + filename); return true; }
+    }catch(err){
+      if (err && err.code === "declined") return true;
+    }
+    return false;
+  }
+  try{
+    const blob = data instanceof Blob ? data : new Blob([data], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast("Saved " + filename);
+    return true;
+  }catch(e){ return false; }
+}
+function claudeUse(name){
+  try{ return window.claude && window.claude.use ? window.claude.use(name) : Promise.resolve(null); }
+  catch(e){ return Promise.resolve(null); }
+}
+async function exportJson(){
+  const text = layoutJSON();
+  if (await offerFile("floor-plan.json", text)) return;
+  openDialog("Layout JSON",
+    `<p>Copy this and keep it somewhere safe — paste it back through <b>Import JSON</b> to restore the layout.</p>
+     <textarea id="dlgText" readonly>${esc(text)}</textarea>`,
+    [{label:"Copy", primary:true, act(){ copyText(text); }}, {label:"Close", act:closeDialog}]);
+  setTimeout(() => $("dlgText")?.select(), 30);
+}
+function renderPNG(scale){
+  const c = document.createElement("canvas");
+  const cell = 18, pad = 24;
+  c.width = (S.cols*cell + pad*2)*scale;
+  c.height = (S.rows*cell + pad*2)*scale;
+  const g = c.getContext("2d");
+  g.scale(scale, scale);
+  g.fillStyle = "#0E1116"; g.fillRect(0,0,c.width,c.height);
+  g.translate(pad, pad);
+  g.fillStyle = "#12161C"; g.fillRect(0,0,S.cols*cell,S.rows*cell);
+  g.lineWidth = 1;
+  for (let x=0;x<=S.cols;x++){
+    g.strokeStyle = x % 5 === 0 ? "#2C3543" : "#1E242D";
+    g.beginPath(); g.moveTo(x*cell+.5,0); g.lineTo(x*cell+.5,S.rows*cell); g.stroke();
+  }
+  for (let y=0;y<=S.rows;y++){
+    g.strokeStyle = y % 5 === 0 ? "#2C3543" : "#1E242D";
+    g.beginPath(); g.moveTo(0,y*cell+.5); g.lineTo(S.cols*cell,y*cell+.5); g.stroke();
+  }
+  for (const it of S.islands){
+    g.save();
+    g.translate(it.cx*cell, it.cy*cell);
+    g.rotate(it.rot*Math.PI/180);
+    const w = it.w*cell, h = it.h*cell;
+    g.fillStyle = `hsl(${it.hue} 30% 19%)`;
+    g.strokeStyle = `hsl(${it.hue} 46% 55%)`;
+    g.lineWidth = 1.5;
+    g.fillRect(-w/2,-h/2,w,h);
+    g.strokeRect(-w/2,-h/2,w,h);
+    if (it.label){
+      const local = (it.w >= it.h) ? 0 : 90;
+      let screen = ((it.rot + local) % 360 + 360) % 360;
+      let ang = local;
+      if (screen > 90.001 && screen < 270.001) ang = local + 180;
+      const long = Math.max(w,h), thin = Math.min(w,h);
+      const fs = Math.min(thin*0.54, (long*0.88)/(it.label.length*0.64), 14);
+      if (fs >= 5){
+        g.rotate(ang*Math.PI/180);
+        g.fillStyle = `hsl(${it.hue} 58% 82%)`;
+        g.font = `700 ${fs.toFixed(1)}px "JetBrains Mono", ui-monospace, monospace`;
+        g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(it.label, 0, 0);
+      }
+    }
+    g.restore();
+  }
+  return c;
+}
+function exportPng(){
+  const canvas = renderPNG(2);
+  canvas.toBlob(async blob => {
+    if (!blob) return;
+    if (await offerFile("floor-plan.png", blob)) return;
+    const url = URL.createObjectURL(blob);
+    openDialog("Floor plan image",
+      `<p>Right-click (or long-press) the image and choose <b>Save image</b>.</p>
+       <img id="pngBox" alt="Floor plan" src="${url}">`,
+      [{label:"Close", primary:true, act(){ closeDialog(); URL.revokeObjectURL(url); }}]);
+  }, "image/png");
+}
+function copyText(t){
+  try{
+    navigator.clipboard.writeText(t).then(() => toast("Copied to clipboard"), () => toast("Select the text and copy it"));
+  }catch(e){ toast("Select the text and copy it"); }
+}
+
+/* ====================== dialog + toast ====================== */
+const dlg = $("dlg");
+function openDialog(title, bodyHTML, buttons){
+  $("dlgTitle").textContent = title;
+  $("dlgBody").innerHTML = bodyHTML;
+  const foot = $("dlgFoot"); foot.innerHTML = "";
+  (buttons||[]).forEach(b => {
+    const el = document.createElement("button");
+    el.className = "btn" + (b.primary ? " primary" : "") + (b.danger ? " danger" : "");
+    el.textContent = b.label;
+    el.addEventListener("click", b.act);
+    foot.appendChild(el);
+  });
+  if (!dlg.open) dlg.showModal();
+}
+function closeDialog(){ if (dlg.open) dlg.close(); }
+$("dlgX").addEventListener("click", closeDialog);
+
+let toastTimer;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("on"), 1900);
+}
+
+/* ====================== wiring ====================== */
+$("applySize").addEventListener("click", () => {
+  const c = Math.max(4, Math.min(400, +$("fCols").value || S.cols));
+  const r = Math.max(4, Math.min(400, +$("fRows").value || S.rows));
+  pushUndo();
+  S.cols = c; S.rows = r;
+  $("fCols").value = c; $("fRows").value = r;
+  applyFieldSize();
+  if (S.inside) for (const i of S.islands) reseat(i);
+  render(); save();
+});
+$("optInside").addEventListener("change", e => { S.inside = e.target.checked; save(); });
+$("optCollide").addEventListener("change", e => { S.collide = e.target.checked; paintCollisions(); save(); });
+$("optLabels").addEventListener("change", e => { S.labels = e.target.checked; document.body.classList.toggle("nolabels", !S.labels); save(); });
+$("addIsland").addEventListener("click", addIsland);
+$("nLabel").addEventListener("keydown", e => { if (e.key === "Enter") addIsland(); });
+$("search").addEventListener("input", e => { S.filter = e.target.value.trim().toLowerCase(); render(); });
+
+$("zoomIn").addEventListener("click", () => setZoom(S.cell + 2));
+$("zoomOut").addEventListener("click", () => setZoom(S.cell - 2));
+$("zoomFit").addEventListener("click", fitZoom);
+$("rotL").addEventListener("click", () => rotateSel(-1));
+$("rotR").addEventListener("click", () => rotateSel(1));
+$("dupBtn").addEventListener("click", duplicateSel);
+$("delBtn").addEventListener("click", deleteSel);
+$("undoBtn").addEventListener("click", undo);
+$("redoBtn").addEventListener("click", redo);
+$("alignBtn").addEventListener("click", resnapAll);
+
+$("expJson").addEventListener("click", exportJson);
+$("expPng").addEventListener("click", exportPng);
+$("impJson").addEventListener("click", () => {
+  openDialog("Import layout",
+    `<p>Choose a JSON file exported from this planner, or paste its contents below.</p>
+     <button class="btn" id="pickFile" style="margin-bottom:10px">Choose file…</button>
+     <textarea id="dlgText" placeholder="Paste layout JSON here…"></textarea>`,
+    [{label:"Load", primary:true, act(){
+        try{ importJSON($("dlgText").value); closeDialog(); }
+        catch(err){ toast("That JSON could not be read"); }
+      }},
+     {label:"Cancel", act:closeDialog}]);
+  $("pickFile").addEventListener("click", () => $("fileIn").click());
+});
+$("fileIn").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{ importJSON(String(rd.result)); closeDialog(); }
+    catch(err){ toast("That file could not be read"); }
+  };
+  rd.readAsText(f);
+  e.target.value = "";
+});
+$("resetPlan").addEventListener("click", () => {
+  openDialog("Reset to the original plan",
+    `<p>This replaces everything on the field with the ${PLAN.length} islands from the Excel floor plan.</p>`,
+    [{label:"Reset", primary:true, act(){
+        pushUndo();
+        S.cols = PLAN_COLS; S.rows = PLAN_ROWS;
+        $("fCols").value = S.cols; $("fRows").value = S.rows;
+        S.islands = planIslands(); S.sel.clear();
+        applyFieldSize(); render(); save(); closeDialog();
+        toast("Original plan restored");
+      }},
+     {label:"Cancel", act:closeDialog}]);
+});
+$("clearAll").addEventListener("click", () => {
+  openDialog("Clear the field",
+    `<p>Remove all ${S.islands.length} islands and start from an empty grid?</p>`,
+    [{label:"Clear", danger:true, act(){
+        pushUndo(); S.islands = []; S.sel.clear(); render(); save(); closeDialog();
+        toast("Field cleared");
+      }},
+     {label:"Cancel", act:closeDialog}]);
+});
+
+$("list").addEventListener("click", e => {
+  const b = e.target.closest(".list-item"); if (!b) return;
+  const id = b.dataset.id;
+  if (e.shiftKey) S.sel.has(id) ? S.sel.delete(id) : S.sel.add(id);
+  else S.sel = new Set([id]);
+  render();
+  const it = byId(id);
+  if (it){
+    const r = pane.getBoundingClientRect();
+    pane.scrollLeft = it.cx*S.cell + 24 - r.width/2;
+    pane.scrollTop  = it.cy*S.cell + 24 - r.height/2;
+  }
+});
+$("inspector").addEventListener("click", e => {
+  const sw = e.target.closest(".sw");
+  if (sw){
+    const h = +sw.dataset.h;
+    const g = [...S.sel].map(byId).filter(Boolean);
+    if (g.length){ pushUndo(); g.forEach(i => i.hue = h); render(); save(); }
+    return;
+  }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act;
+  if (a === "rotL") rotateSel(-1);
+  if (a === "rotR") rotateSel(1);
+  if (a === "dup") duplicateSel();
+  if (a === "del") deleteSel();
+});
+
+document.addEventListener("keydown", e => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod && e.key.toLowerCase() === "z"){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && e.key.toLowerCase() === "y"){ e.preventDefault(); redo(); return; }
+  if (mod && e.key.toLowerCase() === "d"){ e.preventDefault(); duplicateSel(); return; }
+  if (mod && e.key.toLowerCase() === "a"){ e.preventDefault(); S.sel = new Set(S.islands.map(i=>i.id)); render(); return; }
+  if (e.key === "Delete" || e.key === "Backspace"){ e.preventDefault(); deleteSel(); return; }
+  if (e.key === "Escape"){ S.sel.clear(); render(); return; }
+  if (e.key.toLowerCase() === "r"){ e.preventDefault(); rotateSel(e.shiftKey ? -1 : 1); return; }
+  const step = e.shiftKey ? 5 : 1;
+  if (e.key === "ArrowLeft"){ e.preventDefault(); nudge(-step,0); }
+  if (e.key === "ArrowRight"){ e.preventDefault(); nudge(step,0); }
+  if (e.key === "ArrowUp"){ e.preventDefault(); nudge(0,-step); }
+  if (e.key === "ArrowDown"){ e.preventDefault(); nudge(0,step); }
+});
+
+/* drawer for narrow screens */
+let scrim = null;
+$("drawerBtn").addEventListener("click", () => {
+  const rail = $("rail");
+  const open = rail.classList.toggle("open");
+  if (open){
+    scrim = document.createElement("div");
+    scrim.className = "scrim";
+    scrim.addEventListener("click", () => { rail.classList.remove("open"); scrim.remove(); scrim = null; });
+    document.body.appendChild(scrim);
+  } else if (scrim){ scrim.remove(); scrim = null; }
+});
+
+/* ====================== boot ====================== */
+const hadSave = load();
+$("fCols").value = S.cols; $("fRows").value = S.rows;
+$("optInside").checked = S.inside;
+$("optCollide").checked = S.collide;
+$("optLabels").checked = S.labels;
+document.body.classList.toggle("nolabels", !S.labels);
+paintSwatches($("newSwatches"), S.newHue);
+$("newSwatches").addEventListener("click", e => {
+  const b = e.target.closest(".sw"); if (!b) return;
+  S.newHue = +b.dataset.h;
+  [...$("newSwatches").children].forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.h === S.newHue)));
+});
+applyFieldSize();
+render();
+refreshUndoBtns();
+flagSaved(hadSave ? "restored" : "saved");
+requestAnimationFrame(() => { if (!hadSave) fitZoom(); });
+
+window.addEventListener("resize", syncRulers);
+})();
+</script>
 </body>
 </html>

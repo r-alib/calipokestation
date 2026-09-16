@@ -962,7 +962,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-15a · supplier tracker mode';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-16a · warehouse plan mode';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1612,7 +1612,7 @@ const MODES=[
   {icon:'🧾', name:'SUPPLIER TRACKER',  desc:'Supplier orders and shipments — read-only, password protected', ext:'supplier', ready:true},
   {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
   {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
-  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Warehouse map', ext:'plan'}
+  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Plan the floor — move and rotate racks, tables and stations', ext:'plan', ready:true}
 ];
 function openExternal(key){
   const f=EXTERNAL_MODES[key]; if(!f) return;
