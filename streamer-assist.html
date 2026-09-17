@@ -471,7 +471,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-17a · streamer assist v1.3';
+const BUILD = '2026-09-17b · streamer assist v1.3.1';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -1353,7 +1353,7 @@ function rpOffer(list, note){
   $('#rpChoice').innerHTML='<div class="card" style="padding:12px"><div class="sub" style="font-size:12.5px;margin-bottom:7px">'+
     esc(note)+' — pick one:</div>'+
     list.map((it,i)=>'<button class="btn small" style="display:block;width:100%;text-align:left;margin-bottom:5px" data-i="'+i+'">'+
-      esc(it.name)+(it.variation&&norm(it.variation)!=='default'?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+
+      esc(it.name)+(it.variation?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+
       '</button>').join('')+
     '<button class="btn small" id="rpCancel">Cancel</button></div>';
   $$('#rpChoice button[data-i]').forEach(b=>b.onclick=()=>{ $('#rpChoice').innerHTML=''; rpAdd(list[+b.dataset.i]); });
@@ -1371,7 +1371,9 @@ function rpUnknown(code){
 }
 function rpAdd(it, unknown){
   if(!it) return;
-  const variation = norm(it.variation)==='default' ? '' : (it.variation||'');
+  /* the report shows the variation exactly as the catalogue has it — "Default"
+     included; it is a data column, not decoration */
+  const variation = (it.variation||'').trim();
   const price = unknown ? null : priceFor(it.name, it.variation);
   RP.rows.push({
     lot: RP.mode==='lot' ? RP.curLot : null,
@@ -1580,6 +1582,9 @@ document.addEventListener('keydown', e=>{
 
   if(onReport){
     if(e.key==='Enter'){
+      /* the scan field has its own Enter handler — if the scanner typed into it,
+         let that one do the work, otherwise the row would be added twice */
+      if(e.target===$('#rpScan')){ burst={txt:'',last:0,start:0,target:null,before:''}; return; }
       const fast=burstIsScan(now);
       if(fast){
         e.preventDefault();
