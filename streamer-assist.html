@@ -187,6 +187,10 @@ table.rep td.mono{font-family:var(--mono)}
 .rplot .n{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent)}
 .rplot .m{font-size:12.5px;color:var(--muted)}
 .rplot.cur{background:#12251a}
+.rptarget{display:flex;align-items:center;gap:11px;flex:none;background:#2b2412;border:1px solid #5a4a1c;
+  border-radius:11px;padding:9px 13px;font-size:13.5px;color:var(--warn)}
+.rptarget b{font-family:var(--mono)}
+.lotnow{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--accent)}
 table.rpsum{width:100%;border-collapse:collapse;font-size:13.5px}
 table.rpsum th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
   padding:9px 13px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
@@ -420,6 +424,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
     <input type="text" id="rpScan" placeholder="Scan a barcode…" autocomplete="off" spellcheck="false">
     <button class="btn primary" id="rpNextLot" title="F4, or Enter on an empty field">Next lot →</button>
   </div>
+  <div id="rpTarget" class="rptarget hide"></div>
   <div id="rpChoice" class="rpchoice"></div>
 
   <div class="rpstats" id="rpStats"></div>
@@ -471,7 +476,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-17b · streamer assist v1.3.1';
+const BUILD = '2026-09-17c · streamer assist v1.4';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -1242,7 +1247,11 @@ function stat(v,k){ return '<div class="stat"><div class="v">'+esc(v)+'</div><di
    wins — the same rule as a VLOOKUP down that column.
    Nothing here touches the stream log.
    ============================================================ */
-let RP   = { mode:'item', rows:[], curLot:1, startedAt:0 };
+/* lotCount = how many lots exist (an empty one is still a lot, it shows up in
+   the list the moment "Next lot" is pressed)
+   curLot   = the lot scans go into — normally the last one, but the operator
+              can jump back to an earlier lot to add a forgotten item */
+let RP   = { mode:'item', rows:[], curLot:1, lotCount:1, startedAt:0 };
 let COST = null;                 // norm(key) -> price, first occurrence only
 let costAt = 0, costLoading = false;
 
@@ -1318,7 +1327,13 @@ function rpSave(){ try{ localStorage.setItem(LS_REPORT, JSON.stringify(RP)); }ca
 function rpLoadState(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_REPORT)||'null');
-    if(o && Array.isArray(o.rows)) RP={mode:o.mode==='lot'?'lot':'item', rows:o.rows, curLot:o.curLot||1, startedAt:o.startedAt||0};
+    if(o && Array.isArray(o.rows)){
+      const maxRow = o.rows.reduce((m,r)=>Math.max(m, r.lot||0), 0);
+      RP={ mode:o.mode==='lot'?'lot':'item', rows:o.rows,
+           curLot:o.curLot||1,
+           lotCount:Math.max(o.lotCount||0, o.curLot||1, maxRow),
+           startedAt:o.startedAt||0 };
+    }
   }catch(e){}
 }
 function rpOpen(){
@@ -1385,27 +1400,34 @@ function rpAdd(it, unknown){
   $('#rpScan').focus();
   const body=$('#rpBodyScroll')||$('.rpbody'); if(body) body.scrollTop=body.scrollHeight;
 }
+function rpLotSize(l){ return RP.rows.filter(r=>r.lot===l).length; }
 function rpNextLot(){
   if(RP.mode!=='lot') return;
-  const inLot=RP.rows.filter(r=>r.lot===RP.curLot).length;
-  if(!inLot){ toast('Scan at least one item into this lot','warn',1800); return; }
-  RP.curLot++; rpSave(); rpRender();
-  toast('Lot '+pad3(RP.curLot)+' started','ok',1400);
+  if(!rpLotSize(RP.lotCount)){
+    if(RP.curLot!==RP.lotCount){ rpGoLot(RP.lotCount); return; }   // just jump to the empty one
+    toast('Lot '+pad3(RP.lotCount)+' is still empty','warn',1800); return;
+  }
+  RP.lotCount++; RP.curLot=RP.lotCount;
+  rpSave(); rpRender();
   $('#rpScan').focus();
+}
+function rpGoLot(l){
+  RP.curLot=l; rpSave(); rpRender(); $('#rpScan').focus();
+}
+function rpDropLot(l){
+  if(rpLotSize(l)) return;                       // only an empty lot can go
+  RP.rows.forEach(r=>{ if(r.lot>l) r.lot--; });
+  RP.lotCount=Math.max(1, RP.lotCount-1);
+  RP.curLot=Math.min(RP.curLot>l?RP.curLot-1:RP.curLot, RP.lotCount);
+  rpSave(); rpRender(); $('#rpScan').focus();
 }
 function rpDel(i){
   RP.rows.splice(i,1);
-  if(RP.mode==='lot'){
-    const used=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
-    const remap={}; used.forEach((l,idx)=>remap[l]=idx+1);
-    RP.rows.forEach(r=>{ r.lot=remap[r.lot]; });
-    RP.curLot = used.length ? used.length : 1;
-  }
   rpSave(); rpRender();
 }
 function rpSetMode(m){
   if(RP.rows.length){ toast('Clear the list first to change the numbering','warn',2600); return; }
-  RP.mode=m; RP.curLot=1; rpSave(); rpRender(); $('#rpScan').focus();
+  RP.mode=m; RP.curLot=1; RP.lotCount=1; rpSave(); rpRender(); $('#rpScan').focus();
 }
 
 /* ---------- aggregation ---------- */
@@ -1423,9 +1445,11 @@ function rpSummaryRows(){
 function rpTotals(){
   const items=RP.rows.length;
   const cost=RP.rows.reduce((s,r)=>s+(r.price||0),0);
-  const lots=RP.mode==='lot' ? [...new Set(RP.rows.map(r=>r.lot))].length : 0;
+  const lots=RP.mode==='lot' ? RP.lotCount : 0;
+  let empty=0;
+  if(RP.mode==='lot') for(let l=1;l<=RP.lotCount;l++) if(!rpLotSize(l)) empty++;
   const noPrice=RP.rows.filter(r=>r.price==null).length;
-  return {items, cost, lots, noPrice};
+  return {items, cost, lots, empty, noPrice};
 }
 
 /* ---------- render ---------- */
@@ -1440,7 +1464,16 @@ function rpRender(){
     '<div class="rpstat"><div class="v">'+t.items+'</div><div class="k">items</div></div>'+
     (RP.mode==='lot' ? '<div class="rpstat"><div class="v">'+t.lots+'</div><div class="k">lots</div></div>' : '')+
     '<div class="rpstat"><div class="v">'+money(t.cost)+'</div><div class="k">total cost</div></div>'+
+    (t.empty ? '<div class="rpstat"><div class="v" style="color:var(--warn)">'+t.empty+'</div><div class="k">empty lots</div></div>' : '')+
     (t.noPrice ? '<div class="rpstat"><div class="v" style="color:var(--warn)">'+t.noPrice+'</div><div class="k">no price</div></div>' : '');
+
+  const b=$('#rpTarget');
+  if(RP.mode==='lot' && RP.curLot!==RP.lotCount){
+    b.classList.remove('hide');
+    b.innerHTML='<span>Scanning into <b>LOT '+pad3(RP.curLot)+'</b> — an earlier lot</span>'+
+      '<button class="btn small" id="rpBackLot">→ back to LOT '+pad3(RP.lotCount)+'</button>';
+    $('#rpBackLot').onclick=()=>rpGoLot(RP.lotCount);
+  } else b.classList.add('hide');
 
   rpRenderList();
   rpRenderSummary();
@@ -1465,17 +1498,24 @@ function rpRenderList(){
   if(RP.mode==='item'){
     RP.rows.forEach((r,i)=>{ html+=rpItemRow(r,i,i+1); });
   }else{
-    const lots=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
-    lots.forEach(l=>{
+    for(let l=1;l<=RP.lotCount;l++){
       const rows=RP.rows.map((r,i)=>({r,i})).filter(x=>x.r.lot===l);
       const sum=rows.reduce((s,x)=>s+(x.r.price||0),0);
-      html+='<div class="rplot'+(l===RP.curLot?' cur':'')+'"><span class="n">LOT '+pad3(l)+'</span>'+
-        '<span class="m">'+rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)+'</span></div>';
+      const active=(l===RP.curLot);
+      html+='<div class="rplot'+(active?' cur':'')+'"><span class="n">LOT '+pad3(l)+'</span>'+
+        '<span class="m">'+(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty')+'</span>'+
+        '<div class="spacer" style="flex:1"></div>'+
+        (active ? '<span class="lotnow">scanning here</span>'
+                : '<button class="btn small" data-go="'+l+'">+ Scan here</button>')+
+        (rows.length ? '' : '<button class="btn small" data-droplot="'+l+'" title="Remove this empty lot">×</button>')+
+        '</div>';
       rows.forEach(x=>{ html+=rpItemRow(x.r, x.i, null); });
-    });
+    }
   }
   box.innerHTML=html;
   $$('#rpList [data-del]').forEach(b=>b.onclick=()=>rpDel(+b.dataset.del));
+  $$('#rpList [data-go]').forEach(b=>b.onclick=()=>rpGoLot(+b.dataset.go));
+  $$('#rpList [data-droplot]').forEach(b=>b.onclick=()=>rpDropLot(+b.dataset.droplot));
 }
 function rpRenderSummary(){
   const rows=rpSummaryRows(), t=rpTotals();
@@ -1500,9 +1540,10 @@ function rpRenderSummary(){
 function rpListAoa(){
   const head=[['#','Item','Variation','Price']];
   if(RP.mode==='item') return head.concat(RP.rows.map((r,i)=>[i+1, r.name, r.variation, r.price==null?'':r.price]));
-  const lots=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
   const out=head.slice();
-  lots.forEach(l=>{ RP.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, r.price==null?'':r.price])); });
+  for(let l=1;l<=RP.lotCount;l++){
+    RP.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, r.price==null?'':r.price]));
+  }
   return out;
 }
 function rpSummaryAoa(){
@@ -1545,7 +1586,7 @@ $('#rpPrices').onclick   = ()=>costFetch(true);
 $('#rpClear').onclick    = ()=>{
   if(!RP.rows.length){ RP.startedAt=Date.now(); return; }
   if(!confirm('Delete the whole list? Download the report first if you need it.')) return;
-  RP={mode:RP.mode, rows:[], curLot:1, startedAt:Date.now()};
+  RP={mode:RP.mode, rows:[], curLot:1, lotCount:1, startedAt:Date.now()};
   rpSave(); rpRender(); $('#rpScan').focus();
 };
 $('#rpScan').addEventListener('keydown', e=>{
