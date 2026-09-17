@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* ============================================================
    CALIPOKE STATION — STREAMER ASSIST
@@ -153,6 +154,47 @@ table.rep th{text-align:left;font-size:11px;letter-spacing:.1em;text-transform:u
 table.rep td{padding:7px 9px;border-bottom:1px solid var(--border)}
 table.rep td.mono{font-family:var(--mono)}
 
+/* ---------- report ---------- */
+#report{height:calc(100% - 52px);display:flex;flex-direction:column;padding:12px 14px 14px;gap:11px;overflow:hidden}
+.rphead{display:flex;align-items:center;gap:9px;flex:none;flex-wrap:wrap}
+.rpmodes{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:3px;gap:3px}
+.rpmode{background:none;border:0;border-radius:8px;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.rpmode.on{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.rpmode:disabled{opacity:.45;cursor:not-allowed}
+.rpscan{display:flex;gap:9px;flex:none}
+.rpscan input{flex:1;font-size:16px}
+.rpchoice{flex:none}
+.rpstats{display:flex;gap:9px;flex:none;flex-wrap:wrap}
+.rpstat{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:9px 14px;min-width:104px}
+.rpstat .v{font-family:var(--disp);font-size:20px;font-weight:700;line-height:1.15}
+.rpstat .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.rptabs{display:flex;align-items:center;gap:7px;flex:none;border-bottom:1px solid var(--border);padding-bottom:9px}
+.rptab{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 15px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.rptab.on{background:var(--accent);border-color:var(--accent);color:#08130C}
+.rpbody{flex:1;min-height:0;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:var(--r)}
+.rprow{display:flex;align-items:center;gap:12px;padding:9px 13px;border-bottom:1px solid var(--border)}
+.rprow:last-child{border-bottom:0}
+.rprow .num{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--faint);width:42px;flex:none;text-align:right}
+.rprow img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--raised);flex:none}
+.rprow .nm{flex:1;min-width:0;font-size:14px;line-height:1.3}
+.rprow .nm span{color:var(--muted)}
+.rprow .pr{font-family:var(--mono);font-size:14px;font-weight:700;flex:none}
+.rprow .x{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);padding:3px 8px;font-size:12px;flex:none}
+.rprow .x:hover{border-color:var(--err);color:var(--err)}
+.rprow.unknown{background:#2b2412}
+.rplot{display:flex;align-items:center;gap:10px;padding:9px 13px;background:var(--panel2);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:2}
+.rplot .n{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent)}
+.rplot .m{font-size:12.5px;color:var(--muted)}
+.rplot.cur{background:#12251a}
+table.rpsum{width:100%;border-collapse:collapse;font-size:13.5px}
+table.rpsum th{text-align:left;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);
+  padding:9px 13px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+table.rpsum td{padding:8px 13px;border-bottom:1px solid var(--border)}
+table.rpsum td.n,table.rpsum th.n{text-align:right;font-family:var(--mono)}
+table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);background:var(--panel2)}
+.rpdl{display:flex;gap:9px;padding:13px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--panel2)}
+
 /* toast */
 #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100;display:flex;
   flex-direction:column;gap:8px;align-items:center;pointer-events:none}
@@ -228,16 +270,12 @@ table.rep td.mono{font-family:var(--mono)}
           The bridge follows this choice on its own — no restart, no editing files.
         </p>
       </div>
-      <div class="field">
-        <label class="fld">Streamer on camera</label>
-        <input type="text" id="setStreamer" placeholder="Name of the streamer" autocomplete="off">
-      </div>
-      <div class="field">
-        <label class="fld">Assistant</label>
-        <input type="text" id="setAssistant" readonly>
-      </div>
-
       <button class="btn primary" id="startBtn" style="width:100%">▶ Start stream</button>
+      <button class="btn" id="reportBtn" style="width:100%;margin-top:9px">📋 Prepare a report</button>
+      <p class="sub" style="font-size:12px;color:var(--faint);margin:9px 0 0;line-height:1.55">
+        The report is a separate job — scan items, get a numbered list with prices.
+        It does not touch the stream log and needs no chat.
+      </p>
 
       <div id="resumeBox" class="hide" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
         <div class="eyebrow" style="margin-bottom:7px">Unfinished stream</div>
@@ -364,6 +402,41 @@ table.rep td.mono{font-family:var(--mono)}
   </div>
 </div>
 
+<!-- ============================ REPORT ============================ -->
+<div id="report" class="hide">
+
+  <div class="rphead">
+    <div class="rpmodes">
+      <button class="rpmode on" id="rpModeItem">① Number every item</button>
+      <button class="rpmode" id="rpModeLot">② Number auction lots</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn small" id="rpBack">← Back</button>
+    <button class="btn small" id="rpPrices" title="Re-read the cost tab">↻ Prices</button>
+    <button class="btn small danger" id="rpClear">Clear</button>
+  </div>
+
+  <div class="rpscan">
+    <input type="text" id="rpScan" placeholder="Scan a barcode…" autocomplete="off" spellcheck="false">
+    <button class="btn primary" id="rpNextLot" title="F4, or Enter on an empty field">Next lot →</button>
+  </div>
+  <div id="rpChoice" class="rpchoice"></div>
+
+  <div class="rpstats" id="rpStats"></div>
+
+  <div class="rptabs">
+    <button class="rptab on" data-tab="list">List</button>
+    <button class="rptab" data-tab="summary">Summary</button>
+    <div class="spacer"></div>
+    <span class="sub" id="rpPriceState" style="font-size:12px"></span>
+  </div>
+
+  <div class="rpbody">
+    <div id="rpList"></div>
+    <div id="rpSummary" class="hide"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;left:-9999px"></iframe>
 
@@ -392,12 +465,20 @@ const firebaseConfig = {
   appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
 };
 
-const BUILD = '2026-09-11b · streamer assist v1.2';
+/* >>> the company inventory workbook — the report reads its "cost" tab.
+       Same sheet the station uses; if it ever moves, change this one line. <<< */
+const INVENTORY_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
+const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
+
+const BUILD = '2026-09-17a · streamer assist v1.3';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
 const LS_SESS   = 'sa_session';
 const LS_MIRROR = 'sa_mirror';
+const LS_REPORT = 'sa_report';
+const LS_COST   = 'sa_cost';
 const BRIDGE_STALE_MS = 60000;
 
 /* ---------- helpers ---------- */
@@ -531,6 +612,7 @@ function setControl(handle){
    SESSION
    ============================================================ */
 function newSession(streamer, room, handle){
+  streamer = streamer || '';
   const id = room+'_'+fmtDate(Date.now())+'_'+Date.now().toString(36);
   const meta = {room:room, handle:handle, streamer:streamer, assistant:MY_NAME,
                 startedAt:Date.now(), endedAt:null, lastN:0};
@@ -592,7 +674,7 @@ function endSession(){
    SCREENS
    ============================================================ */
 function showOnly(id){
-  ['gate','setup','work','summary'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
+  ['gate','setup','work','summary','report'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
   $('#btnEnd').classList.toggle('hide', id!=='work');
   $('#btnSwitch').classList.toggle('hide', id!=='work');
 }
@@ -610,9 +692,9 @@ function openSetup(){
   fillSelect($('#setRoom'), ROOMS, CUR_ROOM, null);
   fillSelect($('#setAcct'), ACCOUNTS, CUR_HANDLE, 'Other account…');
   $('#setAcctManual').classList.add('hide');
-  $('#setAssistant').value = MY_NAME;
   renderRoomPill();
   $('#resumeBox').classList.add('hide');
+  setTimeout(()=>{ const el=$('#setAcct'); if(el) el.focus(); }, 60);
   findOpenSession(s=>{
     if(!s) return;
     window._openSess = s;
@@ -620,7 +702,6 @@ function openSetup(){
       ') by <b>'+esc(s.assistant||'—')+'</b> was never closed.';
     $('#resumeBox').classList.remove('hide');
   });
-  setTimeout(()=>$('#setStreamer').focus(), 60);
 }
 function renderRoomPill(){
   const p=$('#pillRoom'); if(!p) return;
@@ -1154,6 +1235,333 @@ function openSummary(){
 function stat(v,k){ return '<div class="stat"><div class="v">'+esc(v)+'</div><div class="k">'+esc(k)+'</div></div>'; }
 
 /* ============================================================
+   REPORT MODE
+   A standalone job: scan items, get a numbered list with prices.
+   Items are matched against the shared catalogue (packstation/inventory);
+   prices come from the "cost" tab of the company workbook, first match
+   wins — the same rule as a VLOOKUP down that column.
+   Nothing here touches the stream log.
+   ============================================================ */
+let RP   = { mode:'item', rows:[], curLot:1, startedAt:0 };
+let COST = null;                 // norm(key) -> price, first occurrence only
+let costAt = 0, costLoading = false;
+
+function money(v){ return (v==null||isNaN(v)) ? '' : ('$'+Number(v).toFixed(2)); }
+function sheetExportUrl(u){
+  const m=/\/d\/([a-zA-Z0-9-_]+)/.exec(u||'');
+  return m ? ('https://docs.google.com/spreadsheets/d/'+m[1]+'/export?format=xlsx') : '';
+}
+
+/* ---------- prices ---------- */
+function costKeys(name, variation){
+  const n=norm(name), v=norm(variation);
+  const out=[n];
+  if(v && v!=='default') out.push(n+' '+v);
+  return out;
+}
+function priceFor(name, variation){
+  if(!COST) return null;
+  for(const k of costKeys(name, variation)){ if(COST[k]!=null) return COST[k]; }
+  // the cost tab sometimes spells the variation into the item itself
+  const both = norm(name+' '+(variation||''));
+  return COST[both]!=null ? COST[both] : null;
+}
+function costLoad(){
+  try{
+    const raw=localStorage.getItem(LS_COST); if(!raw) return false;
+    const o=JSON.parse(raw)||{};
+    if(!o.map) return false;
+    COST=o.map; costAt=o.at||0; return true;
+  }catch(e){ return false; }
+}
+function costSave(){
+  try{ localStorage.setItem(LS_COST, JSON.stringify({at:costAt, map:COST})); }
+  catch(e){ /* too big for this browser — prices still work for this session */ }
+}
+async function costFetch(force){
+  if(costLoading) return;
+  if(COST && !force && (Date.now()-costAt) < 12*3600*1000) return;
+  if(typeof XLSX==='undefined'){ rpPriceState('the spreadsheet library did not load', true); return; }
+  costLoading = true; rpPriceState('reading the cost tab…');
+  try{
+    const url=sheetExportUrl(INVENTORY_SHEET_URL);
+    const res=await fetch(url,{redirect:'follow',cache:'no-store',mode:'cors',credentials:'omit'});
+    if(!res.ok) throw new Error('http '+res.status);
+    const buf=new Uint8Array(await res.arrayBuffer());
+    if(!(buf[0]===0x50 && buf[1]===0x4B)) throw new Error('no access to the sheet');
+    const wb=XLSX.read(buf,{type:'array'});
+    const tab=wb.SheetNames.find(n=>COST_TAB_NAMES.includes(norm(n)));
+    if(!tab) throw new Error('no "cost" tab in the workbook');
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[tab],{header:1,raw:true,defval:''});
+    const map={}; let n=0;
+    for(let r=1;r<rows.length;r++){
+      const k=norm(rows[r][0]); if(!k || k==='item') continue;
+      const p=parseFloat(String(rows[r][1]).replace(/[^0-9.\-]/g,''));
+      if(isNaN(p)) continue;
+      if(map[k]==null){ map[k]=p; n++; }            // first match wins, like VLOOKUP
+    }
+    if(!n) throw new Error('the cost tab has no prices');
+    COST=map; costAt=Date.now(); costSave();
+    rpPriceState(n+' prices · '+fmtTime(costAt));
+    rpRender();
+  }catch(e){
+    rpPriceState('prices unavailable: '+e.message, true);
+  }finally{ costLoading=false; }
+}
+function rpPriceState(txt, bad){
+  const el=$('#rpPriceState'); if(!el) return;
+  el.textContent=txt; el.style.color = bad ? 'var(--warn)' : 'var(--faint)';
+}
+
+/* ---------- state ---------- */
+function rpSave(){ try{ localStorage.setItem(LS_REPORT, JSON.stringify(RP)); }catch(e){} }
+function rpLoadState(){
+  try{
+    const o=JSON.parse(localStorage.getItem(LS_REPORT)||'null');
+    if(o && Array.isArray(o.rows)) RP={mode:o.mode==='lot'?'lot':'item', rows:o.rows, curLot:o.curLot||1, startedAt:o.startedAt||0};
+  }catch(e){}
+}
+function rpOpen(){
+  rpLoadState();
+  if(!RP.startedAt) RP.startedAt=Date.now();
+  showOnly('report');
+  if(!COST) costLoad();
+  if(COST) rpPriceState(Object.keys(COST).length+' prices · '+fmtTime(costAt));
+  costFetch(false);
+  rpRender();
+  setTimeout(()=>$('#rpScan').focus(), 60);
+}
+
+/* ---------- adding rows ---------- */
+function rpLookup(val){
+  const v=norm(val); if(!v) return;
+  $('#rpScan').value='';
+  const hit=BC[v];
+  if(hit && hit.length===1){ rpAdd(INV[hit[0]]); return; }
+  if(hit && hit.length>1){ rpOffer(hit.map(k=>INV[k]).filter(Boolean), 'This barcode belongs to several products'); return; }
+  const found=[];
+  for(const k in INV){
+    const it=INV[k]; if(!it) continue;
+    if(norm(it.name+' '+(it.variation||'')).includes(v)) found.push(it);
+    if(found.length>20) break;
+  }
+  if(found.length===1){ rpAdd(found[0]); return; }
+  if(found.length>1){ rpOffer(found.slice(0,12), found.length+' matches'); return; }
+  rpUnknown(val);
+}
+function rpOffer(list, note){
+  $('#rpChoice').innerHTML='<div class="card" style="padding:12px"><div class="sub" style="font-size:12.5px;margin-bottom:7px">'+
+    esc(note)+' — pick one:</div>'+
+    list.map((it,i)=>'<button class="btn small" style="display:block;width:100%;text-align:left;margin-bottom:5px" data-i="'+i+'">'+
+      esc(it.name)+(it.variation&&norm(it.variation)!=='default'?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+
+      '</button>').join('')+
+    '<button class="btn small" id="rpCancel">Cancel</button></div>';
+  $$('#rpChoice button[data-i]').forEach(b=>b.onclick=()=>{ $('#rpChoice').innerHTML=''; rpAdd(list[+b.dataset.i]); });
+  $('#rpCancel').onclick=()=>{ $('#rpChoice').innerHTML=''; $('#rpScan').focus(); };
+  beep(false);
+}
+function rpUnknown(code){
+  $('#rpChoice').innerHTML='<div class="card" style="padding:12px"><div class="sub" style="font-size:12.5px;margin-bottom:7px">'+
+    'Nothing in the catalogue for <span style="font-family:var(--mono)">'+esc(code)+'</span>.</div>'+
+    '<button class="btn small" id="rpKeep">Add it anyway (no price)</button> '+
+    '<button class="btn small" id="rpCancel">Skip</button></div>';
+  $('#rpKeep').onclick=()=>{ $('#rpChoice').innerHTML=''; rpAdd({ikey:'',name:code,variation:'',image:''}, true); };
+  $('#rpCancel').onclick=()=>{ $('#rpChoice').innerHTML=''; $('#rpScan').focus(); };
+  beep(false);
+}
+function rpAdd(it, unknown){
+  if(!it) return;
+  const variation = norm(it.variation)==='default' ? '' : (it.variation||'');
+  const price = unknown ? null : priceFor(it.name, it.variation);
+  RP.rows.push({
+    lot: RP.mode==='lot' ? RP.curLot : null,
+    ikey: it.ikey||'', name: it.name||'', variation: variation,
+    image: it.image||'', price: (price==null?null:price),
+    unknown: !!unknown, at: Date.now()
+  });
+  rpSave(); rpRender(); beep(true);
+  $('#rpScan').focus();
+  const body=$('#rpBodyScroll')||$('.rpbody'); if(body) body.scrollTop=body.scrollHeight;
+}
+function rpNextLot(){
+  if(RP.mode!=='lot') return;
+  const inLot=RP.rows.filter(r=>r.lot===RP.curLot).length;
+  if(!inLot){ toast('Scan at least one item into this lot','warn',1800); return; }
+  RP.curLot++; rpSave(); rpRender();
+  toast('Lot '+pad3(RP.curLot)+' started','ok',1400);
+  $('#rpScan').focus();
+}
+function rpDel(i){
+  RP.rows.splice(i,1);
+  if(RP.mode==='lot'){
+    const used=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
+    const remap={}; used.forEach((l,idx)=>remap[l]=idx+1);
+    RP.rows.forEach(r=>{ r.lot=remap[r.lot]; });
+    RP.curLot = used.length ? used.length : 1;
+  }
+  rpSave(); rpRender();
+}
+function rpSetMode(m){
+  if(RP.rows.length){ toast('Clear the list first to change the numbering','warn',2600); return; }
+  RP.mode=m; RP.curLot=1; rpSave(); rpRender(); $('#rpScan').focus();
+}
+
+/* ---------- aggregation ---------- */
+function rpSummaryRows(){
+  const map={};
+  RP.rows.forEach(r=>{
+    const k=norm(r.name)+'||'+norm(r.variation);
+    if(!map[k]) map[k]={name:r.name, variation:r.variation, qty:0, price:r.price, total:0, unknown:r.unknown};
+    map[k].qty++;
+    if(r.price!=null) map[k].total+=r.price;
+    if(map[k].price==null && r.price!=null) map[k].price=r.price;
+  });
+  return Object.values(map).sort((a,b)=>b.qty-a.qty || a.name.localeCompare(b.name));
+}
+function rpTotals(){
+  const items=RP.rows.length;
+  const cost=RP.rows.reduce((s,r)=>s+(r.price||0),0);
+  const lots=RP.mode==='lot' ? [...new Set(RP.rows.map(r=>r.lot))].length : 0;
+  const noPrice=RP.rows.filter(r=>r.price==null).length;
+  return {items, cost, lots, noPrice};
+}
+
+/* ---------- render ---------- */
+function rpRender(){
+  if($('#report').classList.contains('hide')) return;
+  $('#rpModeItem').classList.toggle('on', RP.mode==='item');
+  $('#rpModeLot').classList.toggle('on', RP.mode==='lot');
+  $('#rpNextLot').classList.toggle('hide', RP.mode!=='lot');
+
+  const t=rpTotals();
+  $('#rpStats').innerHTML =
+    '<div class="rpstat"><div class="v">'+t.items+'</div><div class="k">items</div></div>'+
+    (RP.mode==='lot' ? '<div class="rpstat"><div class="v">'+t.lots+'</div><div class="k">lots</div></div>' : '')+
+    '<div class="rpstat"><div class="v">'+money(t.cost)+'</div><div class="k">total cost</div></div>'+
+    (t.noPrice ? '<div class="rpstat"><div class="v" style="color:var(--warn)">'+t.noPrice+'</div><div class="k">no price</div></div>' : '');
+
+  rpRenderList();
+  rpRenderSummary();
+}
+function rpItemRow(r, i, num){
+  return '<div class="rprow'+(r.unknown?' unknown':'')+'">'+
+    '<div class="num">'+(num==null?'':num)+'</div>'+
+    '<img src="'+esc(r.image||PLACEHOLDER)+'" alt="">'+
+    '<div class="nm">'+esc(r.name)+(r.variation?' <span>· '+esc(r.variation)+'</span>':'')+
+      (r.unknown?' <span class="warnchip">not in catalogue</span>':'')+'</div>'+
+    '<div class="pr">'+(r.price==null?'<span style="color:var(--warn)">—</span>':money(r.price))+'</div>'+
+    '<button class="x" data-del="'+i+'">×</button></div>';
+}
+function rpRenderList(){
+  const box=$('#rpList');
+  if(!RP.rows.length){
+    box.innerHTML='<div class="empty" style="padding:44px 16px">Nothing scanned yet.<br>'+
+      (RP.mode==='lot' ? 'Scan the items of the first lot, then press <b>Next lot</b>.' : 'Every scan becomes the next number in the list.')+'</div>';
+    return;
+  }
+  let html='';
+  if(RP.mode==='item'){
+    RP.rows.forEach((r,i)=>{ html+=rpItemRow(r,i,i+1); });
+  }else{
+    const lots=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
+    lots.forEach(l=>{
+      const rows=RP.rows.map((r,i)=>({r,i})).filter(x=>x.r.lot===l);
+      const sum=rows.reduce((s,x)=>s+(x.r.price||0),0);
+      html+='<div class="rplot'+(l===RP.curLot?' cur':'')+'"><span class="n">LOT '+pad3(l)+'</span>'+
+        '<span class="m">'+rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)+'</span></div>';
+      rows.forEach(x=>{ html+=rpItemRow(x.r, x.i, null); });
+    });
+  }
+  box.innerHTML=html;
+  $$('#rpList [data-del]').forEach(b=>b.onclick=()=>rpDel(+b.dataset.del));
+}
+function rpRenderSummary(){
+  const rows=rpSummaryRows(), t=rpTotals();
+  $('#rpSummary').innerHTML =
+    '<div class="rpdl"><button class="btn small primary" id="rpXlsx">⬇ Excel (.xlsx)</button>'+
+    '<button class="btn small" id="rpCsv">⬇ CSV</button>'+
+    '<span class="sub" style="font-size:12px;align-self:center">Both tabs — List and Summary, without pictures.</span></div>'+
+    (rows.length ?
+      '<table class="rpsum"><thead><tr><th>Item</th><th>Variation</th><th class="n">Qty</th><th class="n">Price</th><th class="n">Total</th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td style="color:var(--muted)">'+esc(r.variation)+'</td>'+
+        '<td class="n">'+r.qty+'</td><td class="n">'+(r.price==null?'—':money(r.price))+'</td>'+
+        '<td class="n">'+(r.total?money(r.total):'—')+'</td></tr>').join('')+
+      '<tr class="tot"><td>TOTAL</td><td></td><td class="n">'+t.items+'</td><td></td><td class="n">'+money(t.cost)+'</td></tr>'+
+      '</tbody></table>'
+      : '<div class="empty" style="padding:44px 16px">Nothing scanned yet.</div>');
+  const x=$('#rpXlsx'), c=$('#rpCsv');
+  if(x) x.onclick=rpExportXlsx;
+  if(c) c.onclick=rpExportCsv;
+}
+
+/* ---------- export ---------- */
+function rpListAoa(){
+  const head=[['#','Item','Variation','Price']];
+  if(RP.mode==='item') return head.concat(RP.rows.map((r,i)=>[i+1, r.name, r.variation, r.price==null?'':r.price]));
+  const lots=[...new Set(RP.rows.map(r=>r.lot))].sort((a,b)=>a-b);
+  const out=head.slice();
+  lots.forEach(l=>{ RP.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, r.price==null?'':r.price])); });
+  return out;
+}
+function rpSummaryAoa(){
+  const rows=rpSummaryRows(), t=rpTotals();
+  const out=[['Item','Variation','Qty','Price','Total']];
+  rows.forEach(r=>out.push([r.name, r.variation, r.qty, r.price==null?'':r.price, r.total||'']));
+  out.push(['TOTAL','',t.items,'',t.cost]);
+  return out;
+}
+function rpFileName(ext){
+  const d=new Date();
+  return 'report_'+fmtDate(d.getTime())+'_'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+'.'+ext;
+}
+function rpExportXlsx(){
+  if(!RP.rows.length){ toast('Nothing to export','warn'); return; }
+  if(typeof XLSX==='undefined'){ toast('Spreadsheet library not loaded — use CSV','err',3600); return; }
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rpListAoa()), 'List');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rpSummaryAoa()), 'Summary');
+  XLSX.writeFile(wb, rpFileName('xlsx'));
+  toast('Excel report downloaded','ok');
+}
+function rpExportCsv(){
+  if(!RP.rows.length){ toast('Nothing to export','warn'); return; }
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const block=a=>a.map(r=>r.map(q).join(',')).join('\r\n');
+  const txt='LIST\r\n'+block(rpListAoa())+'\r\n\r\nSUMMARY\r\n'+block(rpSummaryAoa())+'\r\n';
+  const blob=new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=rpFileName('csv'); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('CSV report downloaded','ok');
+}
+
+/* ---------- report wiring ---------- */
+$('#rpBack').onclick     = ()=>{ rpSave(); openSetup(); };
+$('#rpModeItem').onclick = ()=>rpSetMode('item');
+$('#rpModeLot').onclick  = ()=>rpSetMode('lot');
+$('#rpNextLot').onclick  = rpNextLot;
+$('#rpPrices').onclick   = ()=>costFetch(true);
+$('#rpClear').onclick    = ()=>{
+  if(!RP.rows.length){ RP.startedAt=Date.now(); return; }
+  if(!confirm('Delete the whole list? Download the report first if you need it.')) return;
+  RP={mode:RP.mode, rows:[], curLot:1, startedAt:Date.now()};
+  rpSave(); rpRender(); $('#rpScan').focus();
+};
+$('#rpScan').addEventListener('keydown', e=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  const v=$('#rpScan').value.trim();
+  if(v) rpLookup(v);
+  else if(RP.mode==='lot') rpNextLot();
+});
+$$('.rptab').forEach(b=>b.onclick=()=>{
+  $$('.rptab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const list=b.dataset.tab==='list';
+  $('#rpList').classList.toggle('hide', !list);
+  $('#rpSummary').classList.toggle('hide', list);
+});
+
+/* ============================================================
    SCANNER — a burst of fast keystrokes is a scan, wherever focus is
    ============================================================ */
 let burst={txt:'', last:0, start:0, target:null, before:''};
@@ -1165,8 +1573,36 @@ function burstIsScan(now){
   return ((burst.last-burst.start)/gaps) < 45;      // a human cannot type this fast
 }
 document.addEventListener('keydown', e=>{
-  if($('#work').classList.contains('hide')) return;
+  const onWork   = !$('#work').classList.contains('hide');
+  const onReport = !$('#report').classList.contains('hide');
+  if(!onWork && !onReport) return;
   const now=Date.now();
+
+  if(onReport){
+    if(e.key==='Enter'){
+      const fast=burstIsScan(now);
+      if(fast){
+        e.preventDefault();
+        const code=burst.txt;
+        if(burst.target && burst.target!==$('#rpScan')) burst.target.value = burst.before;
+        burst={txt:'',last:0,start:0,target:null,before:''};
+        rpLookup(code);
+        return;
+      }
+      burst={txt:'',last:0,start:0,target:null,before:''};
+      return;                                   // the field's own handler does the rest
+    }
+    if(e.key==='F4'){ e.preventDefault(); rpNextLot(); return; }
+    if(e.key==='Escape'){ $('#rpChoice').innerHTML=''; $('#rpScan').value=''; $('#rpScan').focus(); return; }
+    if(e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+      if(now-burst.last > 120){
+        burst={txt:'', last:now, start:now, target:document.activeElement,
+               before:(document.activeElement&&'value' in document.activeElement)?document.activeElement.value:''};
+      }
+      burst.txt += e.key; burst.last = now;
+    }
+    return;
+  }
 
   if(e.key==='Enter'){
     const fast = burstIsScan(now);
@@ -1265,14 +1701,12 @@ $('#setAcct').addEventListener('change', ()=>{
   if(other) $('#setAcctManual').focus();
 });
 $('#startBtn').onclick = ()=>{
-  const s=$('#setStreamer').value.trim();
   const room=$('#setRoom').value;
   const acct=chosenAccount();
   if(!acct || acct.length<3){ $('#setAcctManual').focus(); toast('Which TikTok account?','warn'); return; }
-  if(s.length<2){ $('#setStreamer').focus(); toast('Who is on camera?','warn'); return; }
-  newSession(s, room, acct);
+  newSession('', room, acct);
 };
-$('#setStreamer').addEventListener('keydown', e=>{ if(e.key==='Enter') $('#startBtn').click(); });
+$('#reportBtn').onclick = ()=>rpOpen();
 $('#resumeBtn').onclick = ()=>{
   if(!window._openSess) return;
   SESS=window._openSess; rememberSession();
