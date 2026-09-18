@@ -199,6 +199,120 @@ table.rpsum td.n,table.rpsum th.n{text-align:right;font-family:var(--mono)}
 table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);background:var(--panel2)}
 .rpdl{display:flex;gap:9px;padding:13px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--panel2)}
 
+/* ---------- auction game ---------- */
+#game,#play{height:calc(100% - 52px);display:flex;flex-direction:column;padding:11px 13px 13px;gap:10px;overflow:hidden}
+.gmbar{display:flex;align-items:center;gap:9px;flex:none;flex-wrap:wrap}
+.gmtitle{font-family:var(--disp);font-size:14px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.gmcount{font-family:var(--mono);font-size:14px;font-weight:700}
+.gssetup{flex:none;display:flex;flex-direction:column;gap:8px;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);padding:11px 12px}
+.gsrow{display:flex;gap:8px;align-items:center}
+.gsrow input[type=text]{flex:1}
+.gsplan{display:flex;align-items:center;gap:7px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;white-space:nowrap}
+.gsplan input{width:88px}
+.gsfound{max-height:168px;overflow:auto}
+.gsfound .fr{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px}
+.gsfound .fr:hover{background:var(--panel2)}
+.gsfound .fr img{width:30px;height:30px;border-radius:6px;object-fit:cover;background:var(--raised);flex:none}
+.gsfound .fr .s{color:var(--faint);font-family:var(--mono);font-size:12px;margin-left:auto;white-space:nowrap}
+.gsfilters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gsfilter{background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.gsfhead{display:flex;align-items:center;gap:6px;padding:6px 9px;border-bottom:1px solid var(--line);
+  font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.gsfhead span{flex:1}
+.gsfhead button{background:none;border:0;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.gsfhead button:hover{color:var(--accent)}
+.gsfbody{max-height:96px;overflow:auto;padding:5px 9px}
+.gsfbody label{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:2px 0;cursor:pointer}
+.gsfbody input{accent-color:var(--accent)}
+
+.gsmain{flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:10px}
+.gsleft,.gsright{min-height:0;display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.gslefthead,.gsrighthead,.gmpoolhead{flex:none;padding:9px 12px;border-bottom:1px solid var(--border);
+  font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.gsleftbody{flex:1;min-height:0;overflow:auto;padding:6px}
+.gscat{margin-bottom:5px}
+.gscathead{display:flex;align-items:center;gap:7px;padding:6px 8px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.gscathead .c{margin-left:auto;color:var(--faint);font-family:var(--mono);font-weight:500}
+.gscat.low  .gscathead{color:#7fd4a2}
+.gscat.mid  .gscathead{color:var(--warn)}
+.gscat.high .gscathead{color:#f08a8a}
+.gsitem{display:flex;align-items:center;gap:7px;padding:4px 8px;font-size:12px;cursor:pointer;border-radius:6px}
+.gsitem:hover{background:var(--panel2)}
+.gsitem .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gsitem .q{font-family:var(--mono);color:var(--faint);font-size:11.5px}
+.gsitem .p{font-family:var(--mono);font-weight:700;font-size:11.5px;width:52px;text-align:right}
+.gsrightbody{flex:1;min-height:0;overflow:auto}
+.gsrightfoot{flex:none;padding:10px 12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.prow{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border)}
+.prow:last-child{border-bottom:0}
+.prow img{width:38px;height:38px;border-radius:7px;object-fit:cover;background:var(--raised);flex:none}
+.prow .nm{flex:1;min-width:0;font-size:13.5px;line-height:1.25}
+.prow .nm span{color:var(--muted)}
+.prow .gn{display:block;font-size:11.5px;color:var(--accent);font-family:var(--mono)}
+.prow .pp{font-family:var(--mono);font-size:13px;width:66px;text-align:right;flex:none}
+.prow .qq{width:62px;flex:none}
+.prow .qq input{width:100%;padding:5px 7px;text-align:center;font-family:var(--mono)}
+.prow .tt{font-family:var(--mono);font-size:13px;font-weight:700;width:76px;text-align:right;flex:none}
+.prow .rnd{display:flex;align-items:center;gap:5px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--faint);font-weight:700;flex:none;cursor:pointer}
+.prow .rnd input{accent-color:var(--accent)}
+.prow .x{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);padding:3px 8px;font-size:12px;flex:none}
+.prow .x:hover{border-color:var(--err);color:var(--err)}
+.prow.unknown{background:#2b2412}
+
+/* play screen */
+.gmpick{flex:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.gmsearchwrap{position:relative;flex:1;min-width:240px}
+.gmsearchwrap input{width:100%}
+.gmdrop{position:absolute;left:0;right:0;top:calc(100% + 5px);background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;max-height:290px;overflow:auto;z-index:30;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.gmdrop .d{display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)}
+.gmdrop .d:last-child{border-bottom:0}
+.gmdrop .d:hover{background:var(--panel2)}
+.gmdrop .d.gone{opacity:.4;cursor:not-allowed}
+.gmdrop .d .n{flex:1;min-width:0}
+.gmdrop .d .r{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.gmsplit{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1.35fr) minmax(0,1fr);gap:10px}
+.gmlots,.gmpool{min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden}
+.gmlots .rptabs{padding:9px 12px;margin:0}
+.gmlotsbody{flex:1;min-height:0;overflow:auto}
+.gmpoolbody{flex:1;min-height:0;overflow:auto}
+.gpr{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.gpr:last-child{border-bottom:0}
+.gpr .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gpr .g{color:var(--accent);font-family:var(--mono);font-size:12px}
+.gpr .c{font-family:var(--mono);font-size:12.5px;flex:none}
+.gpr.done{opacity:.4}
+.gpr .bar{width:74px;height:5px;border-radius:3px;background:var(--raised);flex:none;overflow:hidden}
+.gpr .bar i{display:block;height:100%;background:var(--accent)}
+
+/* roulette */
+.wheelbox{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px;position:relative;overflow:hidden}
+.wheelwin{height:210px;overflow:hidden;position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  margin:14px 0 4px;background:var(--panel2)}
+.wheelstrip{position:absolute;left:0;right:0;top:0;will-change:transform}
+.wheelitem{height:42px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:15px;font-weight:600;
+  border-bottom:1px solid var(--border);padding:0 12px;text-align:center}
+.wheelmark{position:absolute;left:0;right:0;top:84px;height:42px;border-top:2px solid var(--accent);
+  border-bottom:2px solid var(--accent);background:rgba(33,192,99,.09);pointer-events:none;z-index:2}
+.wheelwinner{text-align:center;font-family:var(--disp);font-size:22px;font-weight:700;margin-top:12px;min-height:30px}
+#fx{position:absolute;inset:0;pointer-events:none;z-index:5}
+
+@media(max-width:1180px){
+  #game,#play{height:auto;overflow:auto}
+  .gsmain{grid-template-columns:1fr}
+  .gsleft{max-height:50vh}
+  .gsright{min-height:320px}
+  .gsfilters{grid-template-columns:1fr}
+  .gmsplit{grid-template-rows:none;grid-auto-rows:minmax(260px,auto)}
+}
+
 /* toast */
 #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100;display:flex;
   flex-direction:column;gap:8px;align-items:center;pointer-events:none}
@@ -275,6 +389,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
         </p>
       </div>
       <button class="btn primary" id="startBtn" style="width:100%">▶ Start stream</button>
+      <button class="btn" id="gameBtn" style="width:100%;margin-top:9px">🎲 Auction Game</button>
       <button class="btn" id="reportBtn" style="width:100%;margin-top:9px">📋 Prepare a report</button>
       <p class="sub" style="font-size:12px;color:var(--faint);margin:9px 0 0;line-height:1.55">
         The report is a separate job — scan items, get a numbered list with prices.
@@ -442,6 +557,90 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
   </div>
 </div>
 
+<!-- ============================ AUCTION GAME — POOL ============================ -->
+<div id="game" class="hide">
+
+  <div class="gmbar">
+    <button class="btn small" id="gsBack">← Back</button>
+    <span class="gmtitle">AUCTION GAME · pool</span>
+    <div class="spacer"></div>
+    <span class="gmcount" id="gsCount">0 / 100</span>
+    <button class="btn small" id="gsClear">Clear pool</button>
+    <button class="btn primary small" id="gsGo">▶ Go to Game</button>
+  </div>
+
+  <div class="gssetup">
+    <div class="gsrow">
+      <input type="text" id="gsSheet" placeholder="Google Sheet link — column A: item name, column B: quantity" autocomplete="off">
+      <button class="btn small" id="gsImport">⬇ Import</button>
+    </div>
+    <div class="gsrow">
+      <input type="text" id="gsSearch" placeholder="Search the catalogue by name or barcode…" autocomplete="off" spellcheck="false">
+      <label class="gsplan">Planned<input type="number" id="gsPlanned" min="1" step="1" value="100"></label>
+    </div>
+    <div id="gsFound" class="gsfound"></div>
+    <div class="gsfilters">
+      <div class="gsfilter"><div class="gsfhead"><span>Type</span><button data-fall="type">all</button><button data-fnone="type">none</button></div><div class="gsfbody" id="gsfType"></div></div>
+      <div class="gsfilter"><div class="gsfhead"><span>Brand</span><button data-fall="brand">all</button><button data-fnone="brand">none</button></div><div class="gsfbody" id="gsfBrand"></div></div>
+      <div class="gsfilter"><div class="gsfhead"><span>Series</span><button data-fall="series">all</button><button data-fnone="series">none</button></div><div class="gsfbody" id="gsfSeries"></div></div>
+    </div>
+  </div>
+
+  <div class="gsmain">
+    <div class="gsleft">
+      <div class="gslefthead">Suggested for the game</div>
+      <div class="gsleftbody" id="gsSuggest"></div>
+    </div>
+    <div class="gsright">
+      <div class="gsrighthead" id="gsPoolHead"></div>
+      <div class="gsrightbody" id="gsPool"></div>
+      <div class="gsrightfoot" id="gsFoot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ AUCTION GAME — PLAY ============================ -->
+<div id="play" class="hide">
+
+  <div class="gmbar">
+    <button class="btn small" id="gmBack">← Back to the list</button>
+    <span class="gmtitle">AUCTION GAME</span>
+    <div class="spacer"></div>
+    <span class="gmcount" id="gmLeft"></span>
+    <span class="lotno" id="gmLotNo">AUCTION 001</span>
+  </div>
+
+  <div class="gmpick">
+    <div class="gmsearchwrap">
+      <input type="text" id="gmSearch" placeholder="Pick an item — name, barcode, or just open the list…" autocomplete="off" spellcheck="false">
+      <div class="gmdrop hide" id="gmDrop"></div>
+    </div>
+    <button class="btn" id="gmRandom">🎲 Add random</button>
+    <button class="btn primary" id="gmSpin">🎡 Spin the wheel</button>
+    <button class="btn" id="gmNext">Next lot →</button>
+  </div>
+  <div id="gmTarget" class="rptarget hide"></div>
+
+  <div class="gmsplit">
+    <div class="gmlots">
+      <div class="rptabs">
+        <button class="rptab on" data-gtab="list">List</button>
+        <button class="rptab" data-gtab="summary">Summary</button>
+        <div class="spacer"></div>
+        <span class="sub" id="gmStats" style="font-size:12px"></span>
+      </div>
+      <div class="gmlotsbody">
+        <div id="gmList"></div>
+        <div id="gmSummary" class="hide"></div>
+      </div>
+    </div>
+    <div class="gmpool">
+      <div class="gmpoolhead">Game pool — used / total</div>
+      <div class="gmpoolbody" id="gmPool"></div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <iframe id="printFrame" style="position:fixed;width:0;height:0;border:0;left:-9999px"></iframe>
 
@@ -476,7 +675,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-17c · streamer assist v1.4';
+const BUILD = '2026-09-18b · streamer assist v1.5.1';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -484,6 +683,7 @@ const LS_SESS   = 'sa_session';
 const LS_MIRROR = 'sa_mirror';
 const LS_REPORT = 'sa_report';
 const LS_COST   = 'sa_cost';
+const LS_GAME   = 'sa_game';
 const BRIDGE_STALE_MS = 60000;
 
 /* ---------- helpers ---------- */
@@ -679,7 +879,7 @@ function endSession(){
    SCREENS
    ============================================================ */
 function showOnly(id){
-  ['gate','setup','work','summary','report'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
+  ['gate','setup','work','summary','report','game','play'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
   $('#btnEnd').classList.toggle('hide', id!=='work');
   $('#btnSwitch').classList.toggle('hide', id!=='work');
 }
@@ -1596,12 +1796,696 @@ $('#rpScan').addEventListener('keydown', e=>{
   if(v) rpLookup(v);
   else if(RP.mode==='lot') rpNextLot();
 });
-$$('.rptab').forEach(b=>b.onclick=()=>{
-  $$('.rptab').forEach(x=>x.classList.remove('on'));
+$$('#report .rptab').forEach(b=>b.onclick=()=>{
+  $$('#report .rptab').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
   const list=b.dataset.tab==='list';
   $('#rpList').classList.toggle('hide', !list);
   $('#rpSummary').classList.toggle('hide', list);
+});
+
+/* ============================================================
+   AUCTION GAME
+   Two screens:
+     #game  — build the pool of items the game will draw from
+     #play  — run the auctions, drawing items out of that pool
+
+   A pool entry keeps its ORIGINAL catalogue identity (that is what the
+   reports must show).  On top of that it may carry a game name such as
+   "1 random fuggler baby series 4" — several different fugglers then act
+   as ONE item with a combined quantity while the game is running, and
+   fall back apart into their real names in the report.
+   ============================================================ */
+const GAME_NAME_SUGGESTIONS = [
+  '1 random fuggler baby series 4',
+  '1 random fuggler baby series 3',
+  '1 random fuggler pinkies keyring',
+  '1 random fuggler mini keyring series 6',
+  '1 random fuggler mini keyring series 5',
+  '1 random fuggler mini keyring series 3'
+];
+const GS_DEFAULT_TYPE  = 'figurine';
+const GS_DEFAULT_BRAND = 'fuggler';
+
+let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1 };
+let GM = { rows:[], curLot:1, lotCount:1, startedAt:0 };
+
+function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM})); }catch(e){} }
+function gameLoad(){
+  try{
+    const o=JSON.parse(localStorage.getItem(LS_GAME)||'null'); if(!o) return;
+    if(o.GS && Array.isArray(o.GS.pool)) GS=Object.assign(GS, o.GS);
+    if(o.GM && Array.isArray(o.GM.rows)){
+      const maxRow=o.GM.rows.reduce((m,r)=>Math.max(m,r.lot||0),0);
+      GM={rows:o.GM.rows, curLot:o.GM.curLot||1,
+          lotCount:Math.max(o.GM.lotCount||0, o.GM.curLot||1, maxRow, 1),
+          startedAt:o.GM.startedAt||0};
+    }
+  }catch(e){}
+}
+
+/* ---------- catalogue helpers ---------- */
+function invList(){ return Object.keys(INV).map(k=>INV[k]).filter(Boolean); }
+function distinctFrom(list, field){
+  const set={};
+  list.forEach(it=>{ const v=(it[field]||'').trim(); if(v) set[v]=1; });
+  return Object.keys(set).sort((a,b)=>a.localeCompare(b));
+}
+function distinct(field){ return distinctFrom(invList(), field); }
+
+/* The three filters are a chain: Brand only offers brands that exist inside the
+   chosen Type, Series only what exists inside Type+Brand.  Options and the
+   matching item set are recomputed whenever a tick changes. */
+let _fopt={type:[],brand:[],series:[]}, _fset=null;
+function selOk(field, it, options){
+  const sel=(GS.filters&&GS.filters[field])||[];
+  if(!sel.length) return false;
+  if(sel.length>=options.length) return true;                  // everything ticked
+  const v=(it[field]||'').trim();
+  return sel.some(x=>norm(x)===norm(v));
+}
+function recalcFilters(pass){
+  if(!GS.filters) GS.filters=defaultFilters();
+  const all=invList();
+  _fopt.type=distinctFrom(all,'type');
+  const t=all.filter(x=>selOk('type',x,_fopt.type));
+  _fopt.brand=distinctFrom(t,'brand');
+  const b=t.filter(x=>selOk('brand',x,_fopt.brand));
+  _fopt.series=distinctFrom(b,'series');
+  const s=b.filter(x=>selOk('series',x,_fopt.series));
+  _fset=new Set(s.map(x=>x.ikey));
+
+  /* a tick that no longer exists in the narrowed list is dropped; if that
+     empties a filter the user did not empty himself, fall back to "all" */
+  let changed=false;
+  ['brand','series'].forEach(f=>{
+    const opt=_fopt[f].map(norm), sel=GS.filters[f]||[];
+    if(!sel.length) return;
+    const kept=sel.filter(v=>opt.indexOf(norm(v))>=0);
+    if(kept.length!==sel.length){ GS.filters[f]=kept.length?kept:_fopt[f].slice(); changed=true; }
+  });
+  if(changed && !pass) recalcFilters(true);
+}
+function filterOptions(field){ return _fopt[field]||[]; }
+function defaultFilters(){
+  const pick=(field, want)=>{
+    const all=distinct(field);
+    const hit=all.filter(v=>norm(v)===want);
+    return hit.length ? hit : all.slice();     // no such value in the catalogue → keep all
+  };
+  return { type:pick('type',GS_DEFAULT_TYPE), brand:pick('brand',GS_DEFAULT_BRAND), series:distinct('series') };
+}
+function passFilters(it){ return _fset ? _fset.has(it.ikey) : true; }
+
+/* ---------- pool ---------- */
+function poolPrice(it){ const p=priceFor(it.name, it.variation); return p==null?null:p; }
+function poolFind(ikey){ return GS.pool.find(e=>e.ikey===ikey && !e.gameName) || GS.pool.find(e=>e.ikey===ikey); }
+function poolAdd(it, qty, silent){
+  qty=Math.max(1, parseInt(qty,10)||1);
+  const ex=GS.pool.find(e=>e.ikey && e.ikey===it.ikey);
+  if(ex){ ex.qty+=qty; }
+  else{
+    GS.pool.push({ uid:GS.uid++, ikey:it.ikey||'', name:it.name||'', variation:(it.variation||'').trim(),
+                   image:it.image||'', price:poolPrice(it), qty:qty, gameName:'', unknown:!it.ikey });
+  }
+  gameSave(); gsRender();
+  if(!silent) toast('+'+qty+' · '+it.name,'ok',1300);
+}
+function poolTotals(){
+  const units=GS.pool.reduce((s,e)=>s+(e.qty||0),0);
+  const cost=GS.pool.reduce((s,e)=>s+((e.price||0)*(e.qty||0)),0);
+  const noPrice=GS.pool.filter(e=>e.price==null).length;
+  return {units, cost, noPrice};
+}
+
+/* ---------- the pool as the game sees it ---------- */
+function gKey(e){ return e.gameName ? ('g:'+norm(e.gameName)) : ('i:'+String(e.uid)); }
+function gLabel(e){ return e.gameName || (e.name + (e.variation?(' · '+e.variation):'')); }
+function usedByUid(){
+  const m={}; GM.rows.forEach(r=>{ m[r.uid]=(m[r.uid]||0)+1; }); return m;
+}
+function gmGroups(){
+  const m={}, used=usedByUid();
+  GS.pool.forEach(e=>{
+    const k=gKey(e);
+    if(!m[k]) m[k]={key:k, label:gLabel(e), qty:0, used:0, image:e.image, entries:[]};
+    m[k].qty += (e.qty||0);
+    m[k].used += (used[e.uid]||0);
+    m[k].entries.push(e);
+    if(!m[k].image && e.image) m[k].image=e.image;
+  });
+  Object.keys(m).forEach(k=>{ m[k].left = m[k].qty - m[k].used; });
+  return m;
+}
+function pickEntry(g){
+  const used=usedByUid();
+  const avail=g.entries.map(e=>({e, left:(e.qty||0)-(used[e.uid]||0)})).filter(x=>x.left>0);
+  if(!avail.length) return null;
+  let total=avail.reduce((s,x)=>s+x.left,0), r=Math.random()*total;
+  for(const x of avail){ r-=x.left; if(r<=0) return x.e; }
+  return avail[avail.length-1].e;
+}
+
+/* ============================================================
+   POOL SCREEN
+   ============================================================ */
+function gsOpen(){
+  gameLoad();
+  if(!GS.filters) GS.filters=defaultFilters();
+  recalcFilters();
+  showOnly('game');
+  if(!COST) costLoad();
+  costFetch(false);
+  $('#gsPlanned').value = GS.planned||100;
+  $('#gsSheet').value   = GS.sheet||'';
+  gsRenderFilters(); gsRender();
+  setTimeout(()=>$('#gsSearch').focus(), 60);
+}
+function gsRenderFilters(){
+  [['type','gsfType'],['brand','gsfBrand'],['series','gsfSeries']].forEach(([field,id])=>{
+    const opts=filterOptions(field), sel=GS.filters[field]||[];
+    const on=v=>sel.some(x=>norm(x)===norm(v));
+    /* ticked values always sit at the top of their box */
+    const ordered=opts.filter(on).concat(opts.filter(v=>!on(v)));
+    $('#'+id).innerHTML = ordered.length ? ordered.map(v=>
+      '<label><input type="checkbox" data-f="'+field+'" value="'+esc(v)+'"'+(on(v)?' checked':'')+'>'+esc(v)+'</label>').join('')
+      : '<div class="sub" style="font-size:12px;color:var(--faint)">nothing available</div>';
+  });
+  $$('.gsfbody input[type=checkbox]').forEach(cb=>cb.onchange=()=>{
+    const f=cb.dataset.f;
+    const set=new Set((GS.filters[f]||[]).map(norm));
+    if(cb.checked) set.add(norm(cb.value)); else set.delete(norm(cb.value));
+    GS.filters[f]=filterOptions(f).filter(v=>set.has(norm(v)));
+    recalcFilters(); gameSave(); gsRenderFilters(); gsRender();
+  });
+}
+function gsRender(){
+  if($('#game').classList.contains('hide')) return;
+  recalcFilters();
+  const t=poolTotals();
+  $('#gsCount').innerHTML='<b>'+t.units+'</b> / '+(GS.planned||100);
+  $('#gsPoolHead').innerHTML='Game pool — <b style="color:var(--ink)">'+t.units+'</b> of '+(GS.planned||100)+' planned'+
+    (t.noPrice?' · <span style="color:var(--warn)">'+t.noPrice+' without a price</span>':'');
+  gsRenderPool(); gsRenderSuggest(); gsRenderFound();
+  $('#gsFoot').innerHTML='<div class="rpstat" style="padding:7px 12px"><div class="v">'+money(t.cost)+
+    '</div><div class="k">pool cost</div></div>'+
+    '<div class="spacer" style="flex:1"></div>'+
+    '<button class="btn small primary" id="gsXlsx">⬇ Excel</button>'+
+    '<button class="btn small" id="gsCsv">⬇ CSV</button>';
+  $('#gsXlsx').onclick=gsExportXlsx; $('#gsCsv').onclick=gsExportCsv;
+}
+function gsRenderPool(){
+  const box=$('#gsPool');
+  if(!GS.pool.length){ box.innerHTML='<div class="empty" style="padding:40px 16px">The pool is empty.<br>'+
+    'Pick from the suggestions on the left, search the catalogue, or import a sheet.</div>'; return; }
+  box.innerHTML=GS.pool.map((e,i)=>{
+    const total=(e.price||0)*(e.qty||0);
+    return '<div class="prow'+(e.unknown?' unknown':'')+'">'+
+      '<img src="'+esc(e.image||PLACEHOLDER)+'" alt="">'+
+      '<div class="nm">'+esc(e.name)+(e.variation?' <span>· '+esc(e.variation)+'</span>':'')+
+        (e.gameName?'<span class="gn">'+esc(e.gameName)+'</span>':'')+'</div>'+
+      '<label class="rnd" title="Group this item under a game name"><input type="checkbox" data-rnd="'+i+'"'+(e.gameName?' checked':'')+'>rndm</label>'+
+      '<div class="pp">'+(e.price==null?'<span style="color:var(--warn)">—</span>':money(e.price))+'</div>'+
+      '<div class="qq"><input type="number" min="1" step="1" value="'+(e.qty||1)+'" data-qty="'+i+'"></div>'+
+      '<div class="tt">'+(total?money(total):'—')+'</div>'+
+      '<button class="x" data-pdel="'+i+'">×</button></div>';
+  }).join('');
+  $$('#gsPool [data-pdel]').forEach(b=>b.onclick=()=>{ GS.pool.splice(+b.dataset.pdel,1); gameSave(); gsRender(); });
+  $$('#gsPool [data-qty]').forEach(inp=>inp.onchange=()=>{
+    const e=GS.pool[+inp.dataset.qty]; e.qty=Math.max(1,parseInt(inp.value,10)||1); gameSave(); gsRender();
+  });
+  $$('#gsPool [data-rnd]').forEach(cb=>cb.onchange=()=>{
+    const i=+cb.dataset.rnd;
+    if(!cb.checked){ GS.pool[i].gameName=''; gameSave(); gsRender(); return; }
+    gsAskGameName(i);
+  });
+}
+function gsAskGameName(i){
+  const e=GS.pool[i];
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="box"><h3>Game name</h3>'+
+    '<p class="sub" style="margin:0 0 13px">Items sharing this name act as ONE item during the game. '+
+    'Reports keep the real names.</p>'+
+    '<input type="text" id="gnInput" list="gnList" placeholder="1 random fuggler…" autocomplete="off" value="'+esc(e.gameName||'')+'">'+
+    '<datalist id="gnList">'+GAME_NAME_SUGGESTIONS.map(v=>'<option value="'+esc(v)+'">').join('')+'</datalist>'+
+    '<div class="sugg" style="margin-top:9px">'+GAME_NAME_SUGGESTIONS.map((v,k)=>
+      '<button data-s="'+k+'" style="font-family:var(--body);font-weight:500">'+esc(v)+'</button>').join('')+'</div>'+
+    '<div style="display:flex;gap:9px;margin-top:16px"><button class="btn primary" id="gnOk">Apply</button>'+
+    '<button class="btn" id="gnCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const inp=wrap.querySelector('#gnInput'); inp.focus();
+  wrap.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{ inp.value=GAME_NAME_SUGGESTIONS[+b.dataset.s]; inp.focus(); });
+  const close=ok=>{
+    if(ok){ const v=inp.value.trim(); GS.pool[i].gameName=v; }
+    wrap.remove(); gameSave(); gsRender();
+  };
+  wrap.querySelector('#gnOk').onclick=()=>close(true);
+  wrap.querySelector('#gnCancel').onclick=()=>close(false);
+  inp.addEventListener('keydown',e2=>{ if(e2.key==='Enter'){e2.preventDefault();close(true);} if(e2.key==='Escape')close(false); });
+  wrap.onclick=e2=>{ if(e2.target===wrap) close(false); };
+}
+
+/* ---------- suggestions ---------- */
+function gsRenderSuggest(){
+  const box=$('#gsSuggest');
+  const rows=invList().filter(passFilters).map(it=>({it, price:poolPrice(it), stock:(it.stock==null?0:it.stock)}))
+    .filter(x=>x.price!=null);
+  const cats=[
+    {k:'low',  t:'Low · under $10',   n:15, f:x=>x.price<10},
+    {k:'mid',  t:'Middle · $10–15',   n:10, f:x=>x.price>=10 && x.price<=15},
+    {k:'high', t:'High · over $15',   n:10, f:x=>x.price>15}
+  ];
+  box.innerHTML = cats.map(c=>{
+    const list=rows.filter(c.f).sort((a,b)=>b.stock-a.stock).slice(0,c.n);
+    const open=!GS.collapsed[c.k];
+    return '<div class="gscat '+c.k+'"><div class="gscathead" data-cat="'+c.k+'">'+
+      (open?'▾':'▸')+' '+esc(c.t)+'<span class="c">'+list.length+'</span></div>'+
+      (open ? list.map(x=>'<div class="gsitem" data-ik="'+esc(x.it.ikey)+'">'+
+        '<span class="n" title="'+esc(x.it.name)+'">'+esc(x.it.name)+'</span>'+
+        '<span class="q">'+x.stock+'</span><span class="p">'+money(x.price)+'</span></div>').join('')
+        || '<div class="sub" style="font-size:12px;padding:6px 8px;color:var(--faint)">nothing matches</div>'
+        : '')+'</div>';
+  }).join('');
+  $$('#gsSuggest [data-cat]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cat; GS.collapsed[k]=!GS.collapsed[k]; gameSave(); gsRenderSuggest(); });
+  $$('#gsSuggest [data-ik]').forEach(r=>r.onclick=()=>gsAskQty(INV[r.dataset.ik]));
+}
+function gsAskQty(it){
+  if(!it) return;
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="box" style="max-width:380px"><h3>'+esc(it.name)+'</h3>'+
+    '<p class="sub" style="margin:0 0 12px">'+(it.variation?esc(it.variation)+' · ':'')+
+    'in stock '+(it.stock==null?'—':it.stock)+' · '+(poolPrice(it)==null?'no price':money(poolPrice(it)))+'</p>'+
+    '<label class="fld">How many into the game</label>'+
+    '<input type="number" id="qInput" min="1" step="1" value="1">'+
+    '<div style="display:flex;gap:9px;margin-top:14px"><button class="btn primary" id="qOk">Add</button>'+
+    '<button class="btn" id="qCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const inp=wrap.querySelector('#qInput'); inp.focus(); inp.select();
+  const close=ok=>{ const v=inp.value; wrap.remove(); if(ok) poolAdd(it, v); };
+  wrap.querySelector('#qOk').onclick=()=>close(true);
+  wrap.querySelector('#qCancel').onclick=()=>close(false);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();close(true);} if(e.key==='Escape')close(false); });
+  wrap.onclick=e=>{ if(e.target===wrap) close(false); };
+}
+
+/* ---------- manual search ---------- */
+function gsRenderFound(){
+  const q=norm($('#gsSearch').value), box=$('#gsFound');
+  if(q.length<2){ box.innerHTML=''; return; }
+  const byCode=(BC[q]||[]).map(k=>INV[k]).filter(Boolean);       // an exact barcode always wins
+  const byName=invList().filter(passFilters).filter(it=>norm(it.name+' '+(it.variation||'')).includes(q));
+  const seen={}, list=[];
+  byCode.concat(byName).forEach(it=>{ if(it && !seen[it.ikey]){ seen[it.ikey]=1; list.push(it); } });
+  if(!list.length){ box.innerHTML='<div class="sub" style="font-size:12.5px;padding:7px 8px;color:var(--faint)">nothing found — check the filters above</div>'; return; }
+  box.innerHTML=list.slice(0,25).map(it=>{
+    const p=poolPrice(it);
+    return '<div class="fr" data-ik="'+esc(it.ikey)+'"><img src="'+esc(it.image||PLACEHOLDER)+'">'+
+      '<span>'+esc(it.name)+(it.variation?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+'</span>'+
+      '<span class="s">'+(it.stock==null?'—':it.stock)+' · '+(p==null?'no price':money(p))+'</span></div>';
+  }).join('');
+  $$('#gsFound [data-ik]').forEach(r=>r.onclick=()=>gsAskQty(INV[r.dataset.ik]));
+}
+
+/* ---------- import from a Google Sheet ---------- */
+async function gsImport(){
+  const url=$('#gsSheet').value.trim();
+  if(!url){ $('#gsSheet').focus(); return; }
+  if(typeof XLSX==='undefined'){ toast('Spreadsheet library not loaded','err',3200); return; }
+  GS.sheet=url; gameSave();
+  toast('Reading the sheet…','info',1600);
+  try{
+    const ex=sheetExportUrl(url); if(!ex) throw new Error('that is not a Google Sheet link');
+    const res=await fetch(ex,{redirect:'follow',cache:'no-store',mode:'cors',credentials:'omit'});
+    if(!res.ok) throw new Error('http '+res.status);
+    const buf=new Uint8Array(await res.arrayBuffer());
+    if(!(buf[0]===0x50 && buf[1]===0x4B)) throw new Error('no access — share it as “anyone with the link”');
+    const wb=XLSX.read(buf,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});
+    let added=0, missing=0;
+    /* several catalogue rows can share one name — the sheet only gives the
+       name, so the "Default" variation wins; otherwise the first row found */
+    const byName={};
+    invList().forEach(it=>{
+      const k=norm(it.name), cur=byName[k];
+      if(!cur){ byName[k]=it; return; }
+      if(norm(it.variation)==='default' && norm(cur.variation)!=='default') byName[k]=it;
+    });
+    rows.forEach((r,idx)=>{
+      const nm=String(r[0]||'').trim(); if(!nm) return;
+      if(idx===0 && /item|name/i.test(nm) && !byName[norm(nm)]) return;      // header row
+      const qty=Math.max(1, parseInt(r[1],10)||1);
+      const it=byName[norm(nm)];
+      if(it){ poolAdd(it, qty, true); added++; }
+      else{
+        GS.pool.push({uid:GS.uid++, ikey:'', name:nm, variation:'', image:'', price:priceFor(nm,''), qty:qty, gameName:'', unknown:true});
+        missing++;
+      }
+    });
+    gameSave(); gsRender();
+    toast('Imported '+(added+missing)+' rows'+(missing?(' · '+missing+' not in the catalogue'):''), missing?'warn':'ok', 3600);
+  }catch(e){ toast('Import failed: '+e.message,'err',4200); }
+}
+
+/* ---------- pool export ---------- */
+function gsAoa(){
+  const out=[['Item','Variation','Game name','Price','Qty','Total']];
+  GS.pool.forEach(e=>out.push([e.name, e.variation, e.gameName||'', e.price==null?'':e.price, e.qty||0,
+                               e.price==null?'':(e.price*(e.qty||0))]));
+  const t=poolTotals();
+  out.push(['TOTAL','','','',t.units,t.cost]);
+  return out;
+}
+function gsExportXlsx(){
+  if(!GS.pool.length){ toast('The pool is empty','warn'); return; }
+  if(typeof XLSX==='undefined'){ toast('Spreadsheet library not loaded — use CSV','err',3200); return; }
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gsAoa()), 'Pool');
+  XLSX.writeFile(wb, 'game_pool_'+fmtDate(Date.now())+'.xlsx');
+  toast('Pool exported','ok');
+}
+function gsExportCsv(){
+  if(!GS.pool.length){ toast('The pool is empty','warn'); return; }
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const txt=gsAoa().map(r=>r.map(q).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='game_pool_'+fmtDate(Date.now())+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Pool exported','ok');
+}
+
+/* ============================================================
+   PLAY SCREEN
+   ============================================================ */
+function gmOpen(){
+  if(!GS.pool.length){ toast('Build the pool first','warn',2600); return; }
+  if(!GM.startedAt) GM.startedAt=Date.now();
+  showOnly('play');
+  gmRender();
+  setTimeout(()=>$('#gmSearch').focus(), 60);
+}
+function gmSave(){ gameSave(); }
+function gmLotSize(l){ return GM.rows.filter(r=>r.lot===l).length; }
+function gmNextLot(){
+  if(!gmLotSize(GM.lotCount)){
+    if(GM.curLot!==GM.lotCount){ GM.curLot=GM.lotCount; gmSave(); gmRender(); return; }
+    toast('Auction '+pad3(GM.lotCount)+' is still empty','warn',1800); return;
+  }
+  GM.lotCount++; GM.curLot=GM.lotCount; gmSave(); gmRender();
+}
+function gmGoLot(l){ GM.curLot=l; gmSave(); gmRender(); }
+function gmDropLot(l){
+  if(gmLotSize(l)) return;
+  GM.rows.forEach(r=>{ if(r.lot>l) r.lot--; });
+  GM.lotCount=Math.max(1, GM.lotCount-1);
+  GM.curLot=Math.min(GM.curLot>l?GM.curLot-1:GM.curLot, GM.lotCount);
+  gmSave(); gmRender();
+}
+function gmCandidates(){
+  const g=gmGroups();
+  return Object.keys(g).map(k=>g[k])
+    .filter(x=>x.left>0 && !GM.rows.some(r=>r.lot===GM.curLot && r.groupKey===x.key));
+}
+function gmAdd(key, quiet){
+  const g=gmGroups()[key];
+  if(!g){ return false; }
+  if(g.left<=0){ toast('Nothing left of '+g.label,'warn',2200); return false; }
+  if(GM.rows.some(r=>r.lot===GM.curLot && r.groupKey===key)){ toast('Already in this auction','warn',2200); return false; }
+  const e=pickEntry(g); if(!e) return false;
+  GM.rows.push({ lot:GM.curLot, uid:e.uid, groupKey:key, gameName:(e.gameName||''),
+                 name:e.name, variation:e.variation, price:e.price, image:e.image||g.image, at:Date.now() });
+  gmSave(); gmRender();
+  if(!quiet){ beep(true); toast('Auction '+pad3(GM.curLot)+' ← '+g.label,'ok',1600); }
+  return true;
+}
+function gmRandomPick(){
+  const list=gmCandidates();
+  if(!list.length){ toast('Nothing left to draw','warn',2600); return null; }
+  let total=list.reduce((s,x)=>s+x.left,0), r=Math.random()*total;
+  for(const x of list){ r-=x.left; if(r<=0) return x; }
+  return list[list.length-1];
+}
+
+/* ---------- the wheel ---------- */
+function gmSpin(){
+  const list=gmCandidates();
+  if(!list.length){ toast('Nothing left to draw','warn',2600); return; }
+  const winner=gmRandomPick(); if(!winner) return;
+
+  const ROW=42, VIEW=5, MID=2;
+  const strip=[];
+  for(let i=0;i<14;i++) list.forEach(x=>strip.push(x));
+  const from=Math.max(0, strip.length-list.length*2);
+  let target=-1;
+  for(let i=from;i<strip.length;i++){ if(strip[i].key===winner.key){ target=i; break; } }
+  if(target<0){ strip.push(winner); target=strip.length-1; }
+  for(let i=0;i<MID+1;i++) strip.push(list[i%list.length]);
+
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="wheelbox"><canvas id="fx"></canvas>'+
+    '<div class="eyebrow" style="margin:0">Auction '+pad3(GM.curLot)+' — drawing</div>'+
+    '<div class="wheelwin"><div class="wheelmark"></div>'+
+    '<div class="wheelstrip" id="wStrip">'+strip.map(x=>'<div class="wheelitem">'+esc(x.label)+'</div>').join('')+'</div></div>'+
+    '<div class="wheelwinner" id="wWin"></div></div>';
+  document.body.appendChild(wrap);
+
+  const el=wrap.querySelector('#wStrip');
+  const end=-(target*ROW - MID*ROW);
+  const dur=3000+Math.random()*2000;
+  const t0=performance.now();
+  const ease=t=>1-Math.pow(1-t, 4);
+  (function frame(now){
+    const t=Math.min(1,(now-t0)/dur);
+    el.style.transform='translateY('+(end*ease(t))+'px)';
+    if(t<1){ requestAnimationFrame(frame); return; }
+    wrap.querySelector('#wWin').textContent=winner.label;
+    beep(true); fireworks(wrap.querySelector('#fx'));
+    setTimeout(()=>{ wrap.remove(); gmAdd(winner.key, true); toast('Auction '+pad3(GM.curLot)+' ← '+winner.label,'ok',2200); }, 1700);
+  })(t0);
+}
+function fireworks(cv){
+  if(!cv) return;
+  const box=cv.parentElement;
+  cv.width=box.clientWidth; cv.height=box.clientHeight;
+  const ctx=cv.getContext('2d');
+  const colors=['#21C063','#F2B14C','#4C9AF2','#F0524D','#E6EAF0'];
+  const parts=[];
+  for(let b=0;b<3;b++){
+    const cx=cv.width*(0.25+0.25*b), cy=cv.height*(0.35+0.1*(b%2));
+    for(let i=0;i<46;i++){
+      const a=Math.random()*Math.PI*2, sp=1.6+Math.random()*4.4;
+      parts.push({x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,
+                  c:colors[(Math.random()*colors.length)|0], r:1.6+Math.random()*2.2, d:b*120});
+    }
+  }
+  const t0=performance.now();
+  (function anim(now){
+    const t=now-t0;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    let alive=false;
+    parts.forEach(p=>{
+      if(t<p.d) { alive=true; return; }
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.075; p.vx*=0.99; p.life-=0.012;
+      if(p.life<=0) return;
+      alive=true;
+      ctx.globalAlpha=Math.max(0,p.life);
+      ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    if(alive && t<2600) requestAnimationFrame(anim); else ctx.clearRect(0,0,cv.width,cv.height);
+  })(t0);
+}
+
+/* ---------- play render ---------- */
+function gmRender(){
+  if($('#play').classList.contains('hide')) return;
+  const g=gmGroups(), keys=Object.keys(g);
+  const total=keys.reduce((s,k)=>s+g[k].qty,0), used=keys.reduce((s,k)=>s+g[k].used,0);
+  $('#gmLotNo').textContent='AUCTION '+pad3(GM.curLot);
+  $('#gmLeft').innerHTML='<b>'+(total-used)+'</b> left of '+total;
+
+  const b=$('#gmTarget');
+  if(GM.curLot!==GM.lotCount){
+    b.classList.remove('hide');
+    b.innerHTML='<span>Adding to <b>AUCTION '+pad3(GM.curLot)+'</b> — an earlier one</span>'+
+      '<button class="btn small" id="gmBackLot">→ back to AUCTION '+pad3(GM.lotCount)+'</button>';
+    $('#gmBackLot').onclick=()=>gmGoLot(GM.lotCount);
+  } else b.classList.add('hide');
+
+  /* the pool, as the game sees it */
+  $('#gmPool').innerHTML = keys.length ? keys.map(k=>{
+    const x=g[k], pct=x.qty?Math.round(x.used/x.qty*100):0;
+    return '<div class="gpr'+(x.left<=0?' done':'')+'">'+
+      '<span class="n'+(x.entries[0].gameName?' g':'')+'">'+esc(x.label)+'</span>'+
+      '<span class="bar"><i style="width:'+pct+'%"></i></span>'+
+      '<span class="c">'+x.used+' / '+x.qty+'</span></div>';
+  }).join('') : '<div class="empty" style="padding:26px">The pool is empty</div>';
+
+  gmRenderList(); gmRenderSummary(); gmRenderDrop();
+  const t=gmTotals();
+  $('#gmStats').textContent = t.items+' items · '+t.lots+' auctions · '+money(t.cost);
+}
+function gmTotals(){
+  return { items:GM.rows.length, lots:GM.lotCount,
+           cost:GM.rows.reduce((s,r)=>s+(r.price||0),0) };
+}
+function gmRenderList(){
+  const box=$('#gmList');
+  let html='';
+  for(let l=1;l<=GM.lotCount;l++){
+    const rows=GM.rows.map((r,i)=>({r,i})).filter(x=>x.r.lot===l);
+    const sum=rows.reduce((s,x)=>s+(x.r.price||0),0);
+    const active=(l===GM.curLot);
+    html+='<div class="rplot'+(active?' cur':'')+'"><span class="n">AUCTION '+pad3(l)+'</span>'+
+      '<span class="m">'+(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty')+'</span>'+
+      '<div class="spacer" style="flex:1"></div>'+
+      (active?'<span class="lotnow">adding here</span>':'<button class="btn small" data-ggo="'+l+'">+ Add here</button>')+
+      (rows.length?'':'<button class="btn small" data-gdrop="'+l+'" title="Remove this empty auction">×</button>')+
+      '</div>';
+    rows.forEach(x=>{
+      const r=x.r;
+      html+='<div class="rprow"><div class="num"></div>'+
+        '<img src="'+esc(r.image||PLACEHOLDER)+'" alt="">'+
+        '<div class="nm">'+esc(r.name)+(r.variation?' <span>· '+esc(r.variation)+'</span>':'')+
+          (r.gameName?'<span class="gn" style="display:block;font-size:11.5px;color:var(--accent);font-family:var(--mono)">'+esc(r.gameName)+'</span>':'')+
+        '</div>'+
+        '<div class="pr">'+(r.price==null?'<span style="color:var(--warn)">—</span>':money(r.price))+'</div>'+
+        '<button class="x" data-gdel="'+x.i+'">×</button></div>';
+    });
+  }
+  box.innerHTML=html;
+  $$('#gmList [data-gdel]').forEach(b=>b.onclick=()=>{ GM.rows.splice(+b.dataset.gdel,1); gmSave(); gmRender(); });
+  $$('#gmList [data-ggo]').forEach(b=>b.onclick=()=>gmGoLot(+b.dataset.ggo));
+  $$('#gmList [data-gdrop]').forEach(b=>b.onclick=()=>gmDropLot(+b.dataset.gdrop));
+}
+function gmSummaryRows(){
+  const map={};
+  GM.rows.forEach(r=>{
+    const k=norm(r.name)+'||'+norm(r.variation);
+    if(!map[k]) map[k]={name:r.name, variation:r.variation, qty:0, price:r.price, total:0};
+    map[k].qty++; if(r.price!=null) map[k].total+=r.price;
+    if(map[k].price==null && r.price!=null) map[k].price=r.price;
+  });
+  return Object.values(map).sort((a,b)=>b.qty-a.qty || a.name.localeCompare(b.name));
+}
+function gmRenderSummary(){
+  const rows=gmSummaryRows(), t=gmTotals();
+  $('#gmSummary').innerHTML=
+    '<div class="rpdl"><button class="btn small primary" id="gmXlsx">⬇ Excel (.xlsx)</button>'+
+    '<button class="btn small" id="gmCsv">⬇ CSV</button>'+
+    '<span class="sub" style="font-size:12px;align-self:center">Real catalogue names, not the game names.</span></div>'+
+    (rows.length ?
+      '<table class="rpsum"><thead><tr><th>Item</th><th>Variation</th><th class="n">Qty</th><th class="n">Price</th><th class="n">Total</th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td>'+esc(r.name)+'</td><td style="color:var(--muted)">'+esc(r.variation)+'</td>'+
+        '<td class="n">'+r.qty+'</td><td class="n">'+(r.price==null?'—':money(r.price))+'</td>'+
+        '<td class="n">'+(r.total?money(r.total):'—')+'</td></tr>').join('')+
+      '<tr class="tot"><td>TOTAL</td><td></td><td class="n">'+t.items+'</td><td></td><td class="n">'+money(t.cost)+'</td></tr>'+
+      '</tbody></table>'
+      : '<div class="empty" style="padding:34px">No auctions yet.</div>');
+  const x=$('#gmXlsx'), c=$('#gmCsv');
+  if(x) x.onclick=gmExportXlsx;
+  if(c) c.onclick=gmExportCsv;
+}
+function gmListAoa(){
+  const out=[['Auction #','Item','Variation','Game name','Price']];
+  for(let l=1;l<=GM.lotCount;l++){
+    GM.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, r.gameName||'', r.price==null?'':r.price]));
+  }
+  return out;
+}
+function gmSummaryAoa(){
+  const rows=gmSummaryRows(), t=gmTotals();
+  const out=[['Item','Variation','Qty','Price','Total']];
+  rows.forEach(r=>out.push([r.name, r.variation, r.qty, r.price==null?'':r.price, r.total||'']));
+  out.push(['TOTAL','',t.items,'',t.cost]);
+  return out;
+}
+function gmExportXlsx(){
+  if(!GM.rows.length){ toast('Nothing to export','warn'); return; }
+  if(typeof XLSX==='undefined'){ toast('Spreadsheet library not loaded — use CSV','err',3200); return; }
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gmListAoa()), 'List');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gmSummaryAoa()), 'Summary');
+  XLSX.writeFile(wb, 'auction_game_'+fmtDate(Date.now())+'.xlsx');
+  toast('Game report downloaded','ok');
+}
+function gmExportCsv(){
+  if(!GM.rows.length){ toast('Nothing to export','warn'); return; }
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const block=a=>a.map(r=>r.map(q).join(',')).join('\r\n');
+  const txt='LIST\r\n'+block(gmListAoa())+'\r\n\r\nSUMMARY\r\n'+block(gmSummaryAoa())+'\r\n';
+  const blob=new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='auction_game_'+fmtDate(Date.now())+'.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Game report downloaded','ok');
+}
+
+/* ---------- searchable dropdown over the pool ---------- */
+function gmRenderDrop(){
+  const drop=$('#gmDrop'); if(drop.classList.contains('hide')) return;
+  const q=norm($('#gmSearch').value);
+  const g=gmGroups();
+  let list=Object.keys(g).map(k=>g[k]);
+  if(q){
+    list=list.filter(x=>{
+      if(norm(x.label).includes(q)) return true;
+      return x.entries.some(e=>{
+        const it=INV[e.ikey];
+        return norm(e.name+' '+e.variation).includes(q) ||
+               (it && barcodesOf(it.barcode).some(b=>b.includes(q)));
+      });
+    });
+  }
+  drop.innerHTML = list.length ? list.slice(0,40).map(x=>
+    '<div class="d'+(x.left<=0?' gone':'')+'" data-k="'+esc(x.key)+'">'+
+    '<span class="n">'+esc(x.label)+'</span><span class="r">'+x.used+' / '+x.qty+'</span></div>').join('')
+    : '<div class="d gone">nothing found in the pool</div>';
+  $$('#gmDrop [data-k]').forEach(d=>d.onclick=()=>{
+    if(d.classList.contains('gone')) return;
+    if(gmAdd(d.dataset.k)){ $('#gmSearch').value=''; drop.classList.add('hide'); }
+  });
+}
+
+/* ---------- auction game wiring ---------- */
+$('#gsBack').onclick   = ()=>{ gameSave(); openSetup(); };
+$('#gsGo').onclick     = ()=>gmOpen();
+$('#gsImport').onclick = ()=>gsImport();
+$('#gsClear').onclick  = ()=>{
+  if(!GS.pool.length) return;
+  if(!confirm('Clear the whole pool? The auctions already played are kept.')) return;
+  GS.pool=[]; gameSave(); gsRender();
+};
+$('#gsSearch').addEventListener('input', ()=>gsRenderFound());
+$('#gsSheet').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); gsImport(); } });
+$('#gsPlanned').addEventListener('change', ()=>{
+  GS.planned=Math.max(1, parseInt($('#gsPlanned').value,10)||100); gameSave(); gsRender();
+});
+$$('[data-fall]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fall; GS.filters[f]=filterOptions(f).slice(); recalcFilters(); gameSave(); gsRenderFilters(); gsRender(); });
+$$('[data-fnone]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fnone; GS.filters[f]=[]; recalcFilters(); gameSave(); gsRenderFilters(); gsRender(); });
+
+$('#gmBack').onclick   = ()=>{ gameSave(); gsOpen(); };
+$('#gmNext').onclick   = ()=>gmNextLot();
+$('#gmSpin').onclick   = ()=>gmSpin();
+$('#gmRandom').onclick = ()=>{ const w=gmRandomPick(); if(w) gmAdd(w.key); };
+$('#gmSearch').addEventListener('focus', ()=>{ $('#gmDrop').classList.remove('hide'); gmRenderDrop(); });
+$('#gmSearch').addEventListener('input', ()=>{ $('#gmDrop').classList.remove('hide'); gmRenderDrop(); });
+$('#gmSearch').addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ $('#gmDrop').classList.add('hide'); $('#gmSearch').blur(); }
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const first=$('#gmDrop .d[data-k]');
+    if(first && !first.classList.contains('gone')) first.click();
+  }
+});
+document.addEventListener('click', e=>{
+  if($('#play').classList.contains('hide')) return;
+  if(!e.target.closest('.gmsearchwrap')) $('#gmDrop').classList.add('hide');
+});
+$$('#play .rptab').forEach(b=>b.onclick=()=>{
+  $$('#play .rptab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const list=b.dataset.gtab==='list';
+  $('#gmList').classList.toggle('hide', !list);
+  $('#gmSummary').classList.toggle('hide', list);
 });
 
 /* ============================================================
@@ -1753,6 +2637,7 @@ $('#startBtn').onclick = ()=>{
   newSession('', room, acct);
 };
 $('#reportBtn').onclick = ()=>rpOpen();
+$('#gameBtn').onclick   = ()=>gsOpen();
 $('#resumeBtn').onclick = ()=>{
   if(!window._openSess) return;
   SESS=window._openSess; rememberSession();
