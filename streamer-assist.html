@@ -716,7 +716,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
        Add a line to either list when the business adds one — nothing else
        in the file has to change. <<< */
 const ROOMS    = ['CPH'];
-const ACCOUNTS = ['@calipokehouse', '@koislabs', '@calitoys', '@dolldropofficial'];
+const ACCOUNTS = ['@dolldropofficial', '@calipokehouse', '@koislabs', '@calitoys'];
 
 /* >>> Same Firebase project as the station <<< */
 const firebaseConfig = {
@@ -735,7 +735,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-19b · streamer assist v1.9';
+const BUILD = '2026-09-19c · streamer assist v2.0';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -788,6 +788,39 @@ let editingId=null;                // lot id being edited
 let lastPrinted=null;              // last saved record (for F2)
 let chatRows=[], chatOff=null, bridgeOff=null, pinnedUser=null;
 const CHAT_HOOKS=[];        // live listeners (the viewer wheel uses one)
+
+/* ---------- shared state --------------------------------------------------
+   The game and the report live in Firebase as well as in this browser, so a
+   second device (the manager watching from his desk) sees the same lots.
+   Every write carries the id of the device that made it; a device ignores the
+   echo of its own write and applies anybody else's.                         */
+const DEV_ID = (function(){ try{ return (crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()).slice(0,12); }catch(e){ return String(Date.now()); } })();
+let gameOff=null, reportOff=null, _gameT=0, _reportT=0;
+function pushGame(){
+  if(!saRef || !CUR_ROOM) return;
+  clearTimeout(_gameT);
+  _gameT=setTimeout(()=>{
+    saRef.child('game/'+CUR_ROOM).set({by:DEV_ID, at:Date.now(), GS:GS, GM:GM, GV:GV}).catch(()=>{});
+  }, 400);
+}
+function pushReport(){
+  if(!saRef || !CUR_ROOM) return;
+  clearTimeout(_reportT);
+  _reportT=setTimeout(()=>{
+    saRef.child('report/'+CUR_ROOM).set({by:DEV_ID, at:Date.now(), RP:RP}).catch(()=>{});
+  }, 400);
+}
+function wipeChat(){
+  chatRows=[];
+  try{
+    if(saRef && CUR_ROOM){
+      const ref=saRef.child('chat/'+CUR_ROOM);
+      const p = ref.remove ? ref.remove() : ref.set(null);
+      if(p && p.catch) p.catch(()=>{});
+    }
+  }catch(e){}
+  renderChat(false);
+}
 let auctionOff=null, auctionRec=null, lastAuctionAt=0;
 let bridgeState={online:false,lastSeen:0};
 let dymoReady=false, dymoTried=false;
@@ -851,6 +884,29 @@ function attachRoom(room){
   const aref = saRef.child('auction/'+room);
   const ah = aref.on('value', snap=>{ onAuction(snap.val()); });
   auctionOff = ()=>aref.off('value', ah);
+
+  if(gameOff){ gameOff(); gameOff=null; }
+  if(reportOff){ reportOff(); reportOff=null; }
+  const gref = saRef.child('game/'+room);
+  const gh = gref.on('value', snap=>{
+    const v=snap.val(); if(!v || v.by===DEV_ID) return;      // our own echo
+    if(v.GS && Array.isArray(v.GS.pool)) GS=Object.assign(GS, v.GS);
+    if(v.GM && Array.isArray(v.GM.rows)) GM=Object.assign(GM, v.GM);
+    if(v.GV && Array.isArray(v.GV.pool)) GV=Object.assign(GV, v.GV);
+    try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM, GV:GV})); }catch(e){}
+    if(!$('#game').classList.contains('hide')) gsRender();
+    if(!$('#play').classList.contains('hide')) gmRender();
+  });
+  gameOff = ()=>gref.off('value', gh);
+
+  const rref = saRef.child('report/'+room);
+  const rh = rref.on('value', snap=>{
+    const v=snap.val(); if(!v || v.by===DEV_ID || !v.RP) return;
+    RP=v.RP;
+    try{ localStorage.setItem(LS_REPORT, JSON.stringify(RP)); }catch(e){}
+    if(!$('#report').classList.contains('hide')) rpRender();
+  });
+  reportOff = ()=>rref.off('value', rh);
 
   const cref = saRef.child('chat/'+room).limitToLast(120);
   const ch = cref.on('child_added', snap=>{
@@ -1719,7 +1775,10 @@ function rpPriceState(txt, bad){
 }
 
 /* ---------- state ---------- */
-function rpSave(){ try{ localStorage.setItem(LS_REPORT, JSON.stringify(RP)); }catch(e){} }
+function rpSave(){
+  try{ localStorage.setItem(LS_REPORT, JSON.stringify(RP)); }catch(e){}
+  pushReport();
+}
 function rpLoadState(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_REPORT)||'null');
@@ -2051,6 +2110,7 @@ const GAME_NAME_SUGGESTIONS = [
   '1 random fuggler mini keyring series 5',
   '1 random fuggler mini keyring series 3'
 ];
+const PRIZE_SUGGESTIONS = ['fuggler squishy', 'fuggler holographic stickers'];
 const GS_DEFAULT_TYPE  = 'figurine';
 const GS_DEFAULT_BRAND = 'fuggler';
 
@@ -2059,7 +2119,10 @@ let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1,
 let GM = { rows:[], curLot:1, lots:[1], startedAt:0, giveaways:[] };
 let GV = { pool:[], seconds:60 };          // the giveaway pool being collected
 
-function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM, GV:GV})); }catch(e){} }
+function gameSave(){
+  try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM, GV:GV})); }catch(e){}
+  pushGame();
+}
 function gameLoad(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_GAME)||'null'); if(!o) return;
@@ -2682,7 +2745,8 @@ function gmSpinViewer(){
 
     '<div class="vwmain">'+
       '<div class="vwcol vwchat">'+
-        '<div class="vwcolhead">Live chat</div>'+
+        '<div class="vwcolhead">Live chat'+
+          '<button class="btn small" id="vwClearChat" style="float:right;margin-top:-4px">clear</button></div>'+
         '<div class="vwcolbody" id="vwChat"></div>'+
       '</div>'+
 
@@ -2701,7 +2765,8 @@ function gmSpinViewer(){
       '</div>'+
 
       '<div class="vwcol vwpool">'+
-        '<div class="vwcolhead">Giveaway pool <span id="vwPoolN"></span></div>'+
+        '<div class="vwcolhead">Giveaway pool <span id="vwPoolN"></span>'+
+          '<button class="btn small" id="vwClearPool" style="float:right;margin-top:-4px">clear</button></div>'+
         '<div class="vwgive">'+
           '<select id="vwSecs"></select>'+
           '<button class="btn small primary" id="vwCollect">Start</button>'+
@@ -2927,6 +2992,12 @@ function gmSpinViewer(){
   el('vwAddBtn').onclick=()=>{ if(addViewer(el('vwAdd').value)) el('vwAdd').value=''; };
   el('vwAdd').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el('vwAddBtn').click(); } });
   el('vwMute').onclick=()=>{ MUTED=!MUTED; el('vwMute').textContent=MUTED?'🔇':'🔊'; };
+  el('vwClearChat').onclick=()=>{ wipeChat(); renderChatCol(); toast('Chat cleared','ok',1400); };
+  el('vwClearPool').onclick=()=>{
+    if(!idle()){ toast('Not while the wheel is spinning','warn'); return; }
+    GV.pool=[]; collecting=false; el('vwCollect').textContent='Start';
+    gameSave(); renderPool(); renderTimer(); refreshWheel();
+  };
   const close=()=>{
     if(phase==='up'||phase==='run'||phase==='down') return;
     cancelAnimationFrame(raf);
@@ -3067,11 +3138,16 @@ function gmRenderSummary(){
   if(x) x.onclick=gmExportXlsx;
   if(c) c.onclick=gmExportCsv;
   $$('#gmSummary [data-gwn]').forEach(b=>b.onclick=()=>gmWinnerNote(+b.dataset.gwn));
+  const cw=$('#gwClearAll');
+  if(cw) cw.onclick=()=>askYesNo('Clear the giveaway winners?',
+    'The whole list of winners is removed. Auctions are not touched.',
+    'Clear', 'Cancel', v=>{ if(v){ GM.giveaways=[]; gmSave(); gmRender(); toast('Winners cleared','ok'); } });
 }
 function gmGiveawayHtml(){
   const g=GM.giveaways||[];
   if(!g.length) return '';
-  return '<div class="givewin"><div class="gh">Giveaway winners</div>'+
+  return '<div class="givewin"><div class="gh">Giveaway winners'+
+    '<button class="btn small danger" id="gwClearAll" style="float:right;margin-top:-5px">Clear winners</button></div>'+
     g.map((x,i)=>'<div class="gr"><span class="n">'+pad3(i+1)+'</span>'+
       '<span class="w">'+esc(x.winner||'—')+
         ((x.prize||x.note)?'<span class="pz">'+esc([x.prize,x.note].filter(Boolean).join(' · '))+'</span>':'')+'</span>'+
@@ -3090,6 +3166,8 @@ function gmWinnerNote(i){
     '<input type="text" id="gwSearch" placeholder="type a name or scan a barcode…" autocomplete="off" spellcheck="false">'+
     '<div id="gwFound" class="gsfound" style="max-height:150px;margin-top:6px"></div>'+
     '<div id="gwPicked" class="sub" style="font-size:12.5px;margin:8px 0 0"></div>'+
+    '<div class="sugg" style="margin-top:9px">'+PRIZE_SUGGESTIONS.map((v,k)=>
+      '<button data-pz="'+k+'" style="font-family:var(--body);font-weight:500">'+esc(v)+'</button>').join('')+'</div>'+
     '<label class="fld" style="margin-top:14px">Comment — any text</label>'+
     '<input type="text" id="gwNote" autocomplete="off" value="'+esc(rec.note||'')+'">'+
     '<div style="display:flex;gap:9px;margin-top:16px"><button class="btn primary" id="gwOk">Save</button>'+
@@ -3118,6 +3196,7 @@ function gmWinnerNote(i){
   };
   showPicked();
   wrap.querySelector('#gwSearch').addEventListener('input', find);
+  wrap.querySelectorAll('[data-pz]').forEach(b=>b.onclick=()=>{ prize=PRIZE_SUGGESTIONS[+b.dataset.pz]; showPicked(); });
   wrap.querySelector('#gwClear').onclick=()=>{ prize=''; showPicked(); };
   const close=save=>{
     if(save){
@@ -3420,10 +3499,49 @@ $('#startBtn').onclick = ()=>{
   const room=$('#setRoom').value;
   const acct=chosenAccount();
   if(!acct || acct.length<3){ $('#setAcctManual').focus(); toast('Which TikTok account?','warn'); return; }
-  newSession('', room, acct);
+  const open=window._openSess;
+  if(!open){ newSession('', room, acct); return; }
+  askYesNo('A stream from '+fmtTime(open.startedAt)+' is still open',
+    'Continue that stream with everything already recorded, or close it and start a fresh one with an empty log and an empty chat?',
+    'Continue', 'Start fresh', v=>{
+      if(v){
+        SESS=open; rememberSession();
+        CUR_HANDLE=SESS.handle||CUR_HANDLE;
+        attachRoom(SESS.room||CUR_ROOM); setControl(CUR_HANDLE); openWork();
+      }else{
+        saRef.child('sessions/'+open.id+'/endedAt').set(Date.now()).catch(()=>{});
+        window._openSess=null; wipeChat(); newSession('', room, acct);
+      }
+    });
 };
-$('#reportBtn').onclick = ()=>rpOpen();
-$('#gameBtn').onclick   = ()=>{ applyPick(); gsOpen(); };
+$('#reportBtn').onclick = ()=>{
+  rpLoadState();
+  if(!(RP.rows||[]).length){ rpOpen(); return; }
+  askYesNo('A report is already started',
+    '<b>'+RP.rows.length+'</b> item'+(RP.rows.length===1?'':'s')+' scanned. '+
+    'Continue that list, or start a fresh one?',
+    'Continue', 'Start fresh', v=>{
+      if(!v){ RP={mode:RP.mode, rows:[], curLot:1, lots:[1], startedAt:Date.now()}; rpSave(); }
+      rpOpen();
+    });
+};
+$('#gameBtn').onclick   = ()=>{
+  applyPick(); gameLoad();
+  const pool=(GS.pool||[]).length, drawn=(GM.rows||[]).length, wins=(GM.giveaways||[]).length;
+  if(!pool && !drawn && !wins){ gsOpen(); return; }
+  askYesNo('A game is already in progress',
+    '<b>'+pool+'</b> in the pool · <b>'+drawn+'</b> drawn · <b>'+wins+'</b> giveaway winner'+(wins===1?'':'s')+'.<br>'+
+    'Continue it, or start a fresh game — empty pool, no auctions, clean chat?',
+    'Continue', 'Start fresh', v=>{
+      if(!v){
+        GS.pool=[]; GS.sheet='';
+        GM={rows:[], curLot:1, lots:[1], startedAt:Date.now(), giveaways:[]};
+        GV={pool:[], seconds:60};
+        gameSave(); wipeChat();
+      }
+      gsOpen();
+    });
+};
 $('#resumeBtn').onclick = ()=>{
   if(!window._openSess) return;
   SESS=window._openSess; rememberSession();
