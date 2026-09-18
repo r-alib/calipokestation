@@ -315,6 +315,49 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
   .gmsplit{grid-template-rows:none;grid-auto-rows:minmax(260px,auto)}
 }
 
+/* ---------- viewer wheel ---------- */
+.vwmodal{padding:14px}
+.vwbox{width:100%;max-width:1180px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  display:flex;flex-direction:column;max-height:92vh;overflow:hidden}
+.vwhead{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);flex:none}
+.vwtabs{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.vwtab{background:none;border:0;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--muted)}
+.vwtab.on{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.vwbridge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.vwmain{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) 250px;gap:1px;background:var(--border)}
+.vwcol{background:var(--panel);min-height:0;display:flex;flex-direction:column}
+.vwcolhead{flex:none;padding:8px 12px;border-bottom:1px solid var(--border);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--faint);font-weight:700}
+.vwcolbody{flex:1;min-height:0;overflow:auto;padding:7px 9px}
+.vwmsg{padding:4px 7px;border-radius:7px;font-size:12.5px;line-height:1.35;cursor:pointer}
+.vwmsg:hover{background:var(--panel2)}
+.vwmsg .u{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:12px}
+.vwmsg .t{color:var(--muted)}
+.vwmsg.join{background:#12251a}
+.vwmsg.stop{background:#2b2412}
+.vwcenter{position:relative;padding:14px 16px 16px;justify-content:center}
+.vwstatus{text-align:center;font-size:12.5px;color:var(--muted);min-height:18px}
+.vwstop{margin-top:12px}
+.vwstop input{width:100%}
+.vwgive{display:flex;gap:7px;padding:8px 10px;border-bottom:1px solid var(--border);flex:none}
+.vwgive select{flex:1;padding:7px 9px}
+.vwtimer{flex:none;padding:6px 12px;font-size:12px;color:var(--faint);min-height:26px}
+.vwtimer.on{color:var(--accent);font-weight:600}
+.vwadd{display:flex;gap:6px;padding:0 10px 8px;flex:none}
+.vwadd input{flex:1;padding:7px 9px;font-size:12.5px}
+.vwp{display:flex;align-items:center;gap:8px;padding:4px 7px;font-size:12.5px;font-family:var(--mono)}
+.vwp span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vwp button{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);padding:1px 6px;font-size:11px}
+.vwp button:hover{border-color:var(--err);color:var(--err)}
+.givewin{border-top:1px solid var(--line);margin-top:2px}
+.givewin .gh{padding:11px 13px 5px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.givewin .gr{display:flex;align-items:center;gap:10px;padding:7px 13px;border-bottom:1px solid var(--border);font-size:13px}
+.givewin .gr:last-child{border-bottom:0}
+.givewin .gr .n{font-family:var(--mono);color:var(--faint);width:34px;flex:none}
+.givewin .gr .w{flex:1;font-family:var(--mono);font-weight:700;color:var(--accent)}
+.givewin .gr .m{color:var(--muted);font-size:12px}
+@media(max-width:1100px){ .vwmain{grid-template-columns:1fr;max-height:none} .vwcol{max-height:40vh} }
+
 /* toast */
 #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:100;display:flex;
   flex-direction:column;gap:8px;align-items:center;pointer-events:none}
@@ -619,6 +662,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
     </div>
     <button class="btn" id="gmRandom">🎲 Add random</button>
     <button class="btn primary" id="gmSpin">🎡 Spin the wheel</button>
+    <button class="btn primary" id="gmSpinV">👥 Spin with viewer</button>
     <button class="btn" id="gmNext">Next lot →</button>
   </div>
   <div id="gmTarget" class="rptarget hide"></div>
@@ -677,7 +721,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-18c · streamer assist v1.6';
+const BUILD = '2026-09-18d · streamer assist v1.7';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -729,6 +773,7 @@ let pickedItem=null;               // inventory record chosen for the current lo
 let editingId=null;                // lot id being edited
 let lastPrinted=null;              // last saved record (for F2)
 let chatRows=[], chatOff=null, bridgeOff=null, pinnedUser=null;
+const CHAT_HOOKS=[];        // live listeners (the viewer wheel uses one)
 let auctionOff=null, auctionRec=null, lastAuctionAt=0;
 let bridgeState={online:false,lastSeen:0};
 let dymoReady=false, dymoTried=false;
@@ -796,8 +841,10 @@ function attachRoom(room){
   const cref = saRef.child('chat/'+room).limitToLast(120);
   const ch = cref.on('child_added', snap=>{
     const v=snap.val(); if(!v||!v.u) return;
-    chatRows.push({k:snap.key,u:v.u,n:v.n||'',t:v.t||'',ts:v.ts||Date.now()});
+    const row={k:snap.key,u:v.u,n:v.n||'',t:v.t||'',ts:v.ts||Date.now()};
+    chatRows.push(row);
     if(chatRows.length>160) chatRows=chatRows.slice(-160);
+    CHAT_HOOKS.forEach(fn=>{ try{ fn(row); }catch(e){} });
     renderChat(true);
   });
   chatOff = ()=>cref.off('child_added', ch);
@@ -1832,9 +1879,10 @@ const GS_DEFAULT_TYPE  = 'figurine';
 const GS_DEFAULT_BRAND = 'fuggler';
 
 let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1 };
-let GM = { rows:[], curLot:1, lotCount:1, startedAt:0 };
+let GM = { rows:[], curLot:1, lotCount:1, startedAt:0, giveaways:[] };
+let GV = { pool:[], seconds:60 };          // the giveaway pool being collected
 
-function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM})); }catch(e){} }
+function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM, GV:GV})); }catch(e){} }
 function gameLoad(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_GAME)||'null'); if(!o) return;
@@ -1843,8 +1891,9 @@ function gameLoad(){
       const maxRow=o.GM.rows.reduce((m,r)=>Math.max(m,r.lot||0),0);
       GM={rows:o.GM.rows, curLot:o.GM.curLot||1,
           lotCount:Math.max(o.GM.lotCount||0, o.GM.curLot||1, maxRow, 1),
-          startedAt:o.GM.startedAt||0};
+          startedAt:o.GM.startedAt||0, giveaways:o.GM.giveaways||[]};
     }
+    if(o.GV && Array.isArray(o.GV.pool)) GV={pool:o.GV.pool, seconds:o.GV.seconds||60};
   }catch(e){}
 }
 
@@ -2292,14 +2341,19 @@ function gmSpin(){
     const dur=3000+Math.random()*2000;
     const t0=performance.now();
     const ease=t=>1-Math.pow(1-t, 4);
+    let lastCell=-1;
+    ac();
     (function frame(now){
       const t=Math.min(1,(now-t0)/dur);
-      strip.style.transform='translateY('+(end*ease(t))+'px)';
+      const y=end*ease(t);
+      strip.style.transform='translateY('+y+'px)';
+      const cell=Math.floor(-y/ROW);
+      if(cell!==lastCell){ lastCell=cell; sndTick(); }
       if(t<1){ requestAnimationFrame(frame); return; }
       gmAdd(winner.key, true);
       winEl.textContent=winner.label;
       headEl.textContent='Auction '+pad3(GM.curLot)+' — added';
-      beep(true); fireworks(wrap.querySelector('#fx'));
+      sndWin(); fireworks(wrap.querySelector('#fx'));
       toast('Auction '+pad3(GM.curLot)+' ← '+winner.label,'ok',2400);
       busy=false;
       const more=gmDrawPool().length;
@@ -2308,6 +2362,349 @@ function gmSpin(){
     })(t0);
   };
 }
+/* ============================================================
+   SOUND
+   Everything is synthesised on the spot — no files to host, no CDN.
+   The audio context only wakes up on a real click, which is what
+   browsers require anyway.
+   ============================================================ */
+let AC=null, MUTED=false;
+function ac(){
+  try{
+    if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended') AC.resume();
+    return AC;
+  }catch(e){ return null; }
+}
+function blip(freq, dur, type, gain){
+  if(MUTED) return;
+  const c=ac(); if(!c) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type=type||'square'; o.frequency.value=freq;
+  g.gain.setValueAtTime(gain||0.05, c.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0005, c.currentTime+dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(); o.stop(c.currentTime+dur+0.02);
+}
+function sndTick(){ blip(1150+Math.random()*90, 0.028, 'square', 0.03); }
+function sndStopCue(){
+  if(MUTED) return;
+  const c=ac(); if(!c) return;
+  const o=c.createOscillator(), g=c.createGain();
+  o.type='sawtooth';
+  o.frequency.setValueAtTime(900, c.currentTime);
+  o.frequency.exponentialRampToValueAtTime(170, c.currentTime+0.75);
+  g.gain.setValueAtTime(0.07, c.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0005, c.currentTime+0.8);
+  o.connect(g); g.connect(c.destination);
+  o.start(); o.stop(c.currentTime+0.85);
+}
+function sndWin(){
+  if(MUTED) return;
+  [523.25,659.25,783.99,1046.5].forEach((f,i)=>setTimeout(()=>blip(f,0.22,'triangle',0.085), i*105));
+}
+
+/* ============================================================
+   CHAT WORDS
+   ============================================================ */
+const STOP_WORDS = ['stop','стоп'];
+const JOIN_WORD  = 'giveaway';
+function chatClean(t){
+  return String(t||'').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
+}
+function isStopMsg(t){ const w=chatClean(t).split(' ')[0]; return STOP_WORDS.indexOf(w)>=0; }
+function isJoinMsg(t){ return (' '+chatClean(t)+' ').indexOf(' '+JOIN_WORD+' ')>=0; }
+function sameUser(a,b){
+  a=norm(a).replace(/^@/,''); b=norm(b).replace(/^@/,'');
+  return !!a && !!b && a===b;
+}
+
+/* ============================================================
+   THE VIEWER WHEEL
+   A wide window: chat on the left, the wheel in the middle, the
+   giveaway pool on the right.  Two modes share it —
+     item      : the wheel holds the game pool, a viewer stops it
+     giveaway  : the wheel holds the viewers themselves
+   The wheel spins up, runs at full speed for as long as it takes,
+   and on a stop signal coasts down and lands where it lands — the
+   result is never decided in advance.
+   ============================================================ */
+const GIVEAWAY_TIMES = [30,60,90,120,180];
+
+function gmSpinViewer(){
+  const ROW=42, VIEW=5, MID=2;
+
+  const wrap=document.createElement('div'); wrap.className='modal vwmodal';
+  wrap.innerHTML=
+  '<div class="vwbox">'+
+    '<div class="vwhead">'+
+      '<div class="vwtabs"><button class="vwtab on" data-m="item">Item draw</button>'+
+      '<button class="vwtab" data-m="giveaway">Viewer giveaway</button></div>'+
+      '<div class="spacer"></div>'+
+      '<span class="vwbridge" id="vwBridge"></span>'+
+      '<button class="btn small" id="vwMute">🔊</button>'+
+      '<button class="btn small" id="vwClose">Close</button>'+
+    '</div>'+
+
+    '<div class="vwmain">'+
+      '<div class="vwcol vwchat">'+
+        '<div class="vwcolhead">Live chat</div>'+
+        '<div class="vwcolbody" id="vwChat"></div>'+
+      '</div>'+
+
+      '<div class="vwcol vwcenter">'+
+        '<canvas id="fx"></canvas>'+
+        '<div class="vwstatus" id="vwStatus">Ready</div>'+
+        '<div class="wheelwin"><div class="wheelmark"></div><div class="wheelstrip" id="vwStrip"></div></div>'+
+        '<div class="wheelwinner" id="vwWin"></div>'+
+        '<div class="vwstop" id="vwStopRow">'+
+          '<input type="text" id="vwStopper" placeholder="@viewer who stops it — leave empty for the first one in chat" autocomplete="off" spellcheck="false">'+
+        '</div>'+
+        '<div class="wheelbtns">'+
+          '<button class="btn primary" id="vwSpin">🎡 Spin</button>'+
+          '<button class="btn" id="vwStopNow" disabled>✋ Stop now</button>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="vwcol vwpool">'+
+        '<div class="vwcolhead">Giveaway pool <span id="vwPoolN"></span></div>'+
+        '<div class="vwgive">'+
+          '<select id="vwSecs"></select>'+
+          '<button class="btn small primary" id="vwCollect">Start</button>'+
+        '</div>'+
+        '<div class="vwtimer" id="vwTimer"></div>'+
+        '<div class="vwadd"><input type="text" id="vwAdd" placeholder="add a viewer by hand" autocomplete="off"><button class="btn small" id="vwAddBtn">+</button></div>'+
+        '<div class="vwcolbody" id="vwPoolList"></div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(wrap);
+
+  /* ---------- local state ---------- */
+  let mode='item';
+  let phase='idle';            // idle | up | run | down | done
+  let pos=0, speed=0, lastTick=-1, raf=0;
+  let list=[], setLen=0, setH=0;
+  let stopBy=null;             // who stopped it, for the status line
+  let collecting=false, collectEnd=0, tick1=0;
+  const el=id=>wrap.querySelector('#'+id);
+
+  const S=el('vwStrip'), STATUS=el('vwStatus'), WIN=el('vwWin');
+  const SPIN=el('vwSpin'), STOPNOW=el('vwStopNow');
+
+  el('vwSecs').innerHTML=GIVEAWAY_TIMES.map(s=>'<option value="'+s+'"'+(s===60?' selected':'')+'>'+s+' s</option>').join('');
+
+  /* ---------- chat ---------- */
+  function renderChatCol(){
+    const box=el('vwChat');
+    const rows=chatRows.slice(-70);
+    box.innerHTML = rows.length ? rows.map(r=>{
+      const join=isJoinMsg(r.t), stop=isStopMsg(r.t);
+      return '<div class="vwmsg'+(join?' join':'')+(stop?' stop':'')+'" data-u="'+esc(r.u)+'">'+
+        '<span class="u">'+esc(r.u)+'</span> <span class="t">'+esc(r.t)+'</span></div>';
+    }).join('') : '<div class="empty" style="padding:22px 10px">no chat — is the bridge running?</div>';
+    box.querySelectorAll('[data-u]').forEach(d=>d.onclick=()=>{
+      if(mode==='item'){ el('vwStopper').value=d.dataset.u; }
+      else addViewer(d.dataset.u);
+    });
+    box.scrollTop=box.scrollHeight;
+  }
+  function bridgeLine(){
+    el('vwBridge').innerHTML = bridgeFresh()
+      ? '<span class="led on"></span> chat live'
+      : '<span class="led off"></span> chat offline — only the manual stop works';
+  }
+
+  /* ---------- giveaway pool ---------- */
+  function poolList(){ return GV.pool; }
+  function addViewer(u){
+    u=String(u||'').trim(); if(!u) return false;
+    if(u[0]!=='@') u='@'+u;
+    if(GV.pool.some(x=>sameUser(x,u))) return false;
+    GV.pool.push(u); gameSave(); renderPool(); return true;
+  }
+  function renderPool(){
+    el('vwPoolN').textContent='· '+GV.pool.length;
+    const box=el('vwPoolList');
+    box.innerHTML = GV.pool.length ? GV.pool.map((u,i)=>
+      '<div class="vwp"><span>'+esc(u)+'</span><button data-rm="'+i+'">×</button></div>').join('')
+      : '<div class="empty" style="padding:20px 10px">empty — start the timer, or add by hand</div>';
+    box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
+      if(phase==='run'||phase==='up'||phase==='down') return;
+      GV.pool.splice(+b.dataset.rm,1); gameSave(); renderPool();
+    });
+  }
+  function renderTimer(){
+    const t=el('vwTimer');
+    if(!collecting){ t.textContent = GV.pool.length ? 'collection closed' : ''; t.className='vwtimer'; return; }
+    const left=Math.max(0, Math.ceil((collectEnd-Date.now())/1000));
+    t.textContent='collecting… '+left+' s — viewers type “giveaway”';
+    t.className='vwtimer on';
+    if(left<=0) stopCollecting();
+  }
+  function startCollecting(){
+    GV.pool=[]; collecting=true;
+    GV.seconds=parseInt(el('vwSecs').value,10)||60;
+    collectEnd=Date.now()+GV.seconds*1000;
+    el('vwCollect').textContent='Stop';
+    gameSave(); renderPool(); renderTimer();
+  }
+  function stopCollecting(){
+    collecting=false; el('vwCollect').textContent='Start';
+    renderTimer();
+  }
+
+  /* ---------- what the wheel holds ---------- */
+  function candidates(){
+    if(mode==='giveaway') return GV.pool.map(u=>({key:'v:'+norm(u), label:u, viewer:u}));
+    return gmDrawPool();
+  }
+  function paint(){
+    if(!list.length){ S.innerHTML=''; return; }
+    const need=Math.max(2, Math.ceil((VIEW+4)/list.length));
+    const one=[]; for(let i=0;i<need;i++) list.forEach(x=>one.push(x));
+    setLen=one.length; setH=setLen*ROW;
+    S.innerHTML=one.concat(one).map(x=>'<div class="wheelitem">'+esc(x.label)+'</div>').join('');
+  }
+  function itemAt(p){
+    const off=((p%setH)+setH)%setH;
+    const idx=Math.round((off+MID*ROW)/ROW) % setLen;
+    return list[idx % list.length];
+  }
+  function draw(){
+    const off=((pos%setH)+setH)%setH;
+    S.style.transform='translateY('+(-off)+'px)';
+    const cell=Math.floor(off/ROW);
+    if(cell!==lastTick){ lastTick=cell; if(phase!=='idle'&&phase!=='done') sndTick(); }
+  }
+
+  /* ---------- physics: spin up, cruise, coast down ---------- */
+  const VMAX=1500;            // px per second at full speed
+  const ACC =2400;            // px per second squared
+  function loop(now){
+    raf=requestAnimationFrame(loop);
+    const dt=Math.min(0.05,(now-(loop.last||now))/1000); loop.last=now;
+    if(phase==='up'){
+      speed=Math.min(VMAX, speed+ACC*dt);
+      if(speed>=VMAX) phase='run';
+      pos+=speed*dt; draw();
+    } else if(phase==='run'){
+      pos+=speed*dt; draw();
+    }
+  }
+  function startSpin(){
+    list=candidates();
+    if(!list.length){
+      toast(mode==='giveaway'?'The giveaway pool is empty':'Nothing left to draw','warn',2600); return;
+    }
+    if(mode==='giveaway' && collecting) stopCollecting();
+    ac();                                  // unlock audio on this click
+    paint(); pos=0; speed=0; lastTick=-1; stopBy=null;
+    WIN.textContent=''; phase='up';
+    SPIN.disabled=true; STOPNOW.disabled=false;
+    STATUS.textContent = mode==='giveaway'
+      ? 'Spinning — first “stop” from someone in the pool ends it'
+      : (el('vwStopper').value.trim()
+          ? 'Spinning — waiting for '+el('vwStopper').value.trim()+' to type “stop”'
+          : 'Spinning — first “stop” in chat ends it');
+    loop.last=0; cancelAnimationFrame(raf); raf=requestAnimationFrame(loop);
+  }
+  function beginStop(who){
+    if(phase!=='up' && phase!=='run') return;
+    stopBy=who||null;
+    phase='down';
+    sndStopCue();
+    STOPNOW.disabled=true;
+    STATUS.textContent = who ? ('“stop” from '+who+' — coasting down…') : 'Stopping — coasting down…';
+
+    /* coast: the distance is whatever the current speed carries, snapped to a
+       whole cell so it lands centred.  Nothing is chosen in advance. */
+    const T=2.6+Math.random()*1.4;
+    const from=pos;
+    let dist=speed*T/2;
+    let target=from+dist;
+    target=Math.round(target/ROW)*ROW;
+    const t0=performance.now();
+    cancelAnimationFrame(raf);
+    (function coast(now){
+      const t=Math.min(1,(now-t0)/(T*1000));
+      const e=1-Math.pow(1-t,3);
+      pos=from+(target-from)*e;
+      draw();
+      if(t<1){ raf=requestAnimationFrame(coast); return; }
+      land(itemAt(target));
+    })(t0);
+  }
+  function land(winner){
+    phase='done';
+    SPIN.disabled=false; STOPNOW.disabled=true;
+    SPIN.textContent='🎡 Spin again';
+    if(!winner) return;
+    WIN.textContent=winner.label;
+    sndWin(); fireworks(el('fx'));
+    if(mode==='giveaway'){
+      GM.giveaways=GM.giveaways||[];
+      GM.giveaways.push({winner:winner.viewer, entrants:GV.pool.slice(), seconds:GV.seconds||0,
+                         stoppedBy:stopBy||'', at:Date.now()});
+      gmSave(); gmRender();
+      STATUS.textContent='Winner: '+winner.label;
+      toast('Giveaway winner — '+winner.label,'ok',3200);
+    }else{
+      gmAdd(winner.key, true);
+      STATUS.textContent='Added to auction '+pad3(GM.curLot)+(stopBy?(' · stopped by '+stopBy):'');
+      toast('Auction '+pad3(GM.curLot)+' ← '+winner.label,'ok',2400);
+    }
+  }
+
+  /* ---------- live chat hook ---------- */
+  const hook=row=>{
+    renderChatCol();
+    if(collecting && isJoinMsg(row.t)) addViewer(row.u);
+    if((phase==='run'||phase==='up') && isStopMsg(row.t)){
+      if(mode==='giveaway'){
+        if(GV.pool.some(x=>sameUser(x,row.u))) beginStop(row.u);
+      }else{
+        const want=el('vwStopper').value.trim();
+        if(!want || sameUser(want,row.u)) beginStop(row.u);
+      }
+    }
+  };
+  CHAT_HOOKS.push(hook);
+
+  /* ---------- wiring ---------- */
+  wrap.querySelectorAll('.vwtab').forEach(b=>b.onclick=()=>{
+    if(phase==='up'||phase==='run'||phase==='down') return;
+    wrap.querySelectorAll('.vwtab').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); mode=b.dataset.m;
+    wrap.querySelector('.vwbox').classList.toggle('give', mode==='giveaway');
+    el('vwStopRow').classList.toggle('hide', mode==='giveaway');
+    WIN.textContent=''; SPIN.textContent='🎡 Spin';
+    STATUS.textContent = mode==='giveaway' ? 'Collect viewers, then spin' : 'Ready';
+    list=candidates(); paint(); pos=0; draw();
+  });
+  el('vwSpin').onclick=startSpin;
+  el('vwStopNow').onclick=()=>beginStop(null);
+  el('vwCollect').onclick=()=>{ ac(); collecting?stopCollecting():startCollecting(); };
+  el('vwAddBtn').onclick=()=>{ if(addViewer(el('vwAdd').value)) el('vwAdd').value=''; };
+  el('vwAdd').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); el('vwAddBtn').click(); } });
+  el('vwMute').onclick=()=>{ MUTED=!MUTED; el('vwMute').textContent=MUTED?'🔇':'🔊'; };
+  const close=()=>{
+    if(phase==='up'||phase==='run'||phase==='down') return;
+    cancelAnimationFrame(raf);
+    clearInterval(tick1);
+    const i=CHAT_HOOKS.indexOf(hook); if(i>=0) CHAT_HOOKS.splice(i,1);
+    wrap.remove();
+  };
+  el('vwClose').onclick=close;
+  wrap.onclick=e=>{ if(e.target===wrap) close(); };
+
+  /* ---------- go ---------- */
+  GV.pool=GV.pool||[];
+  list=candidates(); paint(); draw();
+  renderChatCol(); renderPool(); renderTimer(); bridgeLine();
+  tick1=setInterval(()=>{ renderTimer(); bridgeLine(); }, 500);
+}
+
 function fireworks(cv){
   if(!cv) return;
   const box=cv.parentElement;
@@ -2427,10 +2824,21 @@ function gmRenderSummary(){
         '<td class="n">'+(r.total?money(r.total):'—')+'</td></tr>').join('')+
       '<tr class="tot"><td>TOTAL</td><td></td><td class="n">'+t.items+'</td><td></td><td class="n">'+money(t.cost)+'</td></tr>'+
       '</tbody></table>'
-      : '<div class="empty" style="padding:34px">No auctions yet.</div>');
+      : '<div class="empty" style="padding:34px">No auctions yet.</div>')+
+    gmGiveawayHtml();
   const x=$('#gmXlsx'), c=$('#gmCsv');
   if(x) x.onclick=gmExportXlsx;
   if(c) c.onclick=gmExportCsv;
+}
+function gmGiveawayHtml(){
+  const g=GM.giveaways||[];
+  if(!g.length) return '';
+  return '<div class="givewin"><div class="gh">Giveaway winners</div>'+
+    g.map((x,i)=>'<div class="gr"><span class="n">'+pad3(i+1)+'</span>'+
+      '<span class="w">'+esc(x.winner||'—')+'</span>'+
+      '<span class="m">'+(x.entrants?x.entrants.length:0)+' entrants'+
+        (x.stoppedBy?(' · stopped by '+esc(x.stoppedBy)):'')+' · '+fmtTime(x.at)+'</span></div>').join('')+
+    '</div>';
 }
 function gmListAoa(){
   const out=[['Auction #','Item','Variation','Game name','Price']];
@@ -2444,6 +2852,14 @@ function gmSummaryAoa(){
   const out=[['Item','Variation','Qty','Price','Total']];
   rows.forEach(r=>out.push([r.name, r.variation, r.qty, cents(r.price), cents(r.total)||'']));
   out.push(['TOTAL','',t.items,'',cents(t.cost)]);
+  /* the giveaway winners live under the item summary, as their own list */
+  const g=GM.giveaways||[];
+  if(g.length){
+    out.push([]);
+    out.push(['GIVEAWAY WINNERS']);
+    out.push(['#','Winner','Entrants','Stopped by','Time']);
+    g.forEach((x,i)=>out.push([i+1, x.winner||'', x.entrants?x.entrants.length:0, x.stoppedBy||'', fmtTime(x.at)]));
+  }
   return out;
 }
 function gmExportXlsx(){
@@ -2513,6 +2929,7 @@ $$('[data-fnone]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fnone; GS.filter
 $('#gmBack').onclick   = ()=>{ gameSave(); gsOpen(); };
 $('#gmNext').onclick   = ()=>gmNextLot();
 $('#gmSpin').onclick   = ()=>gmSpin();
+$('#gmSpinV').onclick  = ()=>gmSpinViewer();
 $('#gmRandom').onclick = ()=>{ const w=gmRandomPick(); if(w) gmAdd(w.key); };
 $('#gmSearch').addEventListener('focus', ()=>{ $('#gmDrop').classList.remove('hide'); gmRenderDrop(); });
 $('#gmSearch').addEventListener('input', ()=>{ $('#gmDrop').classList.remove('hide'); gmRenderDrop(); });
