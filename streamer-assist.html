@@ -241,6 +241,8 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
 .gscathead{display:flex;align-items:center;gap:7px;padding:6px 8px;background:var(--panel2);border:1px solid var(--line);
   border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .gscathead .c{margin-left:auto;color:var(--faint);font-family:var(--mono);font-weight:500}
+.gscathead .sugn{width:50px;padding:2px 5px;font-size:11.5px;font-family:var(--mono);text-align:center;
+  border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
 .gscat.low  .gscathead{color:#7fd4a2}
 .gscat.mid  .gscathead{color:var(--warn)}
 .gscat.high .gscathead{color:#f08a8a}
@@ -297,16 +299,16 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
 .gpr .bar i{display:block;height:100%;background:var(--accent)}
 
 /* roulette */
-.wheelbox{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+.wheelbox{width:100%;max-width:640px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   padding:18px;position:relative;overflow:hidden}
-.wheelwin{height:210px;overflow:hidden;position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+.wheelwin{height:280px;overflow:hidden;position:relative;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
   margin:14px 0 4px;background:var(--panel2)}
 .wheelstrip{position:absolute;left:0;right:0;top:0;will-change:transform}
-.wheelitem{height:42px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:15px;font-weight:600;
-  border-bottom:1px solid var(--border);padding:0 12px;text-align:center}
-.wheelmark{position:absolute;left:0;right:0;top:84px;height:42px;border-top:2px solid var(--accent);
+.wheelitem{height:56px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:18px;font-weight:600;
+  border-bottom:1px solid var(--border);padding:0 14px;text-align:center;line-height:1.2}
+.wheelmark{position:absolute;left:0;right:0;top:112px;height:56px;border-top:2px solid var(--accent);
   border-bottom:2px solid var(--accent);background:rgba(33,192,99,.09);pointer-events:none;z-index:2}
-.wheelwinner{text-align:center;font-family:var(--disp);font-size:22px;font-weight:700;margin-top:12px;min-height:30px}
+.wheelwinner{text-align:center;font-family:var(--disp);font-size:26px;font-weight:700;margin-top:12px;min-height:34px}
 .wheelbtns{display:flex;gap:9px;justify-content:center;margin-top:14px;position:relative;z-index:6}
 #fx{position:absolute;inset:0;pointer-events:none;z-index:5}
 
@@ -321,7 +323,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
 
 /* ---------- viewer wheel ---------- */
 .vwmodal{padding:14px}
-.vwbox{width:100%;max-width:1180px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+.vwbox{width:100%;max-width:1340px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   display:flex;flex-direction:column;max-height:92vh;overflow:hidden}
 .vwhead{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--border);flex:none}
 .vwtabs{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
@@ -329,6 +331,8 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
 .vwtab.on{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .vwbridge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .vwmain{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) 250px;gap:1px;background:var(--border)}
+.vwbox:not(.give) .vwpool{display:none}
+.vwbox:not(.give) .vwmain{grid-template-columns:290px minmax(0,1fr)}
 .vwcol{background:var(--panel);min-height:0;display:flex;flex-direction:column}
 .vwcolhead{flex:none;padding:8px 12px;border-bottom:1px solid var(--border);font-size:10.5px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--faint);font-weight:700}
@@ -359,6 +363,7 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
 .givewin .gr:last-child{border-bottom:0}
 .givewin .gr .n{font-family:var(--mono);color:var(--faint);width:34px;flex:none}
 .givewin .gr .w{flex:1;font-family:var(--mono);font-weight:700;color:var(--accent)}
+.givewin .gr .pz{display:block;font-family:var(--body);font-weight:500;color:var(--ink);font-size:12.5px;margin-top:2px}
 .givewin .gr .m{color:var(--muted);font-size:12px}
 @media(max-width:1100px){ .vwmain{grid-template-columns:1fr;max-height:none} .vwcol{max-height:40vh} }
 
@@ -659,6 +664,8 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
     <span class="gmtitle">AUCTION GAME</span>
     <div class="spacer"></div>
     <span class="gmcount" id="gmLeft"></span>
+    <button class="btn small" id="gmFinish">🏁 Finish game</button>
+    <button class="btn small danger" id="gmClear">Clear lots</button>
     <span class="lotno" id="gmLotNo">AUCTION 001</span>
   </div>
 
@@ -728,7 +735,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-19a · streamer assist v1.8';
+const BUILD = '2026-09-19b · streamer assist v1.9';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -2047,7 +2054,8 @@ const GAME_NAME_SUGGESTIONS = [
 const GS_DEFAULT_TYPE  = 'figurine';
 const GS_DEFAULT_BRAND = 'fuggler';
 
-let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1 };
+let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1,
+           sugN:{low:15, mid:10, high:10} };
 let GM = { rows:[], curLot:1, lots:[1], startedAt:0, giveaways:[] };
 let GV = { pool:[], seconds:60 };          // the giveaway pool being collected
 
@@ -2055,7 +2063,10 @@ function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, G
 function gameLoad(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_GAME)||'null'); if(!o) return;
-    if(o.GS && Array.isArray(o.GS.pool)) GS=Object.assign(GS, o.GS);
+    if(o.GS && Array.isArray(o.GS.pool)){
+      GS=Object.assign(GS, o.GS);
+      GS.sugN=Object.assign({low:15, mid:10, high:10}, o.GS.sugN||{});
+    }
     if(o.GM && Array.isArray(o.GM.rows)){
       const maxRow=o.GM.rows.reduce((m,r)=>Math.max(m,r.lot||0),0);
       let lots=Array.isArray(o.GM.lots)?o.GM.lots.slice():null;
@@ -2283,22 +2294,38 @@ function gsRenderSuggest(){
   const rows=invList().filter(passFilters).map(it=>({it, price:poolPrice(it), stock:(it.stock==null?0:it.stock)}))
     .filter(x=>x.price!=null);
   const cats=[
-    {k:'low',  t:'Low · under $10',   n:15, f:x=>x.price<10},
-    {k:'mid',  t:'Middle · $10–15',   n:10, f:x=>x.price>=10 && x.price<=15},
-    {k:'high', t:'High · over $15',   n:10, f:x=>x.price>15}
+    {k:'low',  t:'Low · under $10',   f:x=>x.price<10},
+    {k:'mid',  t:'Middle · $10–15',   f:x=>x.price>=10 && x.price<=15},
+    {k:'high', t:'High · over $15',   f:x=>x.price>15}
   ];
   box.innerHTML = cats.map(c=>{
-    const list=rows.filter(c.f).sort((a,b)=>b.stock-a.stock).slice(0,c.n);
+    const all=rows.filter(c.f).sort((a,b)=>b.stock-a.stock);
+    const want=Math.max(1, parseInt((GS.sugN||{})[c.k],10)||10);
+    const list=all.slice(0,want);
     const open=!GS.collapsed[c.k];
     return '<div class="gscat '+c.k+'"><div class="gscathead" data-cat="'+c.k+'">'+
-      (open?'▾':'▸')+' '+esc(c.t)+'<span class="c">'+list.length+'</span></div>'+
+      (open?'▾':'▸')+' '+esc(c.t)+
+      '<span class="c">'+list.length+' / '+all.length+'</span>'+
+      '<input class="sugn" type="number" min="1" step="1" value="'+want+'" data-sugn="'+c.k+'" title="How many to show">'+
+      '</div>'+
       (open ? list.map(x=>'<div class="gsitem" data-ik="'+esc(x.it.ikey)+'">'+
         '<span class="n" title="'+esc(x.it.name)+'">'+esc(x.it.name)+'</span>'+
         '<span class="q">'+x.stock+'</span><span class="p">'+money(x.price)+'</span></div>').join('')
         || '<div class="sub" style="font-size:12px;padding:6px 8px;color:var(--faint)">nothing matches</div>'
         : '')+'</div>';
   }).join('');
-  $$('#gsSuggest [data-cat]').forEach(h=>h.onclick=()=>{ const k=h.dataset.cat; GS.collapsed[k]=!GS.collapsed[k]; gameSave(); gsRenderSuggest(); });
+  $$('#gsSuggest [data-cat]').forEach(h=>h.onclick=e=>{
+    if(e.target.classList.contains('sugn')) return;          // the number box is not a toggle
+    const k=h.dataset.cat; GS.collapsed[k]=!GS.collapsed[k]; gameSave(); gsRenderSuggest();
+  });
+  $$('#gsSuggest [data-sugn]').forEach(inp=>{
+    inp.onclick=e=>e.stopPropagation();
+    inp.onchange=()=>{
+      GS.sugN=GS.sugN||{};
+      GS.sugN[inp.dataset.sugn]=Math.max(1, parseInt(inp.value,10)||10);
+      gameSave(); gsRenderSuggest();
+    };
+  });
   $$('#gsSuggest [data-ik]').forEach(r=>r.onclick=()=>gsAskQty(INV[r.dataset.ik]));
 }
 function gsAskQty(it){
@@ -2534,7 +2561,7 @@ function gmSpin(){
     busy=true; spinBtn.disabled=true; winEl.textContent='';
     headEl.textContent='Auction '+pad3(GM.curLot)+' — drawing…';
 
-    const ROW=42, MID=2;
+    const ROW=56, MID=2;
     const cells=[];
     for(let i=0;i<14;i++) list.forEach(x=>cells.push(x));
     const from=Math.max(0, cells.length-list.length*2);
@@ -2639,7 +2666,7 @@ function sameUser(a,b){
 const GIVEAWAY_TIMES = [30,60,90,120,180];
 
 function gmSpinViewer(){
-  const ROW=42, VIEW=5, MID=2;
+  const ROW=56, VIEW=5, MID=2;
 
   const wrap=document.createElement('div'); wrap.className='modal vwmodal';
   wrap.innerHTML=
@@ -2724,11 +2751,16 @@ function gmSpinViewer(){
 
   /* ---------- giveaway pool ---------- */
   function poolList(){ return GV.pool; }
+  function idle(){ return phase==='idle'||phase==='done'; }
+  function refreshWheel(){
+    if(mode!=='giveaway' || !idle()) return;
+    list=candidates(); paint(); pos=0; lastTick=-1; draw();
+  }
   function addViewer(u){
     u=String(u||'').trim(); if(!u) return false;
     if(u[0]!=='@') u='@'+u;
     if(GV.pool.some(x=>sameUser(x,u))) return false;
-    GV.pool.push(u); gameSave(); renderPool(); return true;
+    GV.pool.push(u); gameSave(); renderPool(); refreshWheel(); return true;
   }
   function renderPool(){
     el('vwPoolN').textContent='· '+GV.pool.length;
@@ -2738,7 +2770,7 @@ function gmSpinViewer(){
       : '<div class="empty" style="padding:20px 10px">empty — start the timer, or add by hand</div>';
     box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
       if(phase==='run'||phase==='up'||phase==='down') return;
-      GV.pool.splice(+b.dataset.rm,1); gameSave(); renderPool();
+      GV.pool.splice(+b.dataset.rm,1); gameSave(); renderPool(); refreshWheel();
     });
   }
   function renderTimer(){
@@ -2750,7 +2782,7 @@ function gmSpinViewer(){
     if(left<=0) stopCollecting();
   }
   function startCollecting(){
-    GV.pool=[]; collecting=true;
+    GV.pool=[]; collecting=true; refreshWheel();
     GV.seconds=parseInt(el('vwSecs').value,10)||60;
     collectEnd=Date.now()+GV.seconds*1000;
     el('vwCollect').textContent='Stop';
@@ -3034,16 +3066,71 @@ function gmRenderSummary(){
   const x=$('#gmXlsx'), c=$('#gmCsv');
   if(x) x.onclick=gmExportXlsx;
   if(c) c.onclick=gmExportCsv;
+  $$('#gmSummary [data-gwn]').forEach(b=>b.onclick=()=>gmWinnerNote(+b.dataset.gwn));
 }
 function gmGiveawayHtml(){
   const g=GM.giveaways||[];
   if(!g.length) return '';
   return '<div class="givewin"><div class="gh">Giveaway winners</div>'+
     g.map((x,i)=>'<div class="gr"><span class="n">'+pad3(i+1)+'</span>'+
-      '<span class="w">'+esc(x.winner||'—')+'</span>'+
+      '<span class="w">'+esc(x.winner||'—')+
+        ((x.prize||x.note)?'<span class="pz">'+esc([x.prize,x.note].filter(Boolean).join(' · '))+'</span>':'')+'</span>'+
       '<span class="m">'+(x.entrants?x.entrants.length:0)+' entrants'+
-        (x.stoppedBy?(' · stopped by '+esc(x.stoppedBy)):'')+' · '+fmtTime(x.at)+'</span></div>').join('')+
+        (x.stoppedBy?(' · stopped by '+esc(x.stoppedBy)):'')+' · '+fmtTime(x.at)+'</span>'+
+      '<button class="btn small" data-gwn="'+i+'" title="Add a prize or a comment">✎</button></div>').join('')+
     '</div>';
+}
+/* the prize a giveaway winner gets is picked from the WHOLE catalogue, not
+   from the game pool — or it can simply be a line of text */
+function gmWinnerNote(i){
+  const rec=(GM.giveaways||[])[i]; if(!rec) return;
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="box" style="max-width:520px"><h3>'+esc(rec.winner||'winner')+'</h3>'+
+    '<label class="fld">Prize — search the catalogue by name or barcode</label>'+
+    '<input type="text" id="gwSearch" placeholder="type a name or scan a barcode…" autocomplete="off" spellcheck="false">'+
+    '<div id="gwFound" class="gsfound" style="max-height:150px;margin-top:6px"></div>'+
+    '<div id="gwPicked" class="sub" style="font-size:12.5px;margin:8px 0 0"></div>'+
+    '<label class="fld" style="margin-top:14px">Comment — any text</label>'+
+    '<input type="text" id="gwNote" autocomplete="off" value="'+esc(rec.note||'')+'">'+
+    '<div style="display:flex;gap:9px;margin-top:16px"><button class="btn primary" id="gwOk">Save</button>'+
+    '<button class="btn" id="gwClear">Clear prize</button>'+
+    '<div class="spacer" style="flex:1"></div><button class="btn" id="gwCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  let prize=rec.prize||'';
+  const showPicked=()=>{ wrap.querySelector('#gwPicked').innerHTML = prize
+    ? 'Prize: <b style="color:var(--ink)">'+esc(prize)+'</b>' : 'No prize picked'; };
+  const find=()=>{
+    const q=norm(wrap.querySelector('#gwSearch').value), box=wrap.querySelector('#gwFound');
+    if(q.length<2){ box.innerHTML=''; return; }
+    const byCode=(BC[q]||[]).map(k=>INV[k]).filter(Boolean);
+    const byName=invList().filter(it=>norm(it.name+' '+(it.variation||'')).includes(q));
+    const seen={}, list=[];
+    byCode.concat(byName).forEach(it=>{ if(it && !seen[it.ikey]){ seen[it.ikey]=1; list.push(it); } });
+    box.innerHTML=list.slice(0,20).map(it=>'<div class="fr" data-ik="'+esc(it.ikey)+'">'+
+      '<img src="'+esc(it.image||PLACEHOLDER)+'"><span>'+esc(it.name)+
+      (it.variation?' <span style="color:var(--muted)">· '+esc(it.variation)+'</span>':'')+'</span></div>').join('')
+      || '<div class="sub" style="font-size:12.5px;padding:6px;color:var(--faint)">nothing found</div>';
+    box.querySelectorAll('[data-ik]').forEach(r=>r.onclick=()=>{
+      const it=INV[r.dataset.ik];
+      prize=it.name+(it.variation&&norm(it.variation)!=='default'?(' · '+it.variation):'');
+      wrap.querySelector('#gwSearch').value=''; box.innerHTML=''; showPicked();
+    });
+  };
+  showPicked();
+  wrap.querySelector('#gwSearch').addEventListener('input', find);
+  wrap.querySelector('#gwClear').onclick=()=>{ prize=''; showPicked(); };
+  const close=save=>{
+    if(save){
+      rec.prize=prize;
+      rec.note=wrap.querySelector('#gwNote').value.trim();
+      gmSave(); gmRender();
+    }
+    wrap.remove();
+  };
+  wrap.querySelector('#gwOk').onclick=()=>close(true);
+  wrap.querySelector('#gwCancel').onclick=()=>close(false);
+  wrap.onclick=e=>{ if(e.target===wrap) close(false); };
+  setTimeout(()=>wrap.querySelector('#gwSearch').focus(), 50);
 }
 function gmListAoa(){
   const out=[['Auction #','Item','Variation','Game name','Price']];
@@ -3062,8 +3149,9 @@ function gmSummaryAoa(){
   if(g.length){
     out.push([]);
     out.push(['GIVEAWAY WINNERS']);
-    out.push(['#','Winner','Entrants','Stopped by','Time']);
-    g.forEach((x,i)=>out.push([i+1, x.winner||'', x.entrants?x.entrants.length:0, x.stoppedBy||'', fmtTime(x.at)]));
+    out.push(['#','Winner','Prize','Comment','Entrants','Stopped by','Time']);
+    g.forEach((x,i)=>out.push([i+1, x.winner||'', x.prize||'', x.note||'',
+                               x.entrants?x.entrants.length:0, x.stoppedBy||'', fmtTime(x.at)]));
   }
   return out;
 }
@@ -3132,6 +3220,21 @@ $$('[data-fall]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fall; GS.filters[
 $$('[data-fnone]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fnone; GS.filters[f]=[]; recalcFilters(); gameSave(); gsRenderFilters(); gsRender(); });
 
 $('#gmBack').onclick   = ()=>{ gameSave(); gsOpen(); };
+$('#gmFinish').onclick = ()=>{
+  const tab=$('#play .rptab[data-gtab="summary"]'); if(tab) tab.click();
+  const t=gmTotals();
+  toast('Game finished — '+t.items+' items in '+t.lots+' auctions · '+money(t.cost),'ok',4200);
+};
+$('#gmClear').onclick  = ()=>{
+  if(!GM.rows.length && (GM.lots||[]).length<=1){ toast('Nothing to clear','warn'); return; }
+  askYesNo('Clear all auctions?',
+    'Every auction and every item in them is removed and the pool goes back to full. '+
+    'Giveaway winners are kept.', 'Clear', 'Cancel', v=>{
+      if(!v) return;
+      GM.rows=[]; GM.lots=[1]; GM.curLot=1;
+      gmSave(); gmRender(); toast('Auctions cleared','ok');
+    });
+};
 $('#gmNext').onclick   = ()=>gmNextLot();
 $('#gmSpin').onclick   = ()=>gmSpin();
 $('#gmSpinV').onclick  = ()=>gmSpinViewer();
