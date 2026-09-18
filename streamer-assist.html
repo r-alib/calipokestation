@@ -121,6 +121,10 @@ label.fld{display:block;font-size:11.5px;letter-spacing:.1em;text-transform:uppe
 .bigbtn{width:100%;padding:17px;font-size:17px;font-weight:700;letter-spacing:.02em;border-radius:12px;
   background:var(--accent);border:1px solid var(--accent);color:#08130C;font-family:var(--disp)}
 .bigbtn:disabled{background:var(--panel2);border-color:var(--line);color:var(--faint)}
+.bigbtn.ghost{background:var(--panel2);border-color:var(--line);color:var(--ink)}
+.bigbtn.ghost:hover{border-color:var(--faint)}
+.btnrow{display:flex;gap:9px}
+.btnrow .bigbtn{flex:1}
 .hint{font-size:12px;color:var(--faint);margin-top:9px;line-height:1.6}
 .hint kbd{font-family:var(--mono);background:var(--raised);border:1px solid var(--line);border-radius:5px;
   padding:1px 5px;font-size:11px;color:var(--muted)}
@@ -521,10 +525,13 @@ table.rpsum tr.tot td{font-weight:700;border-top:1px solid var(--line);backgroun
         <input type="number" id="priceInput" placeholder="0.00" step="0.01" min="0">
       </div>
 
-      <button class="bigbtn" id="printBtn" disabled>🖨 PRINT &amp; SAVE</button>
+      <div class="btnrow">
+        <button class="bigbtn" id="printBtn" disabled>🖨 PRINT</button>
+        <button class="bigbtn ghost" id="nextLotBtn">NEXT LOT →</button>
+      </div>
       <div class="hint">
-        <kbd>Enter</kbd> print &amp; save · <kbd>Esc</kbd> clear · <kbd>F2</kbd> reprint last · <kbd>Ctrl</kbd>+<kbd>Z</kbd> void last<br>
-        The scanner works wherever the cursor is.
+        <kbd>Enter</kbd> print · <kbd>F4</kbd> next lot · <kbd>Esc</kbd> clear · <kbd>F2</kbd> reprint last · <kbd>Ctrl</kbd>+<kbd>Z</kbd> void last<br>
+        Next lot needs no username — the scanner works wherever the cursor is.
       </div>
     </div>
   </div>
@@ -721,7 +728,7 @@ const INVENTORY_SHEET_URL =
   'https://docs.google.com/spreadsheets/d/13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw/edit?usp=sharing';
 const COST_TAB_NAMES = ['cost', 'costs', 'cost per item'];
 
-const BUILD = '2026-09-18d · streamer assist v1.7';
+const BUILD = '2026-09-19a · streamer assist v1.8';
 const SA_PATH   = 'streamerassist';
 const INV_PATH  = 'packstation/inventory';
 const LS_NAME   = 'ps_name';          // shared with the station
@@ -869,7 +876,7 @@ function newSession(streamer, room, handle){
   streamer = streamer || '';
   const id = room+'_'+fmtDate(Date.now())+'_'+Date.now().toString(36);
   const meta = {room:room, handle:handle, streamer:streamer, assistant:MY_NAME,
-                startedAt:Date.now(), endedAt:null, lastN:0};
+                startedAt:Date.now(), endedAt:null, curN:1};
   saRef.child('sessions/'+id).set(meta)
     .then(()=>{
       SESS=Object.assign({id:id}, meta); rememberSession();
@@ -930,7 +937,8 @@ function endSession(){
 function showOnly(id){
   ['gate','setup','work','summary','report','game','play'].forEach(k=>$('#'+k).classList.toggle('hide', k!==id));
   $('#btnEnd').classList.toggle('hide', id!=='work');
-  $('#btnSwitch').classList.toggle('hide', id!=='work');
+  /* the account switcher belongs to every screen that uses the chat */
+  $('#btnSwitch').classList.toggle('hide', ['work','game','play'].indexOf(id)<0);
 }
 function openGate(){
   showOnly('gate');
@@ -974,15 +982,70 @@ function openWork(){
 /* ============================================================
    RENDER — top bar
    ============================================================ */
+function wkLots(){
+  return [...new Set(LOTS.filter(l=>!l.void).map(l=>l.n||0).filter(n=>n>0))].sort((a,b)=>a-b);
+}
+function wkCurN(){
+  if(SESS && SESS.curN) return SESS.curN;
+  let mx=0; LOTS.forEach(l=>{ if((l.n||0)>mx) mx=l.n; });
+  return Math.max(1, mx);
+}
+function wkSetCurN(n){
+  if(!SESS) return;
+  SESS.curN=n;
+  saRef.child('sessions/'+SESS.id+'/curN').set(n).catch(()=>{});
+  renderCounters(); renderLog();
+}
 function renderCounters(){
   const live = LOTS.filter(l=>!l.void).length;
   $('#pillCount').innerHTML = '<b>'+live+'</b>&nbsp;lots';
-  const next = nextNumber();
-  $('#lotNo').textContent = '#'+pad3(next);
+  $('#lotNo').textContent = '#'+pad3(wkCurN());
 }
-function nextNumber(){
-  let mx=0; LOTS.forEach(l=>{ if((l.n||0)>mx) mx=l.n; });
-  return mx+1;
+function wkNextLot(){
+  if(!SESS) return;
+  const lots=wkLots();
+  const top=Math.max(wkCurN(), lots.length?lots[lots.length-1]:0);
+  wkSetCurN(top+1);
+  clearForm();
+  toast('Lot '+pad3(wkCurN())+' — go','ok',1300);
+}
+function wkDropLot(l){
+  const rows=LOTS.filter(x=>x.n===l);
+  const finish=renumber=>{
+    const upd={};
+    rows.forEach(r=>{ upd[r.id]=null; });
+    if(renumber){
+      const rest=wkLots().filter(x=>x!==l);
+      const m=compactMap(rest);
+      LOTS.forEach(r=>{ if(r.n!==l && m[r.n] && m[r.n]!==r.n) upd[r.id+'/n']=m[r.n]; });
+      const cur=m[wkCurN()]||Math.max(1,Object.keys(m).length);
+      saRef.child('lots/'+SESS.id).update(upd).then(()=>wkSetCurN(cur)).catch(e=>toast(e.message,'err'));
+      return;
+    }
+    saRef.child('lots/'+SESS.id).update(upd).catch(e=>toast(e.message,'err'));
+  };
+  const ask=()=>askYesNo('Lot '+pad3(l)+' deleted',
+      'Renumber the remaining lots so there is no gap, or leave the numbers as they are?',
+      'Renumber (1, 2, 3…)', 'Leave the gap', finish);
+  if(!rows.length){ toast('Nothing recorded under lot '+pad3(l),'warn'); return; }
+  askYesNo('Delete lot '+pad3(l)+'?',
+    'It holds <b>'+rows.length+'</b> record'+(rows.length===1?'':'s')+'. They are removed from the stream log.',
+    'Delete', 'Cancel', v=>{ if(v) ask(); });
+}
+function wkSetLotNumber(l){
+  askNumber('Lot '+pad3(l), l, v=>{
+    if(v===l) return;
+    const apply=()=>{
+      const upd={};
+      LOTS.filter(r=>r.n===l).forEach(r=>{ upd[r.id+'/n']=v; });
+      saRef.child('lots/'+SESS.id).update(upd).catch(e=>toast(e.message,'err'));
+      if(wkCurN()===l) wkSetCurN(v);
+    };
+    if(wkLots().indexOf(v)>=0){
+      askYesNo('Lot '+pad3(v)+' already exists',
+        'Merge lot '+pad3(l)+' into lot '+pad3(v)+'?', 'Merge', 'Cancel', ok=>{ if(ok) apply(); });
+    } else apply();
+  });
 }
 function bridgeFresh(){
   return !!(bridgeState && bridgeState.online && (Date.now()-(bridgeState.lastSeen||0) < BRIDGE_STALE_MS));
@@ -1187,7 +1250,7 @@ function clearForm(){
   $('#scanInput').value=''; $('#priceInput').value='';
   $('#userSugg').innerHTML=''; $('#itemChoice').innerHTML='';
   pickedItem=null; paintItem(); validate();
-  $('#printBtn').textContent='🖨 PRINT & SAVE';
+  $('#printBtn').textContent='🖨 PRINT';
   renderCounters();
   $('#scanInput').focus();
 }
@@ -1221,17 +1284,17 @@ function saveLot(){
     return;
   }
 
-  saRef.child('sessions/'+SESS.id+'/lastN').transaction(v=>(v||0)+1, (err, ok, snap)=>{
-    let n = (!err && ok && snap) ? snap.val() : nextNumber();
-    const rec = Object.assign({n:n}, base);
-    const ref = saRef.child('lots/'+SESS.id).push();
-    ref.set(rec).catch(e=>toast('Not saved to the server — kept locally','warn',3600));
-    touchBuyer(user, nick);
-    lastPrinted = rec;
-    printLabel(rec);
-    toast('Auction #'+pad3(n)+' → '+user,'ok',1800);
-    clearForm();
-  });
+  /* printing records under the CURRENT number and stays there — the number
+     only moves on "Next lot", so one lot can hold several labels */
+  const n = wkCurN();
+  const rec = Object.assign({n:n}, base);
+  saRef.child('lots/'+SESS.id).push().set(rec)
+    .catch(e=>toast('Not saved to the server — kept locally','warn',3600));
+  touchBuyer(user, nick);
+  lastPrinted = rec;
+  printLabel(rec);
+  toast('Auction #'+pad3(n)+' → '+user,'ok',1800);
+  clearForm();
 }
 function touchBuyer(user, nick){
   if(!user || user==='???') return;
@@ -1256,8 +1319,7 @@ function editLot(id){
   pickedItem={ikey:l.itemKey||'', name:l.itemName||'', variation:l.variation||'',
               location:(INV[l.itemKey]||{}).location||'', image:(INV[l.itemKey]||{}).image||'', free:!!l.free};
   paintItem(); validate();
-  $('#lotNo').textContent='#'+pad3(l.n||0);
-  $('#printBtn').textContent='💾 SAVE CHANGES & REPRINT';
+  $('#printBtn').textContent='💾 SAVE & REPRINT';
   $('#userInput').focus();
   toast('Editing auction #'+pad3(l.n||0),'warn',2200);
 }
@@ -1267,21 +1329,38 @@ function editLot(id){
    ============================================================ */
 function renderLog(){
   const box=$('#logBody');
-  if(!LOTS.length){ box.innerHTML='<div class="empty">No auctions recorded yet.</div>'; return; }
-  box.innerHTML = LOTS.slice().reverse().map(l=>{
-    const wins = LOTS.filter(x=>!x.void && norm(x.user)===norm(l.user)).length;
-    return '<div class="logrow'+(l.void?' void':'')+'" data-id="'+l.id+'">'+
-      '<div class="n">#'+pad3(l.n||0)+'</div>'+
-      '<div class="b"><div class="u">'+esc(l.user||'—')+
-        (l.unknown?'<span class="warnchip">check</span>':'')+
-        (wins>1&&!l.void?'<span style="color:var(--faint);font-weight:400"> ·'+wins+'</span>':'')+'</div>'+
-        '<div class="i">'+esc(l.itemName||'')+(l.variation?' · '+esc(l.variation):'')+
-        '<span style="color:var(--faint)"> · '+fmtTime(l.at)+'</span></div></div>'+
-      '<div class="acts"><button data-a="copy" title="Copy username">⧉</button>'+
-        '<button data-a="print" title="Reprint">🖨</button>'+
-        '<button data-a="edit" title="Edit">✎</button>'+
-        '<button data-a="void" title="Void / restore">'+(l.void?'↺':'×')+'</button></div></div>';
+  const cur=wkCurN();
+  const nums=[...new Set(LOTS.map(l=>l.n||0).filter(n=>n>0).concat([cur]))].sort((a,b)=>b-a);
+  if(!LOTS.length && nums.length<=1){
+    box.innerHTML=lotHeadHtml({lot:cur, active:true, title:'LOT '+pad3(cur), meta:'empty',
+      activeText:'recording here', goAttr:'wgo', numAttr:'wnum', delAttr:'wdrop'})+
+      '<div class="empty">No auctions recorded yet.</div>';
+    wireLogLots(); return;
+  }
+  box.innerHTML = nums.map(n=>{
+    const rows=LOTS.filter(l=>l.n===n);
+    const live=rows.filter(r=>!r.void).length;
+    let html=lotHeadHtml({lot:n, active:(n===cur), title:'LOT '+pad3(n),
+      meta:(rows.length?(live+' record'+(live===1?'':'s')):'empty'),
+      activeText:'recording here', goText:'+ Record here',
+      goAttr:'wgo', numAttr:'wnum', delAttr:'wdrop'});
+    rows.forEach(l=>{
+      const wins = LOTS.filter(x=>!x.void && norm(x.user)===norm(l.user)).length;
+      html+='<div class="logrow'+(l.void?' void':'')+'" data-id="'+l.id+'">'+
+        '<div class="n"></div>'+
+        '<div class="b"><div class="u">'+esc(l.user||'—')+
+          (l.unknown?'<span class="warnchip">check</span>':'')+
+          (wins>1&&!l.void?'<span style="color:var(--faint);font-weight:400"> ·'+wins+'</span>':'')+'</div>'+
+          '<div class="i">'+esc(l.itemName||'')+(l.variation?' · '+esc(l.variation):'')+
+          '<span style="color:var(--faint)"> · '+fmtTime(l.at)+'</span></div></div>'+
+        '<div class="acts"><button data-a="copy" title="Copy username">⧉</button>'+
+          '<button data-a="print" title="Reprint">🖨</button>'+
+          '<button data-a="edit" title="Edit">✎</button>'+
+          '<button data-a="void" title="Void / restore">'+(l.void?'↺':'×')+'</button></div></div>';
+    });
+    return html;
   }).join('');
+  wireLogLots();
   $$('#logBody .logrow').forEach(row=>{
     const id=row.dataset.id;
     row.querySelectorAll('button').forEach(b=>{
@@ -1295,6 +1374,11 @@ function renderLog(){
       };
     });
   });
+}
+function wireLogLots(){
+  $$('#logBody [data-wgo]').forEach(b=>b.onclick=()=>wkSetCurN(+b.dataset.wgo));
+  $$('#logBody [data-wnum]').forEach(b=>b.onclick=()=>wkSetLotNumber(+b.dataset.wnum));
+  $$('#logBody [data-wdrop]').forEach(b=>b.onclick=()=>wkDropLot(+b.dataset.wdrop));
 }
 function renderRepeat(){
   const map={};
@@ -1489,6 +1573,58 @@ function openSummary(){
 function stat(v,k){ return '<div class="stat"><div class="v">'+esc(v)+'</div><div class="k">'+esc(k)+'</div></div>'; }
 
 /* ============================================================
+   LOT NUMBER DIALOGS — shared by all three modes
+   ============================================================ */
+function askYesNo(title, text, yes, no, cb){
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="box" style="max-width:430px"><h3>'+esc(title)+'</h3>'+
+    '<p class="sub" style="margin:0 0 16px">'+text+'</p>'+
+    '<div style="display:flex;gap:9px;flex-wrap:wrap">'+
+    '<button class="btn primary" id="ynYes">'+esc(yes)+'</button>'+
+    '<button class="btn" id="ynNo">'+esc(no)+'</button>'+
+    '<div class="spacer" style="flex:1"></div>'+
+    '<button class="btn" id="ynCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const done=v=>{ wrap.remove(); if(v!==null) cb(v); };
+  wrap.querySelector('#ynYes').onclick=()=>done(true);
+  wrap.querySelector('#ynNo').onclick=()=>done(false);
+  wrap.querySelector('#ynCancel').onclick=()=>done(null);
+  wrap.onclick=e=>{ if(e.target===wrap) done(null); };
+}
+function askNumber(title, cur, cb){
+  const wrap=document.createElement('div'); wrap.className='modal';
+  wrap.innerHTML='<div class="box" style="max-width:340px"><h3>'+esc(title)+'</h3>'+
+    '<label class="fld">New number</label><input type="number" id="nmInput" min="1" step="1" value="'+cur+'">'+
+    '<div style="display:flex;gap:9px;margin-top:14px"><button class="btn primary" id="nmOk">Apply</button>'+
+    '<button class="btn" id="nmCancel">Cancel</button></div></div>';
+  document.body.appendChild(wrap);
+  const inp=wrap.querySelector('#nmInput'); inp.focus(); inp.select();
+  const done=v=>{ wrap.remove(); if(v!=null) cb(v); };
+  wrap.querySelector('#nmOk').onclick=()=>{ const v=parseInt(inp.value,10); done(v>0?v:null); };
+  wrap.querySelector('#nmCancel').onclick=()=>done(null);
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();wrap.querySelector('#nmOk').click();} if(e.key==='Escape')done(null); });
+  wrap.onclick=e=>{ if(e.target===wrap) done(null); };
+}
+/* "1, 2, 4" -> "1, 2, 3" */
+function compactMap(nums){
+  const sorted=[...new Set(nums)].sort((a,b)=>a-b), m={};
+  sorted.forEach((n,i)=>{ m[n]=i+1; });
+  return m;
+}
+/* the lot header every mode draws the same way */
+function lotHeadHtml(opts){
+  return '<div class="rplot'+(opts.active?' cur':'')+'">'+
+    '<span class="n">'+esc(opts.title)+'</span>'+
+    '<span class="m">'+esc(opts.meta)+'</span>'+
+    '<div class="spacer" style="flex:1"></div>'+
+    (opts.active?'<span class="lotnow">'+esc(opts.activeText||'active')+'</span>'
+                :'<button class="btn small" data-'+opts.goAttr+'="'+opts.lot+'">'+esc(opts.goText||'+ Add here')+'</button>')+
+    '<button class="btn small" data-'+opts.numAttr+'="'+opts.lot+'" title="Change the number">#</button>'+
+    '<button class="btn small" data-'+opts.delAttr+'="'+opts.lot+'" title="Delete the whole lot">×</button>'+
+    '</div>';
+}
+
+/* ============================================================
    REPORT MODE
    A standalone job: scan items, get a numbered list with prices.
    Items are matched against the shared catalogue (packstation/inventory);
@@ -1500,7 +1636,9 @@ function stat(v,k){ return '<div class="stat"><div class="v">'+esc(v)+'</div><di
    the list the moment "Next lot" is pressed)
    curLot   = the lot scans go into — normally the last one, but the operator
               can jump back to an earlier lot to add a forgotten item */
-let RP   = { mode:'item', rows:[], curLot:1, lotCount:1, startedAt:0 };
+/* lots is the explicit list of lot numbers that exist — an empty lot is still
+   a lot, a deleted one can leave a gap (1, 2, 4) if the operator wants that */
+let RP   = { mode:'item', rows:[], curLot:1, lots:[1], startedAt:0 };
 let COST = null;                 // norm(key) -> price, first occurrence only
 let costAt = 0, costLoading = false;
 
@@ -1579,11 +1717,15 @@ function rpLoadState(){
   try{
     const o=JSON.parse(localStorage.getItem(LS_REPORT)||'null');
     if(o && Array.isArray(o.rows)){
-      const maxRow = o.rows.reduce((m,r)=>Math.max(m, r.lot||0), 0);
-      RP={ mode:o.mode==='lot'?'lot':'item', rows:o.rows,
-           curLot:o.curLot||1,
-           lotCount:Math.max(o.lotCount||0, o.curLot||1, maxRow),
-           startedAt:o.startedAt||0 };
+      let lots=Array.isArray(o.lots)?o.lots.slice():null;
+      if(!lots){                                   // older save: 1..lotCount
+        const top=Math.max(o.lotCount||0, o.curLot||1, o.rows.reduce((m,r)=>Math.max(m,r.lot||0),0), 1);
+        lots=[]; for(let i=1;i<=top;i++) lots.push(i);
+      }
+      o.rows.forEach(r=>{ if(r.lot && lots.indexOf(r.lot)<0) lots.push(r.lot); });
+      lots.sort((a,b)=>a-b);
+      RP={ mode:o.mode==='lot'?'lot':'item', rows:o.rows, curLot:o.curLot||lots[0]||1,
+           lots:lots.length?lots:[1], startedAt:o.startedAt||0 };
     }
   }catch(e){}
 }
@@ -1652,25 +1794,55 @@ function rpAdd(it, unknown){
   const body=$('#rpBodyScroll')||$('.rpbody'); if(body) body.scrollTop=body.scrollHeight;
 }
 function rpLotSize(l){ return RP.rows.filter(r=>r.lot===l).length; }
+function rpLastLot(){ return RP.lots.length ? RP.lots[RP.lots.length-1] : 1; }
 function rpNextLot(){
   if(RP.mode!=='lot') return;
-  if(!rpLotSize(RP.lotCount)){
-    if(RP.curLot!==RP.lotCount){ rpGoLot(RP.lotCount); return; }   // just jump to the empty one
-    toast('Lot '+pad3(RP.lotCount)+' is still empty','warn',1800); return;
+  const last=rpLastLot();
+  if(!rpLotSize(last)){
+    if(RP.curLot!==last){ rpGoLot(last); return; }        // jump to the empty one
+    toast('Lot '+pad3(last)+' is still empty','warn',1800); return;
   }
-  RP.lotCount++; RP.curLot=RP.lotCount;
-  rpSave(); rpRender();
-  $('#rpScan').focus();
-}
-function rpGoLot(l){
-  RP.curLot=l; rpSave(); rpRender(); $('#rpScan').focus();
-}
-function rpDropLot(l){
-  if(rpLotSize(l)) return;                       // only an empty lot can go
-  RP.rows.forEach(r=>{ if(r.lot>l) r.lot--; });
-  RP.lotCount=Math.max(1, RP.lotCount-1);
-  RP.curLot=Math.min(RP.curLot>l?RP.curLot-1:RP.curLot, RP.lotCount);
+  const n=last+1;
+  RP.lots.push(n); RP.curLot=n;
   rpSave(); rpRender(); $('#rpScan').focus();
+}
+function rpGoLot(l){ RP.curLot=l; rpSave(); rpRender(); $('#rpScan').focus(); }
+function rpDropLot(l){
+  const n=rpLotSize(l);
+  const finish=renumber=>{
+    RP.rows=RP.rows.filter(r=>r.lot!==l);
+    RP.lots=RP.lots.filter(x=>x!==l);
+    if(renumber){
+      const m=compactMap(RP.lots);
+      RP.rows.forEach(r=>{ r.lot=m[r.lot]||r.lot; });
+      RP.lots=RP.lots.map(x=>m[x]).sort((a,b)=>a-b);
+    }
+    if(!RP.lots.length) RP.lots=[1];
+    if(RP.lots.indexOf(RP.curLot)<0) RP.curLot=rpLastLot();
+    rpSave(); rpRender(); $('#rpScan').focus();
+  };
+  const ask=()=>askYesNo('Lot '+pad3(l)+' deleted',
+      'Renumber the remaining lots so there is no gap, or leave the numbers as they are?',
+      'Renumber (1, 2, 3…)', 'Leave the gap', finish);
+  if(!n){ ask(); return; }
+  askYesNo('Delete lot '+pad3(l)+'?',
+    'It holds <b>'+n+'</b> item'+(n===1?'':'s')+'. They will be removed from the report.',
+    'Delete', 'Cancel', v=>{ if(v) ask(); });
+}
+function rpSetLotNumber(l){
+  askNumber('Lot '+pad3(l), l, v=>{
+    if(v===l) return;
+    const apply=()=>{
+      RP.rows.forEach(r=>{ if(r.lot===l) r.lot=v; });
+      RP.lots=[...new Set(RP.lots.filter(x=>x!==l).concat([v]))].sort((a,b)=>a-b);
+      if(RP.curLot===l) RP.curLot=v;
+      rpSave(); rpRender();
+    };
+    if(RP.lots.indexOf(v)>=0){
+      askYesNo('Lot '+pad3(v)+' already exists',
+        'Merge lot '+pad3(l)+' into lot '+pad3(v)+'?', 'Merge', 'Cancel', ok=>{ if(ok) apply(); });
+    } else apply();
+  });
 }
 function rpDel(i){
   RP.rows.splice(i,1);
@@ -1678,7 +1850,7 @@ function rpDel(i){
 }
 function rpSetMode(m){
   if(RP.rows.length){ toast('Clear the list first to change the numbering','warn',2600); return; }
-  RP.mode=m; RP.curLot=1; RP.lotCount=1; rpSave(); rpRender(); $('#rpScan').focus();
+  RP.mode=m; RP.curLot=1; RP.lots=[1]; rpSave(); rpRender(); $('#rpScan').focus();
 }
 
 /* ---------- aggregation ---------- */
@@ -1696,9 +1868,9 @@ function rpSummaryRows(){
 function rpTotals(){
   const items=RP.rows.length;
   const cost=RP.rows.reduce((s,r)=>s+(r.price||0),0);
-  const lots=RP.mode==='lot' ? RP.lotCount : 0;
+  const lots=RP.mode==='lot' ? RP.lots.length : 0;
   let empty=0;
-  if(RP.mode==='lot') for(let l=1;l<=RP.lotCount;l++) if(!rpLotSize(l)) empty++;
+  if(RP.mode==='lot') RP.lots.forEach(l=>{ if(!rpLotSize(l)) empty++; });
   const noPrice=RP.rows.filter(r=>r.price==null).length;
   return {items, cost, lots, empty, noPrice};
 }
@@ -1719,11 +1891,11 @@ function rpRender(){
     (t.noPrice ? '<div class="rpstat"><div class="v" style="color:var(--warn)">'+t.noPrice+'</div><div class="k">no price</div></div>' : '');
 
   const b=$('#rpTarget');
-  if(RP.mode==='lot' && RP.curLot!==RP.lotCount){
+  if(RP.mode==='lot' && RP.curLot!==rpLastLot()){
     b.classList.remove('hide');
     b.innerHTML='<span>Scanning into <b>LOT '+pad3(RP.curLot)+'</b> — an earlier lot</span>'+
-      '<button class="btn small" id="rpBackLot">→ back to LOT '+pad3(RP.lotCount)+'</button>';
-    $('#rpBackLot').onclick=()=>rpGoLot(RP.lotCount);
+      '<button class="btn small" id="rpBackLot">→ back to LOT '+pad3(rpLastLot())+'</button>';
+    $('#rpBackLot').onclick=()=>rpGoLot(rpLastLot());
   } else b.classList.add('hide');
 
   rpRenderList();
@@ -1749,23 +1921,20 @@ function rpRenderList(){
   if(RP.mode==='item'){
     RP.rows.forEach((r,i)=>{ html+=rpItemRow(r,i,i+1); });
   }else{
-    for(let l=1;l<=RP.lotCount;l++){
+    RP.lots.forEach(l=>{
       const rows=RP.rows.map((r,i)=>({r,i})).filter(x=>x.r.lot===l);
       const sum=rows.reduce((s,x)=>s+(x.r.price||0),0);
-      const active=(l===RP.curLot);
-      html+='<div class="rplot'+(active?' cur':'')+'"><span class="n">LOT '+pad3(l)+'</span>'+
-        '<span class="m">'+(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty')+'</span>'+
-        '<div class="spacer" style="flex:1"></div>'+
-        (active ? '<span class="lotnow">scanning here</span>'
-                : '<button class="btn small" data-go="'+l+'">+ Scan here</button>')+
-        (rows.length ? '' : '<button class="btn small" data-droplot="'+l+'" title="Remove this empty lot">×</button>')+
-        '</div>';
+      html+=lotHeadHtml({lot:l, active:(l===RP.curLot), title:'LOT '+pad3(l),
+        meta:(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty'),
+        activeText:'scanning here', goText:'+ Scan here',
+        goAttr:'go', numAttr:'num', delAttr:'droplot'});
       rows.forEach(x=>{ html+=rpItemRow(x.r, x.i, null); });
-    }
+    });
   }
   box.innerHTML=html;
   $$('#rpList [data-del]').forEach(b=>b.onclick=()=>rpDel(+b.dataset.del));
   $$('#rpList [data-go]').forEach(b=>b.onclick=()=>rpGoLot(+b.dataset.go));
+  $$('#rpList [data-num]').forEach(b=>b.onclick=()=>rpSetLotNumber(+b.dataset.num));
   $$('#rpList [data-droplot]').forEach(b=>b.onclick=()=>rpDropLot(+b.dataset.droplot));
 }
 function rpRenderSummary(){
@@ -1792,9 +1961,9 @@ function rpListAoa(){
   const head=[['#','Item','Variation','Price']];
   if(RP.mode==='item') return head.concat(RP.rows.map((r,i)=>[i+1, r.name, r.variation, cents(r.price)]));
   const out=head.slice();
-  for(let l=1;l<=RP.lotCount;l++){
+  RP.lots.forEach(l=>{
     RP.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, cents(r.price)]));
-  }
+  });
   return out;
 }
 function rpSummaryAoa(){
@@ -1837,7 +2006,7 @@ $('#rpPrices').onclick   = ()=>costFetch(true);
 $('#rpClear').onclick    = ()=>{
   if(!RP.rows.length){ RP.startedAt=Date.now(); return; }
   if(!confirm('Delete the whole list? Download the report first if you need it.')) return;
-  RP={mode:RP.mode, rows:[], curLot:1, lotCount:1, startedAt:Date.now()};
+  RP={mode:RP.mode, rows:[], curLot:1, lots:[1], startedAt:Date.now()};
   rpSave(); rpRender(); $('#rpScan').focus();
 };
 $('#rpScan').addEventListener('keydown', e=>{
@@ -1879,7 +2048,7 @@ const GS_DEFAULT_TYPE  = 'figurine';
 const GS_DEFAULT_BRAND = 'fuggler';
 
 let GS = { planned:100, sheet:'', pool:[], filters:null, collapsed:{}, uid:1 };
-let GM = { rows:[], curLot:1, lotCount:1, startedAt:0, giveaways:[] };
+let GM = { rows:[], curLot:1, lots:[1], startedAt:0, giveaways:[] };
 let GV = { pool:[], seconds:60 };          // the giveaway pool being collected
 
 function gameSave(){ try{ localStorage.setItem(LS_GAME, JSON.stringify({GS:GS, GM:GM, GV:GV})); }catch(e){} }
@@ -1889,8 +2058,14 @@ function gameLoad(){
     if(o.GS && Array.isArray(o.GS.pool)) GS=Object.assign(GS, o.GS);
     if(o.GM && Array.isArray(o.GM.rows)){
       const maxRow=o.GM.rows.reduce((m,r)=>Math.max(m,r.lot||0),0);
-      GM={rows:o.GM.rows, curLot:o.GM.curLot||1,
-          lotCount:Math.max(o.GM.lotCount||0, o.GM.curLot||1, maxRow, 1),
+      let lots=Array.isArray(o.GM.lots)?o.GM.lots.slice():null;
+      if(!lots){
+        const top=Math.max(o.GM.lotCount||0, o.GM.curLot||1, maxRow, 1);
+        lots=[]; for(let i=1;i<=top;i++) lots.push(i);
+      }
+      o.GM.rows.forEach(r=>{ if(r.lot && lots.indexOf(r.lot)<0) lots.push(r.lot); });
+      lots.sort((a,b)=>a-b);
+      GM={rows:o.GM.rows, curLot:o.GM.curLot||lots[0]||1, lots:lots.length?lots:[1],
           startedAt:o.GM.startedAt||0, giveaways:o.GM.giveaways||[]};
     }
     if(o.GV && Array.isArray(o.GV.pool)) GV={pool:o.GV.pool, seconds:o.GV.seconds||60};
@@ -2242,20 +2417,52 @@ function gmOpen(){
 }
 function gmSave(){ gameSave(); }
 function gmLotSize(l){ return GM.rows.filter(r=>r.lot===l).length; }
+function gmLastLot(){ return GM.lots.length ? GM.lots[GM.lots.length-1] : 1; }
 function gmNextLot(){
-  if(!gmLotSize(GM.lotCount)){
-    if(GM.curLot!==GM.lotCount){ GM.curLot=GM.lotCount; gmSave(); gmRender(); return; }
-    toast('Auction '+pad3(GM.lotCount)+' is still empty','warn',1800); return;
+  const last=gmLastLot();
+  if(!gmLotSize(last)){
+    if(GM.curLot!==last){ GM.curLot=last; gmSave(); gmRender(); return; }
+    toast('Auction '+pad3(last)+' is still empty','warn',1800); return;
   }
-  GM.lotCount++; GM.curLot=GM.lotCount; gmSave(); gmRender();
+  const n=last+1; GM.lots.push(n); GM.curLot=n; gmSave(); gmRender();
 }
 function gmGoLot(l){ GM.curLot=l; gmSave(); gmRender(); }
 function gmDropLot(l){
-  if(gmLotSize(l)) return;
-  GM.rows.forEach(r=>{ if(r.lot>l) r.lot--; });
-  GM.lotCount=Math.max(1, GM.lotCount-1);
-  GM.curLot=Math.min(GM.curLot>l?GM.curLot-1:GM.curLot, GM.lotCount);
-  gmSave(); gmRender();
+  const n=gmLotSize(l);
+  const finish=renumber=>{
+    GM.rows=GM.rows.filter(r=>r.lot!==l);
+    GM.lots=GM.lots.filter(x=>x!==l);
+    if(renumber){
+      const m=compactMap(GM.lots);
+      GM.rows.forEach(r=>{ r.lot=m[r.lot]||r.lot; });
+      GM.lots=GM.lots.map(x=>m[x]).sort((a,b)=>a-b);
+    }
+    if(!GM.lots.length) GM.lots=[1];
+    if(GM.lots.indexOf(GM.curLot)<0) GM.curLot=gmLastLot();
+    gmSave(); gmRender();
+  };
+  const ask=()=>askYesNo('Auction '+pad3(l)+' deleted',
+      'Renumber the remaining auctions so there is no gap, or leave the numbers as they are?',
+      'Renumber (1, 2, 3…)', 'Leave the gap', finish);
+  if(!n){ ask(); return; }
+  askYesNo('Delete auction '+pad3(l)+'?',
+    'It holds <b>'+n+'</b> item'+(n===1?'':'s')+'. They go back into the pool.',
+    'Delete', 'Cancel', v=>{ if(v) ask(); });
+}
+function gmSetLotNumber(l){
+  askNumber('Auction '+pad3(l), l, v=>{
+    if(v===l) return;
+    const apply=()=>{
+      GM.rows.forEach(r=>{ if(r.lot===l) r.lot=v; });
+      GM.lots=[...new Set(GM.lots.filter(x=>x!==l).concat([v]))].sort((a,b)=>a-b);
+      if(GM.curLot===l) GM.curLot=v;
+      gmSave(); gmRender();
+    };
+    if(GM.lots.indexOf(v)>=0){
+      askYesNo('Auction '+pad3(v)+' already exists',
+        'Merge auction '+pad3(l)+' into auction '+pad3(v)+'?', 'Merge', 'Cancel', ok=>{ if(ok) apply(); });
+    } else apply();
+  });
 }
 /* fresh = not in the current auction yet.  The random draws prefer those, but
    when everything left is already in the auction they may repeat. */
@@ -2747,11 +2954,11 @@ function gmRender(){
   $('#gmLeft').innerHTML='<b>'+(total-used)+'</b> left of '+total;
 
   const b=$('#gmTarget');
-  if(GM.curLot!==GM.lotCount){
+  if(GM.curLot!==gmLastLot()){
     b.classList.remove('hide');
     b.innerHTML='<span>Adding to <b>AUCTION '+pad3(GM.curLot)+'</b> — an earlier one</span>'+
-      '<button class="btn small" id="gmBackLot">→ back to AUCTION '+pad3(GM.lotCount)+'</button>';
-    $('#gmBackLot').onclick=()=>gmGoLot(GM.lotCount);
+      '<button class="btn small" id="gmBackLot">→ back to AUCTION '+pad3(gmLastLot())+'</button>';
+    $('#gmBackLot').onclick=()=>gmGoLot(gmLastLot());
   } else b.classList.add('hide');
 
   /* the pool, as the game sees it */
@@ -2769,22 +2976,19 @@ function gmRender(){
   $('#gmStats').textContent = t.items+' items · '+t.lots+' auctions · '+money(t.cost);
 }
 function gmTotals(){
-  return { items:GM.rows.length, lots:GM.lotCount,
+  return { items:GM.rows.length, lots:GM.lots.length,
            cost:GM.rows.reduce((s,r)=>s+(r.price||0),0) };
 }
 function gmRenderList(){
   const box=$('#gmList');
   let html='';
-  for(let l=1;l<=GM.lotCount;l++){
+  GM.lots.forEach(l=>{
     const rows=GM.rows.map((r,i)=>({r,i})).filter(x=>x.r.lot===l);
     const sum=rows.reduce((s,x)=>s+(x.r.price||0),0);
-    const active=(l===GM.curLot);
-    html+='<div class="rplot'+(active?' cur':'')+'"><span class="n">AUCTION '+pad3(l)+'</span>'+
-      '<span class="m">'+(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty')+'</span>'+
-      '<div class="spacer" style="flex:1"></div>'+
-      (active?'<span class="lotnow">adding here</span>':'<button class="btn small" data-ggo="'+l+'">+ Add here</button>')+
-      (rows.length?'':'<button class="btn small" data-gdrop="'+l+'" title="Remove this empty auction">×</button>')+
-      '</div>';
+    html+=lotHeadHtml({lot:l, active:(l===GM.curLot), title:'AUCTION '+pad3(l),
+      meta:(rows.length?(rows.length+' item'+(rows.length===1?'':'s')+' · '+money(sum)):'empty'),
+      activeText:'adding here', goText:'+ Add here',
+      goAttr:'ggo', numAttr:'gnum', delAttr:'gdrop'});
     rows.forEach(x=>{
       const r=x.r;
       html+='<div class="rprow"><div class="num"></div>'+
@@ -2795,10 +2999,11 @@ function gmRenderList(){
         '<div class="pr">'+(r.price==null?'<span style="color:var(--warn)">—</span>':money(r.price))+'</div>'+
         '<button class="x" data-gdel="'+x.i+'">×</button></div>';
     });
-  }
+  });
   box.innerHTML=html;
   $$('#gmList [data-gdel]').forEach(b=>b.onclick=()=>{ GM.rows.splice(+b.dataset.gdel,1); gmSave(); gmRender(); });
   $$('#gmList [data-ggo]').forEach(b=>b.onclick=()=>gmGoLot(+b.dataset.ggo));
+  $$('#gmList [data-gnum]').forEach(b=>b.onclick=()=>gmSetLotNumber(+b.dataset.gnum));
   $$('#gmList [data-gdrop]').forEach(b=>b.onclick=()=>gmDropLot(+b.dataset.gdrop));
 }
 function gmSummaryRows(){
@@ -2842,9 +3047,9 @@ function gmGiveawayHtml(){
 }
 function gmListAoa(){
   const out=[['Auction #','Item','Variation','Game name','Price']];
-  for(let l=1;l<=GM.lotCount;l++){
+  GM.lots.forEach(l=>{
     GM.rows.filter(r=>r.lot===l).forEach(r=>out.push([l, r.name, r.variation, r.gameName||'', cents(r.price)]));
-  }
+  });
   return out;
 }
 function gmSummaryAoa(){
@@ -3021,6 +3226,7 @@ document.addEventListener('keydown', e=>{
   }
 
   if(e.key==='Escape'){ clearForm(); return; }
+  if(e.key==='F4'){ e.preventDefault(); wkNextLot(); return; }
   if(e.key==='F2'){ e.preventDefault(); if(lastPrinted){ printLabel(lastPrinted); toast('Reprinted #'+pad3(lastPrinted.n||0),'ok',1600); } return; }
   if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){
     e.preventDefault();
@@ -3090,11 +3296,23 @@ function chosenAccount(){
   if(m && m[0]!=='@') m='@'+m;
   return m;
 }
+/* the pick on the start screen is the app's room/account, not just the
+   stream's — Auction Game listens to the same chat */
+function applyPick(){
+  const room=$('#setRoom').value || CUR_ROOM;
+  const acct=chosenAccount();
+  if(room && room!==CUR_ROOM) attachRoom(room);
+  if(acct && acct.length>2 && acct!==CUR_HANDLE) setControl(acct);
+  renderRoomPill();
+}
 $('#setAcct').addEventListener('change', ()=>{
   const other = $('#setAcct').value==='__other';
   $('#setAcctManual').classList.toggle('hide', !other);
-  if(other) $('#setAcctManual').focus();
+  if(other){ $('#setAcctManual').focus(); return; }
+  applyPick();
 });
+$('#setAcctManual').addEventListener('change', applyPick);
+$('#setRoom').addEventListener('change', applyPick);
 $('#startBtn').onclick = ()=>{
   const room=$('#setRoom').value;
   const acct=chosenAccount();
@@ -3102,7 +3320,7 @@ $('#startBtn').onclick = ()=>{
   newSession('', room, acct);
 };
 $('#reportBtn').onclick = ()=>rpOpen();
-$('#gameBtn').onclick   = ()=>gsOpen();
+$('#gameBtn').onclick   = ()=>{ applyPick(); gsOpen(); };
 $('#resumeBtn').onclick = ()=>{
   if(!window._openSess) return;
   SESS=window._openSess; rememberSession();
@@ -3121,7 +3339,8 @@ $('#userUnk').onclick  = ()=>{ $('#userInput').value='???'; validate(); $('#scan
 $('#scanInput').addEventListener('input', ()=>{ /* wait for Enter */ });
 $('#chatFilter').addEventListener('input', ()=>renderChat(false));
 $('#chatClear').onclick = ()=>{ chatRows=[]; renderChat(false); };
-$('#printBtn').onclick  = saveLot;
+$('#printBtn').onclick   = saveLot;
+$('#nextLotBtn').onclick = wkNextLot;
 $('#btnCsv').onclick    = downloadCsv;
 
 $('#sumCsv').onclick  = downloadCsv;
