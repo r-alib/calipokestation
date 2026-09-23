@@ -227,8 +227,93 @@ textarea:focus{border-color:var(--accent)}
 }
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
+
+/* ============================================================
+   STOCK LAYER — inventory locations, item panel, drag transfers
+   ============================================================ */
+.app.withpanel{grid-template-columns:330px 1fr 400px}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:2px;gap:2px}
+.seg button{background:none;border:0;border-radius:8px;padding:6px 11px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.zone{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:10px;border:1px dashed var(--line);
+  background:var(--panel2);font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.zone b{font-family:var(--mono);font-size:11.5px;color:var(--muted);font-weight:700}
+.zone:hover{border-color:var(--faint)}
+.zone.on{border-style:solid;border-color:var(--accent);background:#11211a}
+.zone.warnz{color:var(--warn)}
+.dropon{outline:2px solid var(--accent)!important;outline-offset:2px;background:#11211a!important}
+.island.dropon{filter:brightness(1.6);box-shadow:0 0 0 3px var(--accent),0 0 24px -4px var(--accent)!important;z-index:8}
+.island .cnt{position:absolute;right:-6px;top:-8px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;
+  background:var(--info);color:#06121f;font-family:var(--mono);font-weight:700;font-size:9.5px;line-height:16px;
+  text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--bg);z-index:2}
+.nobadges .island .cnt{display:none}
+.island.stocked{border-width:2px}
+.island.empty-st{opacity:.72}
+.stockmode .island{cursor:pointer}
+.stockmode .island:hover{filter:brightness(1.45)}
+
+.stockpanel{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:0;min-width:0}
+.sp-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sp-head h3{margin:0;font-family:var(--disp);font-size:19px;font-weight:700;letter-spacing:-.01em}
+.sp-head .sub{font-size:11.5px;color:var(--muted)}
+.sp-tools{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp-tools input[type=text]{flex:1 1 150px}
+.sp-body{overflow-y:auto;flex:1 1 auto;min-height:0;padding:6px 0 30px;overscroll-behavior:contain}
+.sec{margin:8px 10px 4px;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;background:var(--bg)}
+.sec-h{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--raised);font-family:var(--mono);
+  font-weight:700;font-size:12.5px;border-bottom:1px solid var(--border)}
+.sec-h .n{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500}
+.sec-empty{padding:12px;text-align:center;color:var(--faint);font-size:12.5px}
+.irow{display:grid;grid-template-columns:18px 44px 1fr auto;gap:9px;align-items:center;padding:7px 10px;
+  border-bottom:1px solid var(--border);cursor:grab;user-select:none;-webkit-user-select:none;transition:background .1s}
+.irow:last-child{border-bottom:0}
+.irow:hover{background:var(--panel2)}
+.irow.zero{opacity:.45}
+.irow .grip{color:var(--faint);font-size:14px;text-align:center;touch-action:none;cursor:grab}
+.irow img{width:44px;height:44px;object-fit:cover;border-radius:7px;background:var(--panel2);border:1px solid var(--border)}
+.irow .nm{font-size:13px;font-weight:600;line-height:1.25;word-break:break-word}
+.irow .vr{font-size:11.5px;color:var(--muted)}
+.irow .q{font-family:var(--mono);font-weight:700;font-size:16px;text-align:right;white-space:nowrap}
+.irow .q small{display:block;font-size:10px;color:var(--faint);font-weight:500}
+.irow .q.est{color:var(--warn)}
+.irow .moved{font-size:10.5px;color:var(--info);font-family:var(--mono)}
+.dragghost{position:fixed;z-index:200;pointer-events:none;padding:8px 12px;border-radius:10px;background:var(--accent);
+  color:#06210F;font-weight:700;font-size:13px;box-shadow:0 12px 30px -10px #000;transform:translate(12px,12px);white-space:nowrap}
+.dragghost.none{background:var(--raised);color:var(--muted)}
+body.dragging,body.dragging *{cursor:grabbing!important}
+.tr-item{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.tr-item img{width:56px;height:56px;border-radius:9px;object-fit:cover;border:1px solid var(--border)}
+.tr-route{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;font-size:15px;margin:4px 0 14px}
+.tr-route span{padding:5px 10px;border-radius:8px;background:var(--raised);border:1px solid var(--line)}
+.tr-route i{font-style:normal;color:var(--accent)}
+.qbig{font-size:22px!important;text-align:center;font-weight:700}
+.rep-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.rep-tbl th{text-align:left;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 8px;
+  background:var(--raised);position:sticky;top:0}
+.rep-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.rep-tbl td.m{font-family:var(--mono)}
+.rep-tbl td.new{color:var(--accent);font-family:var(--mono);font-weight:700}
+.rep-tbl td.old{color:var(--muted);font-family:var(--mono)}
+.rep-wrap{max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:var(--r-sm)}
+dialog.wide{max-width:min(900px,95vw)}
+.find-res{margin-top:8px;max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--bg)}
+.find-res .fr{padding:7px 10px;border-bottom:1px solid var(--border);font-size:12.5px}
+.find-res .fr:last-child{border-bottom:0}
+.find-res .fr .locs{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.find-res .fr .locs button{font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;
+  border:1px solid var(--line);background:var(--panel2)}
+.find-res .fr .locs button:hover{border-color:var(--accent)}
+.invstat{font-size:12px;color:var(--muted);line-height:1.5}
+.invstat.err{color:var(--err)}
+@media (max-width:1180px){
+  .app.withpanel{grid-template-columns:300px 1fr}
+  .stockpanel{position:fixed;right:0;top:0;bottom:0;width:min(400px,94vw);z-index:70;box-shadow:0 0 60px -10px #000}
+}
+@media (max-width:880px){ .app.withpanel{grid-template-columns:1fr} }
+
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 
+.stockmode .editonly{display:none!important}
 /* ---------- narrow ---------- */
 @media (max-width:980px){ .pill.opt{display:none} }
 @media (max-width:880px){
@@ -256,12 +341,25 @@ textarea:focus{border-color:var(--accent)}
   <span class="spacer"></span>
   <span class="pill opt">islands <b id="hdIslands">0</b></span>
   <span class="pill opt">cells <b id="hdCells">0</b></span>
+  <span class="pill" id="hdInv" title="Inventory workbook — press Sync to reload">inventory —</span>
   <span class="pill" id="hdOverlap">—</span>
 </header>
 
 <div class="app">
   <aside class="rail" id="rail">
     <div class="rail-scroll">
+      <section class="block" id="invBlock">
+        <h2>Inventory</h2>
+        <div class="btn-grid">
+          <button class="btn primary" id="syncInv" title="Re-read the inventory workbook (column C = location)">⟳ Sync inventory</button>
+          <button class="btn" id="openReport">📋 Report <b id="trCount" style="font-family:var(--mono)">0</b></button>
+        </div>
+        <p class="invstat" id="invStat" style="margin:10px 0 0">Not loaded yet.</p>
+        <input type="text" id="findItem" style="margin-top:12px" placeholder="Find a product — name or barcode…">
+        <div class="find-res" id="findRes" hidden></div>
+        <label class="toggle" style="margin-top:6px"><input type="checkbox" id="optBadges" checked> Show product counts on islands</label>
+      </section>
+
       <section class="block">
         <h2>Field</h2>
         <div class="row">
@@ -280,7 +378,7 @@ textarea:focus{border-color:var(--accent)}
         <label class="toggle"><input type="checkbox" id="optLabels" checked> Show labels</label>
       </section>
 
-      <section class="block">
+      <section class="block editonly">
         <h2>New island</h2>
         <div class="row">
           <div class="field-ctl" style="flex:2 1 110px">
@@ -300,7 +398,7 @@ textarea:focus{border-color:var(--accent)}
         <button class="btn primary" id="addIsland" style="width:100%;margin-top:10px">Add island</button>
       </section>
 
-      <section class="block" id="inspector">
+      <section class="block editonly" id="inspector">
         <h2>Selection</h2>
         <div id="inspBody"></div>
       </section>
@@ -326,6 +424,9 @@ textarea:focus{border-color:var(--accent)}
       <section class="block">
         <h2>Controls</h2>
         <p class="hint">
+          <b>📦 Stock mode</b>: click an island to list its products; drag a product onto another island,
+          a section or the TBA / Store chips to move it. <b>📋 Report</b> gives the new column-C values.<br><br>
+          <b>✎ Edit layout</b> mode:<br>
           <b>Drag</b> an island to move it — it always lands on whole cells.<br>
           <b>Scroll wheel</b> over an island rotates it 45° per notch.<br>
           <b>Shift-click</b> adds to the selection; drag on empty floor to box-select.<br>
@@ -339,11 +440,20 @@ textarea:focus{border-color:var(--accent)}
   <div class="main">
     <div class="toolbar">
       <button class="btn icon drawer-btn" id="drawerBtn" title="Panel" aria-label="Open panel">☰</button>
+      <div class="seg" id="modeSeg" title="Stock: click an island to see its products and drag them to move stock. Edit layout: move / rotate islands.">
+        <button data-mode="stock" aria-pressed="true">📦 Stock</button>
+        <button data-mode="edit" aria-pressed="false">✎ Edit layout</button>
+      </div>
+      <button class="zone" data-drop="TBA" data-zone="TBA" title="Not placed yet — click to open, drop here to un-assign">TBA <b id="zTBA">0</b></button>
+      <button class="zone" data-drop="STORE" data-zone="STORE" title="In the store (display) — click to open, drop here to send to the store">🏬 Store <b id="zSTORE">0</b></button>
+      <button class="zone warnz" data-zone="__UNK" id="zUnkBtn" hidden title="Locations in the sheet that match no island">⚠ Unknown <b id="zUNK">0</b></button>
+      <div class="tb-sep"></div>
       <span class="tb-label">Zoom</span>
       <button class="btn icon" id="zoomOut" title="Zoom out">−</button>
       <span class="zoom-val" id="zoomVal">14 px</span>
       <button class="btn icon" id="zoomIn" title="Zoom in">+</button>
       <button class="btn" id="zoomFit">Fit</button>
+      <span class="editonly" style="display:contents">
       <div class="tb-sep"></div>
       <span class="tb-label">Selection</span>
       <button class="btn icon" id="rotL" title="Rotate −45°">⟲</button>
@@ -355,6 +465,7 @@ textarea:focus{border-color:var(--accent)}
       <button class="btn icon" id="redoBtn" title="Redo">↷</button>
       <div class="tb-sep"></div>
       <button class="btn" id="alignBtn" title="Snap every island back onto whole cells">Re-snap all</button>
+      </span>
     </div>
 
     <div class="stage">
@@ -367,6 +478,7 @@ textarea:focus{border-color:var(--accent)}
     </div>
 
     <div class="status">
+      <span id="stMode" style="color:var(--accent);font-weight:700">STOCK</span>
       <span><span class="k">cell</span> <span id="stCell">—</span></span>
       <span><span class="k">islands</span> <span id="stCount">0</span></span>
       <span><span class="k">selected</span> <span id="stSel">0</span></span>
@@ -376,6 +488,21 @@ textarea:focus{border-color:var(--accent)}
       <span id="stSaved" class="k">saved</span>
     </div>
   </div>
+  <aside class="stockpanel" id="sp" hidden>
+    <div class="sp-head">
+      <div style="min-width:0">
+        <h3 id="spTitle">—</h3>
+        <div class="sub" id="spSub"></div>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn icon" id="spClose" title="Close (Esc)" aria-label="Close">✕</button>
+    </div>
+    <div class="sp-tools">
+      <input type="text" id="spSearch" placeholder="Filter products…">
+      <label class="toggle" style="padding:0"><input type="checkbox" id="spZero" checked> Hide 0 qty</label>
+    </div>
+    <div class="sp-body" id="spBody"></div>
+  </aside>
 </div>
 
 </div>
@@ -601,6 +728,8 @@ function render(){
   renderStatus();
   renderList();
   renderInspector();
+  if (INV) buildHoldings();          // island names may have changed in Edit layout
+  paintStock();
 }
 function paintCollisions(){
   collideSet = computeCollisions();
@@ -772,6 +901,12 @@ let drag = null, marquee = null, marqEl = null;
 
 field.addEventListener("pointerdown", e => {
   if (e.button !== 0) return;
+  if (MODE === "stock"){                    // stock mode: a click opens the island's products, nothing moves
+    const t = e.target.closest(".island");
+    if (t){ const it = byId(t.dataset.id); const L = it && String(it.label || "").trim().toUpperCase();
+      if (L) (OPEN === L ? closePanel() : openZone(L)); else toast("This island has no name"); }
+    return;
+  }
   const target = e.target.closest(".island");
   const [px,py] = fieldPoint(e);
 
@@ -866,7 +1001,7 @@ pane.addEventListener("wheel", e => {
     return;
   }
   const target = e.target.closest(".island");
-  if (!target) return;
+  if (!target || MODE === "stock") return;
   const it = byId(target.dataset.id);
   if (!it || it.locked) return;
   e.preventDefault();
@@ -1210,6 +1345,12 @@ $("clearAll").addEventListener("click", () => {
 $("list").addEventListener("click", e => {
   const b = e.target.closest(".list-item"); if (!b) return;
   const id = b.dataset.id;
+  if (MODE === "stock"){
+    const it0 = byId(id); const L = it0 && String(it0.label || "").trim().toUpperCase();
+    if (L) openZone(L);
+    if (it0){ const r = pane.getBoundingClientRect(); pane.scrollLeft = it0.cx*S.cell + 24 - r.width/2; pane.scrollTop = it0.cy*S.cell + 24 - r.height/2; }
+    return;
+  }
   if (e.shiftKey) S.sel.has(id) ? S.sel.delete(id) : S.sel.add(id);
   else S.sel = new Set([id]);
   render();
@@ -1239,6 +1380,7 @@ $("inspector").addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   const tag = (e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select") return;
+  if (MODE === "stock"){ if (e.key === "Escape" && !dlg.open) closePanel(); return; }
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === "z"){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.key.toLowerCase() === "y"){ e.preventDefault(); redo(); return; }
@@ -1267,6 +1409,545 @@ $("drawerBtn").addEventListener("click", () => {
   } else if (scrim){ scrim.remove(); scrim = null; }
 });
 
+/* =====================================================================
+   STOCK LAYER
+   The floor plan is tied to the inventory workbook: column C holds the
+   location of every product. "TBA" = not placed yet, "Store" = on display
+   in the shop, otherwise an island label (R-02) or an island section
+   (S-05-2, T-01-4). One product can sit in several places — the cell then
+   lists them separated by commas, optionally with a quantity each:
+       R-02 (5), R-01 (15)        or        R-02:5, R-01:15
+   A place without its own quantity gets whatever stock is left over.
+
+   Moving stock = drag a product row from the panel onto an island, a
+   section header or the TBA / Store chips. Every move is logged locally;
+   the Report turns the log into the new column-C values so the sheet can
+   be updated by hand, then Sync reloads the sheet.
+   ===================================================================== */
+const INV_SHEET_ID  = "13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw";   // same workbook as the station
+const INV_TAB       = "Inventory";
+const LS_INV        = "wtcg.whplan.inv.v1";
+const LS_TR         = "wtcg.whplan.transfers.v1";
+const LS_MODE       = "wtcg.whplan.mode.v1";
+const IMG_PH = "data:image/svg+xml;utf8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" rx="12" fill="#1C2129"/>' +
+  '<text x="44" y="52" font-size="30" text-anchor="middle" fill="#5A6472">📦</text></svg>');
+
+/* islands that are split into numbered sections */
+function sectionsOf(label){
+  const L = String(label || "").trim().toUpperCase();
+  if (/^T-0*1$/.test(L)) return 5;
+  if (/^S-/.test(L)) return 3;
+  return 0;
+}
+
+let MODE = "stock";            // "stock" | "edit"
+let INV = null;                // {items:[...], at, rows}
+let TR = [];                   // transfers [{id,k,from,to,qty,at,by}]
+let HOLD = new Map();          // itemKey -> Map(locKey -> {qty, est, base})
+let OPEN = null;               // locKey of the zone open in the panel ("R-02", "TBA", "STORE", "__UNK")
+const WHO = (() => { try { return localStorage.getItem("ps_name") || ""; } catch (e) { return ""; } })();
+
+const nrm = s => String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
+const itemKey = (n, v) => nrm(n) + "||" + nrm(v || "default");
+const fmtN = n => Number(n || 0).toLocaleString("en-US");
+const hhmm = t => new Date(t).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+
+/* ---------------------------- location parsing --------------------------- */
+function islandIndex(){
+  const m = new Map();
+  for (const it of S.islands){ const k = String(it.label || "").trim().toUpperCase().replace(/\s+/g, ""); if (k) m.set(k, it); }
+  return m;
+}
+let ISL = new Map();
+/* one location string -> {key, kind:'island'|'tba'|'store'|'unknown', island, sec} */
+function parseLoc(raw){
+  const up = String(raw == null ? "" : raw).trim().toUpperCase().replace(/\s+/g, "");
+  if (!up || up === "TBA" || up === "#N/A") return {key:"TBA", kind:"tba"};
+  if (up === "STORE") return {key:"STORE", kind:"store"};
+  const ex = ISL.get(up);
+  if (ex) return {key:ex.label.trim().toUpperCase(), kind:"island", island:ex.label, sec:0};
+  const m = up.match(/^(.+)-(\d+)$/);
+  if (m){
+    const isl = ISL.get(m[1]);
+    const n = sectionsOf(isl && isl.label);
+    if (isl && n && +m[2] >= 1 && +m[2] <= n)
+      return {key:isl.label.trim().toUpperCase() + "-" + (+m[2]), kind:"island", island:isl.label, sec:+m[2]};
+  }
+  return {key:up, kind:"unknown"};
+}
+function locName(key){ return key === "TBA" ? "TBA" : (key === "STORE" ? "Store" : key); }
+function islandOfKey(key){ const p = parseLoc(key); return p.kind === "island" ? p.island.trim().toUpperCase() : null; }
+
+/* the column-C cell -> [{loc, qty|null}] */
+function splitCell(cell){
+  return String(cell == null ? "" : cell).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).map(part => {
+    const m = part.match(/^(.*?)\s*(?:\(\s*(\d+)\s*\)|:\s*(\d+))\s*$/);
+    if (m && m[1]) return {loc:m[1], qty:+(m[2] || m[3])};
+    return {loc:part, qty:null};
+  });
+}
+
+/* ------------------------------ holdings --------------------------------- */
+function buildHoldings(){
+  ISL = islandIndex();
+  HOLD = new Map();
+  if (!INV) return;
+  for (const it of INV.items){
+    const parts = splitCell(it.loc);
+    if (!parts.length) parts.push({loc:"TBA", qty:null});
+    const map = new Map();
+    const explicit = parts.reduce((a, p) => a + (p.qty != null ? p.qty : 0), 0);
+    const open = parts.filter(p => p.qty == null);
+    const rest = Math.max(0, it.stock - explicit);
+    parts.forEach(p => {
+      const L = parseLoc(p.loc);
+      const prev = map.get(L.key);
+      let q, est = false;
+      if (p.qty != null) q = p.qty;
+      else if (open.length === 1) q = rest;
+      else { q = (p === open[0]) ? rest : 0; est = true; }       // split unknown — first place takes the rest
+      if (prev){ prev.qty += q; prev.est = prev.est || est; }
+      else map.set(L.key, {qty:q, est, base:true, raw:p.loc});
+    });
+    HOLD.set(it.k, map);
+  }
+  for (const t of TR) applyTransfer(t);
+}
+function applyTransfer(t){
+  const map = HOLD.get(t.k); if (!map) return;
+  const f = map.get(t.from) || {qty:0, est:false, base:false};
+  f.qty = Math.max(0, f.qty - t.qty); f.est = false; map.set(t.from, f);
+  const to = map.get(t.to) || {qty:0, est:false, base:false};
+  to.qty += t.qty; to.est = false; map.set(t.to, to);
+}
+const itemByKey = k => INV && INV.byKey.get(k);
+
+/* everything sitting in one zone: island (all its sections), a section, TBA, Store, or unknown */
+function contentsOf(zone){
+  const out = [];
+  for (const [k, map] of HOLD){
+    for (const [loc, h] of map){
+      let hit = false;
+      if (zone === "__UNK") hit = parseLoc(loc).kind === "unknown";
+      else if (zone === "TBA" || zone === "STORE") hit = loc === zone;
+      else hit = loc === zone || islandOfKey(loc) === zone;
+      if (hit) out.push({k, loc, qty:h.qty, est:h.est, base:h.base});
+    }
+  }
+  return out;
+}
+function zoneTotals(){
+  const t = {TBA:0, STORE:0, UNK:0, isl:new Map()};
+  for (const [k, map] of HOLD){
+    for (const [loc, h] of map){
+      if (h.qty <= 0 && !h.est) continue;
+      if (loc === "TBA") t.TBA++;
+      else if (loc === "STORE") t.STORE++;
+      else {
+        const isl = islandOfKey(loc);
+        if (isl){ const c = t.isl.get(isl) || {keys:new Set(), sku:0, units:0}; c.keys.add(k); c.sku = c.keys.size; c.units += h.qty; t.isl.set(isl, c); }
+        else t.UNK++;
+      }
+    }
+  }
+  return t;
+}
+
+/* ------------------------------ sheet load ------------------------------- */
+function parseCSV(text){
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ","){ row.push(cur); cur = ""; }
+    else if (c === "\n"){ row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c !== "\r") cur += c;
+  }
+  if (cur !== "" || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+async function fetchInventory(){
+  const url = "https://docs.google.com/spreadsheets/d/" + INV_SHEET_ID + "/gviz/tq?tqx=out:csv&headers=1&sheet=" +
+    encodeURIComponent(INV_TAB) + "&_=" + Date.now();
+  const r = await fetch(url, {credentials:"omit"});
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const text = await r.text();
+  if (/<!DOCTYPE|<html/i.test(text.slice(0, 300))) throw new Error('The inventory sheet is not shared as "Anyone with the link — Viewer"');
+  const rows = parseCSV(text);
+  if (rows.length < 2) throw new Error("The Inventory tab is empty");
+  const H = rows[0].map(nrm);
+  const col = (names, def) => { for (const n of names){ const i = H.findIndex(h => h === n || h.indexOf(n) === 0); if (i >= 0) return i; } return def; };
+  const ci = {name:col(["item name","item","name"],0), variation:col(["variation"],1), loc:col(["location"],2),
+              stock:col(["stock"],3), barcode:col(["barcode"],4), image:col(["image"],5)};
+  const items = [], byKey = new Map();
+  for (let i = 1; i < rows.length; i++){
+    const r = rows[i]; const name = String(r[ci.name] || "").trim();
+    if (!name || nrm(name) === "item name") continue;
+    const variation = String(r[ci.variation] || "").trim();
+    const k = itemKey(name, variation);
+    if (byKey.has(k)) continue;
+    const clean = v => { const s = String(v == null ? "" : v).trim(); return (s === "#N/A") ? "" : s; };
+    const it = {k, name, variation, loc:clean(r[ci.loc]), stock:Math.max(0, parseInt(String(r[ci.stock]).replace(/[, ]/g, ""), 10) || 0),
+                barcode:clean(r[ci.barcode]).replace(/\s/g, ""), image:clean(r[ci.image])};
+    items.push(it); byKey.set(k, it);
+  }
+  if (!items.length) throw new Error("No products found in the Inventory tab");
+  return {items, byKey, at:Date.now()};
+}
+function saveInvCache(){
+  try{ localStorage.setItem(LS_INV, JSON.stringify({items:INV.items, at:INV.at})); }catch(e){}
+}
+function loadInvCache(){
+  try{
+    const o = JSON.parse(localStorage.getItem(LS_INV) || "null");
+    if (o && Array.isArray(o.items)){ INV = {items:o.items, at:o.at || 0, byKey:new Map(o.items.map(i => [i.k, i]))}; return true; }
+  }catch(e){}
+  return false;
+}
+function saveTR(){ try{ localStorage.setItem(LS_TR, JSON.stringify(TR)); }catch(e){} }
+function loadTR(){ try{ const a = JSON.parse(localStorage.getItem(LS_TR) || "[]"); TR = Array.isArray(a) ? a : []; }catch(e){ TR = []; } }
+
+function setInvStat(msg, err){
+  const el = $("invStat"); el.innerHTML = msg; el.classList.toggle("err", !!err);
+}
+function refreshInvPill(){
+  const p = $("hdInv");
+  if (!INV){ p.className = "pill alert"; p.innerHTML = "inventory <b>not loaded</b>"; return; }
+  p.className = "pill"; p.innerHTML = "inventory <b>" + fmtN(INV.items.length) + "</b> · " + hhmm(INV.at);
+}
+async function syncInventory(interactive){
+  const b = $("syncInv"); b.disabled = true; const lbl = b.textContent; b.textContent = "… loading";
+  setInvStat("Reading the inventory workbook…");
+  try{
+    const fresh = await fetchInventory();
+    const hadTR = TR.length;
+    INV = fresh; saveInvCache();
+    if (interactive && hadTR){
+      openDialog("Inventory synced",
+        `<p>The sheet was reloaded. There ${hadTR === 1 ? "is <b>1 transfer</b>" : "are <b>" + hadTR + " transfers</b>"} in the report.</p>
+         <p>If you have already copied the report into the sheet, clear them — otherwise they would be applied twice.
+            Keep them if the sheet has <b>not</b> been updated yet.</p>`,
+        [{label:"Clear transfers (sheet updated)", primary:true, act(){ TR = []; saveTR(); afterStockChange(); closeDialog(); toast("Transfers cleared"); }},
+         {label:"Keep them", act(){ closeDialog(); }}]);
+    }
+    afterStockChange();
+    setInvStat("✓ " + fmtN(INV.items.length) + " products · synced " + hhmm(INV.at));
+    if (interactive) toast("Inventory synced");
+  }catch(e){
+    setInvStat("Could not read the sheet: " + esc(e.message) + (INV ? "<br>Showing the copy from " + hhmm(INV.at) + "." : ""), true);
+    if (interactive) toast("Sync failed — " + e.message);
+  }
+  b.disabled = false; b.textContent = lbl;
+  refreshInvPill();
+}
+
+/* ------------------------------ painting --------------------------------- */
+function paintStock(){
+  if (!INV){ for (const [, el] of els){ const c = el.querySelector(".cnt"); if (c) c.remove(); el.classList.remove("stocked","empty-st"); } return; }
+  const t = zoneTotals();
+  for (const it of S.islands){
+    const el = els.get(it.id); if (!el) continue;
+    const c = t.isl.get(String(it.label || "").trim().toUpperCase());
+    let b = el.querySelector(".cnt");
+    if (c && c.sku){
+      if (!b){ b = document.createElement("span"); b.className = "cnt"; el.appendChild(b); }
+      b.textContent = c.sku; b.title = c.sku + " product(s) · " + fmtN(c.units) + " unit(s)";
+      b.style.transform = "rotate(" + (-it.rot) + "deg)";
+    } else if (b) b.remove();
+    el.classList.toggle("stocked", !!(c && c.sku));
+    el.classList.toggle("empty-st", MODE === "stock" && !(c && c.sku));
+    el.classList.toggle("sel", S.sel.has(it.id) || (MODE === "stock" && OPEN === String(it.label || "").trim().toUpperCase()));
+  }
+  $("zTBA").textContent = fmtN(t.TBA); $("zSTORE").textContent = fmtN(t.STORE);
+  $("zUNK").textContent = fmtN(t.UNK); $("zUnkBtn").hidden = !t.UNK;
+  document.querySelectorAll(".zone[data-zone]").forEach(z => z.classList.toggle("on", OPEN === z.dataset.zone));
+  $("trCount").textContent = TR.length;
+}
+function afterStockChange(){
+  buildHoldings(); paintStock();
+  if (OPEN) renderPanel();
+  runFind();
+}
+
+/* ------------------------------- panel ----------------------------------- */
+function openZone(zone){
+  OPEN = zone;
+  $("sp").hidden = false;
+  document.querySelector(".app").classList.add("withpanel");
+  $("spSearch").value = "";
+  renderPanel(); paintStock();
+}
+function closePanel(){
+  OPEN = null; $("sp").hidden = true;
+  document.querySelector(".app").classList.remove("withpanel");
+  paintStock();
+}
+function rowHTML(r){
+  const it = itemByKey(r.k); if (!it) return "";
+  const moved = TR.filter(t => t.k === r.k && (t.to === r.loc || t.from === r.loc));
+  const net = moved.reduce((a, t) => a + (t.to === r.loc ? t.qty : -t.qty), 0);
+  return `<div class="irow${r.qty <= 0 && !r.est ? " zero" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
+    <span class="grip" title="Drag to move">⠿</span>
+    <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
+    <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
+      <div class="vr">${esc(it.variation && nrm(it.variation) !== "default" ? it.variation : "")}${
+        net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div></div>
+    <div class="q${r.est ? " est" : ""}" title="${r.est ? "The sheet lists several places without a quantity each — this split is a guess. Stock total: " + it.stock : "Quantity here"}">${
+      r.est ? "≈" : ""}${fmtN(r.qty)}<small>${r.est ? "split?" : "qty"}</small></div>
+  </div>`;
+}
+function renderPanel(){
+  if (!OPEN) return;
+  const body = $("spBody");
+  const f = nrm($("spSearch").value), hideZero = $("spZero").checked;
+  let rows = contentsOf(OPEN).filter(r => {
+    if (hideZero && r.qty <= 0 && !r.est) return false;
+    if (!f) return true;
+    const it = itemByKey(r.k); return it && (nrm(it.name + " " + it.variation).indexOf(f) >= 0 || (it.barcode || "").indexOf(f) >= 0);
+  });
+  const byName = (a, b) => { const A = itemByKey(a.k), B = itemByKey(b.k); return (A ? A.name : "").localeCompare(B ? B.name : "", undefined, {numeric:true}); };
+  rows.sort(byName);
+  const units = rows.reduce((a, r) => a + r.qty, 0);
+  const title = OPEN === "__UNK" ? "Unknown locations" : locName(OPEN);
+  $("spTitle").textContent = title;
+  $("spSub").textContent = !INV ? "Inventory not loaded — press Sync" :
+    rows.length + " product(s) · " + fmtN(units) + " unit(s)" + (OPEN === "TBA" ? " · not placed yet" : (OPEN === "STORE" ? " · on display in the store" : ""));
+  if (!INV){ body.innerHTML = `<div class="empty">Press <b>⟳ Sync inventory</b> to read the workbook.</div>`; return; }
+
+  const nSec = OPEN.length && !["TBA","STORE","__UNK"].includes(OPEN) ? sectionsOf(OPEN) : 0;
+  let h = "";
+  if (nSec){
+    const groups = [];
+    for (let i = 1; i <= nSec; i++) groups.push({key:OPEN + "-" + i, label:OPEN + "-" + i, rows:rows.filter(r => r.loc === OPEN + "-" + i)});
+    const whole = rows.filter(r => r.loc === OPEN);
+    if (whole.length) groups.push({key:OPEN, label:OPEN + " · no section", rows:whole});
+    h = groups.map(g => `<div class="sec"><div class="sec-h" data-drop="${esc(g.key)}" title="Drop a product here to move it into ${esc(g.label)}">
+        ${esc(g.label)}<span class="n">${g.rows.length} · ${fmtN(g.rows.reduce((a, r) => a + r.qty, 0))} u</span></div>${
+        g.rows.length ? g.rows.map(rowHTML).join("") : `<div class="sec-empty">Empty — drop products here</div>`}</div>`).join("");
+  } else if (OPEN === "__UNK"){
+    const locs = [...new Set(rows.map(r => r.loc))].sort();
+    h = locs.map(l => `<div class="sec"><div class="sec-h">${esc(l)}<span class="n">no island with this name</span></div>${
+      rows.filter(r => r.loc === l).map(rowHTML).join("")}</div>`).join("") ||
+      `<div class="empty">Every location in the sheet matches an island.</div>`;
+  } else {
+    h = `<div class="sec"><div class="sec-h" data-drop="${esc(OPEN)}">${esc(title)}<span class="n">${rows.length} · ${fmtN(units)} u</span></div>${
+      rows.length ? rows.map(rowHTML).join("") : `<div class="sec-empty">${f ? "Nothing matches the filter" : "Empty — drop products here"}</div>`}</div>`;
+  }
+  h += `<p class="hint" style="margin:14px 14px 0">Drag a product (hold the row, or the ⠿ handle on a touch screen) onto another island,
+        a section header, or the <b>TBA</b> / <b>Store</b> chips to move stock.</p>`;
+  body.innerHTML = h;
+}
+
+/* ------------------------------ drag & drop ------------------------------ */
+let dnd = null;
+function dropTargetAt(x, y){
+  const el = document.elementFromPoint(x, y); if (!el) return null;
+  const d = el.closest("[data-drop]");
+  if (d) return {el:d, key:d.dataset.drop};
+  const isl = el.closest(".island");
+  if (isl){ const it = byId(isl.dataset.id); if (it && String(it.label || "").trim()) return {el:isl, key:String(it.label).trim().toUpperCase(), island:it}; }
+  return null;
+}
+function clearDropHi(){ document.querySelectorAll(".dropon").forEach(e => e.classList.remove("dropon")); }
+$("spBody").addEventListener("pointerdown", e => {
+  if (e.button !== 0) return;
+  const row = e.target.closest(".irow"); if (!row) return;
+  if (e.pointerType === "touch" && !e.target.closest(".grip")) return;     // let a finger scroll the list
+  e.preventDefault();
+  dnd = {k:row.dataset.k, from:row.dataset.loc, x0:e.clientX, y0:e.clientY, on:false, ghost:null, target:null, id:e.pointerId};
+});
+document.addEventListener("pointermove", e => {
+  if (!dnd) return;
+  if (!dnd.on){
+    if (Math.hypot(e.clientX - dnd.x0, e.clientY - dnd.y0) < 6) return;
+    dnd.on = true;
+    const it = itemByKey(dnd.k);
+    dnd.ghost = document.createElement("div"); dnd.ghost.className = "dragghost none";
+    dnd.ghost.textContent = (it ? it.name : "item") + " · from " + locName(dnd.from);
+    document.body.appendChild(dnd.ghost); document.body.classList.add("dragging");
+  }
+  dnd.ghost.style.left = e.clientX + "px"; dnd.ghost.style.top = e.clientY + "px";
+  /* scroll the floor when dragging near its edge */
+  /* only once the pointer has been well inside the floor, so merely crossing
+     the edge on the way in from the panel does not shift the plan */
+  const r = pane.getBoundingClientRect(), M = 36;
+  if (e.clientX > r.left + M*2 && e.clientX < r.right - M*2 && e.clientY > r.top + M*2 && e.clientY < r.bottom - M*2) dnd.inPane = true;
+  if (dnd.inPane && e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom){
+    if (e.clientX < r.left + M) pane.scrollLeft -= 14; else if (e.clientX > r.right - M) pane.scrollLeft += 14;
+    if (e.clientY < r.top + M) pane.scrollTop -= 14; else if (e.clientY > r.bottom - M) pane.scrollTop += 14;
+  }
+  const t = dropTargetAt(e.clientX, e.clientY);
+  clearDropHi();
+  dnd.target = null;
+  if (t && t.key !== dnd.from){
+    t.el.classList.add("dropon"); dnd.target = t;
+    dnd.ghost.className = "dragghost"; dnd.ghost.textContent = (itemByKey(dnd.k) || {name:"item"}).name + "  →  " + locName(t.key);
+  } else if (dnd.ghost){ dnd.ghost.className = "dragghost none"; }
+});
+function endDnd(){
+  if (!dnd) return;
+  const d = dnd; dnd = null;
+  clearDropHi(); document.body.classList.remove("dragging");
+  if (d.ghost) d.ghost.remove();
+  if (d.on && d.target) openTransfer(d.k, d.from, d.target.key);
+}
+document.addEventListener("pointerup", endDnd);
+document.addEventListener("pointercancel", () => { if (dnd){ dnd.target = null; endDnd(); } });
+
+/* ------------------------------ transfer dialog -------------------------- */
+function openTransfer(k, from, to){
+  const it = itemByKey(k); if (!it) return;
+  const map = HOLD.get(k) || new Map();
+  const src = map.get(from) || {qty:0, est:false};
+  const max = src.est ? it.stock : src.qty;
+  if (max <= 0){ toast("Nothing left of this product in " + locName(from)); return; }
+  const pl = parseLoc(to);
+  const n = (pl.kind === "island" && !pl.sec) ? sectionsOf(pl.island) : 0;     // dropped on the island itself → ask which section
+  const secSel = n ? `<div class="field-ctl" style="margin-bottom:12px"><label for="trSec">Section of ${esc(to)}</label>
+      <select id="trSec">${Array.from({length:n}, (_, i) => `<option value="${esc(to + "-" + (i + 1))}">${esc(to + "-" + (i + 1))}</option>`).join("")}
+      <option value="${esc(to)}">${esc(to)} (no section)</option></select></div>` : "";
+  openDialog("Move stock",
+    `<div class="tr-item"><img src="${esc(it.image || IMG_PH)}" onerror="this.src='${IMG_PH}'" alt="">
+       <div><div style="font-weight:700">${esc(it.name)}</div><div class="hint" style="margin:2px 0 0">${esc(it.variation || "")}</div></div></div>
+     <div class="tr-route"><span>${esc(locName(from))}</span><i>→</i><span id="trTo">${esc(locName(n ? to + "-1" : to))}</span></div>
+     ${secSel}
+     <div class="field-ctl"><label for="trQty">Quantity to move — up to ${fmtN(max)}${src.est ? " (split in the sheet unknown)" : ""}</label>
+       <input type="number" id="trQty" class="qbig" min="1" max="${max}" step="1" value="${max}"></div>`,
+    [{label:"Move", primary:true, act(){ doTransfer(k, from, n ? $("trSec").value : to, $("trQty").value, max); }},
+     {label:"Cancel", act:closeDialog}]);
+  const q = $("trQty"); setTimeout(() => { q.focus(); q.select(); }, 40);
+  q.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); doTransfer(k, from, n ? $("trSec").value : to, q.value, max); } });
+  if (n) $("trSec").addEventListener("change", e => { $("trTo").textContent = locName(e.target.value); });
+}
+function doTransfer(k, from, to, qtyRaw, max){
+  const qty = Math.floor(+qtyRaw);
+  if (!(qty >= 1)){ toast("Enter a quantity of at least 1"); return; }
+  if (qty > max){ toast("Only " + max + " available in " + locName(from)); return; }
+  if (to === from){ toast("That is the same place"); return; }
+  TR.push({id:"t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), k, from, to, qty, at:Date.now(), by:WHO});
+  saveTR(); closeDialog(); afterStockChange();
+  const it = itemByKey(k);
+  toast("Moved " + qty + " × " + (it ? it.name : "") + " → " + locName(to));
+}
+
+/* ------------------------------- report ---------------------------------- */
+/* the new text for column C, in the sheet's own style */
+function newCellFor(k){
+  const it = itemByKey(k), map = HOLD.get(k); if (!it || !map) return "";
+  const live = [...map.entries()].filter(([, h]) => h.qty > 0);
+  if (!live.length){
+    const last = TR.filter(t => t.k === k).pop();
+    return last ? locName(last.to) : (it.loc || "TBA");
+  }
+  if (live.length === 1) return locName(live[0][0]);
+  return live.map(([l, h]) => locName(l) + " (" + h.qty + ")").join(", ");
+}
+function reportRows(){
+  const ks = [...new Set(TR.map(t => t.k))];
+  return ks.map(k => { const it = itemByKey(k) || {name:k, variation:"", loc:""};
+    return {k, name:it.name, variation:it.variation, old:it.loc || "TBA", nu:newCellFor(k)}; })
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+}
+function csvOf(rows){ return rows.map(r => r.map(v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"').join(",")).join("\r\n"); }
+function stamp(){ const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()); }
+function reportCSV(){
+  const out = [["LOCATION UPDATES — paste the new value into column C (location)"], ["Item name", "Variation", "Location now (sheet)", "New location"]];
+  reportRows().forEach(r => out.push([r.name, r.variation, r.old, r.nu]));
+  out.push([]); out.push(["TRANSFER LOG"]); out.push(["Time", "Item name", "Variation", "From", "To", "Qty", "By"]);
+  TR.forEach(t => { const it = itemByKey(t.k) || {name:t.k, variation:""};
+    out.push([new Date(t.at).toLocaleString("en-US"), it.name, it.variation, locName(t.from), locName(t.to), t.qty, t.by || ""]); });
+  return "﻿" + csvOf(out);
+}
+function openReport(){
+  if (!TR.length){
+    openDialog("Transfer report", `<p>No transfers yet. Open an island, drag a product onto another island and enter the quantity — every move shows up here.</p>`,
+      [{label:"Close", primary:true, act:closeDialog}]);
+    return;
+  }
+  const rr = reportRows();
+  const upd = `<table class="rep-tbl"><thead><tr><th>Item</th><th>Variation</th><th>Column C now</th><th>New column C</th></tr></thead><tbody>${
+    rr.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.variation)}</td><td class="old">${esc(r.old)}</td><td class="new">${esc(r.nu)}</td></tr>`).join("")}</tbody></table>`;
+  const log = `<table class="rep-tbl"><thead><tr><th>Time</th><th>Item</th><th>From → To</th><th>Qty</th><th>By</th><th></th></tr></thead><tbody>${
+    TR.slice().reverse().map(t => { const it = itemByKey(t.k) || {name:t.k, variation:""};
+      return `<tr><td class="m">${esc(hhmm(t.at))}</td><td>${esc(it.name)}${it.variation && nrm(it.variation) !== "default" ? " · " + esc(it.variation) : ""}</td>
+        <td class="m">${esc(locName(t.from))} → ${esc(locName(t.to))}</td><td class="m">${t.qty}</td><td>${esc(t.by || "—")}</td>
+        <td><button class="btn icon" data-undo="${esc(t.id)}" title="Undo this transfer" style="width:26px;height:26px;font-size:12px">↶</button></td></tr>`; }).join("")}</tbody></table>`;
+  openDialog("Transfer report · " + TR.length + " move(s)",
+    `<p><b>1.</b> Download or copy the report · <b>2.</b> put the <b>New column C</b> values into the inventory sheet ·
+        <b>3.</b> press <b>⟳ Sync inventory</b> and clear the transfers.</p>
+     <h4 style="margin:12px 0 6px;font-family:var(--disp)">Location updates — ${rr.length} product(s)</h4>
+     <div class="rep-wrap">${upd}</div>
+     <h4 style="margin:16px 0 6px;font-family:var(--disp)">Transfer log</h4>
+     <div class="rep-wrap" style="max-height:30vh">${log}</div>`,
+    [{label:"⬇ Download report (.csv)", primary:true, act(){
+        offerFile("warehouse-transfers_" + stamp() + ".csv", new Blob([reportCSV()], {type:"text/csv;charset=utf-8"})); }},
+     {label:"⧉ Copy updates", act(){
+        copyText(rr.map(r => [r.name, r.variation, r.nu].join("\t")).join("\n")); }},
+     {label:"Clear transfers", danger:true, act(){
+        if (!confirm("Clear all " + TR.length + " transfers? Do this only after the sheet has been updated.")) return;
+        TR = []; saveTR(); afterStockChange(); closeDialog(); toast("Transfers cleared"); }},
+     {label:"Close", act:closeDialog}]);
+  dlg.classList.add("wide");
+  $("dlgBody").querySelectorAll("[data-undo]").forEach(b => b.addEventListener("click", () => {
+    TR = TR.filter(t => t.id !== b.dataset.undo); saveTR(); afterStockChange(); openReport(); toast("Transfer undone");
+  }));
+}
+dlg.addEventListener("close", () => dlg.classList.remove("wide"));
+
+/* ------------------------------- find ------------------------------------ */
+function runFind(){
+  const inp = $("findItem"), box = $("findRes"); if (!inp) return;
+  const f = nrm(inp.value);
+  if (!f || f.length < 2 || !INV){ box.hidden = true; box.innerHTML = ""; return; }
+  const hits = INV.items.filter(it => nrm(it.name + " " + it.variation).indexOf(f) >= 0 || (it.barcode && it.barcode.indexOf(f.replace(/\s/g, "")) >= 0)).slice(0, 40);
+  box.hidden = false;
+  if (!hits.length){ box.innerHTML = `<div class="empty">Nothing found</div>`; return; }
+  box.innerHTML = hits.map(it => {
+    const map = HOLD.get(it.k) || new Map();
+    const locs = [...map.entries()].filter(([, h]) => h.qty > 0 || h.est);
+    return `<div class="fr"><b>${esc(it.name)}</b>${it.variation && nrm(it.variation) !== "default" ? " · " + esc(it.variation) : ""}
+      <span style="color:var(--faint);font-family:var(--mono)"> · ${fmtN(it.stock)}</span>
+      <div class="locs">${locs.length ? locs.map(([l, h]) => {
+        const isl = islandOfKey(l); const zone = isl || (l === "TBA" || l === "STORE" ? l : "__UNK");
+        return `<button data-open="${esc(zone)}">${esc(locName(l))} · ${h.est ? "≈" : ""}${h.qty}</button>`; }).join("") :
+        `<span style="color:var(--faint)">no stock</span>`}</div></div>`;
+  }).join("");
+}
+$("findItem").addEventListener("input", runFind);
+$("findRes").addEventListener("click", e => {
+  const b = e.target.closest("[data-open]"); if (!b) return;
+  const z = b.dataset.open; openZone(z);
+  const isl = S.islands.find(i => String(i.label || "").trim().toUpperCase() === z);
+  if (isl){ const r = pane.getBoundingClientRect(); pane.scrollLeft = isl.cx*S.cell + 24 - r.width/2; pane.scrollTop = isl.cy*S.cell + 24 - r.height/2; }
+});
+
+/* ------------------------------- mode ------------------------------------ */
+function setMode(m){
+  MODE = m === "edit" ? "edit" : "stock";
+  try{ localStorage.setItem(LS_MODE, MODE); }catch(e){}
+  document.body.classList.toggle("stockmode", MODE === "stock");
+  document.querySelectorAll("#modeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === MODE)));
+  $("stMode").textContent = MODE === "stock" ? "STOCK" : "EDIT LAYOUT";
+  $("stMode").style.color = MODE === "stock" ? "var(--accent)" : "var(--warn)";
+  if (MODE === "edit"){ closePanel(); } else { S.sel.clear(); }
+  render();
+}
+document.querySelectorAll("#modeSeg button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+document.querySelectorAll(".zone[data-zone]").forEach(z => z.addEventListener("click", () => {
+  if (MODE !== "stock") setMode("stock");
+  OPEN === z.dataset.zone ? closePanel() : openZone(z.dataset.zone);
+}));
+$("spClose").addEventListener("click", closePanel);
+$("spSearch").addEventListener("input", renderPanel);
+$("spZero").addEventListener("change", renderPanel);
+$("syncInv").addEventListener("click", () => syncInventory(true));
+$("openReport").addEventListener("click", openReport);
+$("optBadges").addEventListener("change", e => document.body.classList.toggle("nobadges", !e.target.checked));
+
 /* ====================== boot ====================== */
 const hadSave = load();
 $("fCols").value = S.cols; $("fRows").value = S.rows;
@@ -1280,9 +1961,15 @@ $("newSwatches").addEventListener("click", e => {
   S.newHue = +b.dataset.h;
   [...$("newSwatches").children].forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.h === S.newHue)));
 });
+loadTR();
+const hadInv = loadInvCache();
+let savedMode = "stock"; try{ savedMode = localStorage.getItem(LS_MODE) || "stock"; }catch(e){}
 applyFieldSize();
-render();
+setMode(savedMode);                 // renders
 refreshUndoBtns();
+refreshInvPill();
+if (hadInv) setInvStat("Copy from " + hhmm(INV.at) + " — refreshing…");
+syncInventory(false);
 flagSaved(hadSave ? "restored" : "saved");
 requestAnimationFrame(() => { if (!hadSave) fitZoom(); });
 

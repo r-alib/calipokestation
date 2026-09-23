@@ -76,7 +76,20 @@ main{max-width:1500px;margin:0 auto;padding:20px 16px 90px}
 .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600;margin-bottom:10px}
 
 /* ---------- editor split ---------- */
-.split{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
+.split{display:grid;grid-template-columns:470px 1fr;gap:16px;align-items:start}
+.pastecols{display:grid;grid-template-columns:minmax(0,1fr) 68px 68px;gap:6px;align-items:start}
+.pastecols .eyebrow{margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pastecols textarea{white-space:pre;overflow-wrap:normal;overflow-x:auto}
+textarea.sohp{width:100%;min-height:160px;max-height:70vh;resize:none;overflow-y:auto;background:var(--bg);
+  border:1.5px solid var(--line);border-radius:11px;padding:12px 9px;font-family:var(--mono);font-size:13.5px;
+  line-height:1.6;outline:none;transition:.15s;text-align:right}
+textarea.sohp:focus{border-color:var(--tab)}
+table.grid td.soh{font-family:var(--mono);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--faint)}
+table.grid td.soh.match{background:#123524;color:#6FE3A0}
+table.grid td.soh.miss{background:#3a1719;color:#FF8A85}
+table.grid thead th.soh{color:var(--info)}
+.statchip.miss{border-color:#4a2128;color:#FF8A85}
+.statchip.match{border-color:#1d4530;color:#6FE3A0}
 @media(max-width:1000px){.split{grid-template-columns:1fr}}
 textarea#paste{width:100%;height:240px;min-height:160px;max-height:70vh;resize:vertical;overflow:auto;background:var(--bg);border:1.5px solid var(--line);
   border-radius:11px;padding:12px 13px;font-family:var(--mono);font-size:13.5px;line-height:1.6;outline:none;transition:.15s}
@@ -86,20 +99,22 @@ textarea#paste:focus{border-color:var(--tab)}
 
 .gridwrap{border:1px solid var(--border);border-radius:var(--r-sm);overflow:auto;max-height:520px;background:var(--panel2)}
 table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:13.5px}
-table.grid th,table.grid td{padding:7px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.grid th,table.grid td{padding:6px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
 table.grid thead th{position:sticky;top:0;z-index:3;background:var(--raised);font-size:10.5px;
   text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;text-align:center}
 table.grid thead th.left{text-align:left}
+table.grid thead th{white-space:normal;line-height:1.25;vertical-align:bottom}
+.split > div{min-width:0}
 table.grid tbody tr:hover{background:var(--raised)}
 table.grid tbody tr.on{background:#11211a;box-shadow:inset 2px 0 0 var(--accent)}
 table.grid tbody tr.dup td.iname{color:var(--warn)}
-td.iname{white-space:normal;min-width:180px;max-width:340px}
+td.iname{white-space:normal;min-width:150px;max-width:300px}
 td.cbx,th.cbx{width:34px;text-align:center}
 td.cbx input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer}
 td.del{width:34px;text-align:center}
 td.del button{background:none;border:0;color:var(--faint);font-size:16px;line-height:1;padding:2px 5px;border-radius:6px}
 td.del button:hover{color:var(--err);background:#1f1417}
-input.q{width:74px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;
+input.q{width:62px;background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:6px 8px;
   font-family:var(--mono);font-weight:700;font-size:14px;text-align:right;outline:none;transition:.12s}
 input.q:focus{border-color:var(--tab);background:#0b0e13}
 input.q.filled{color:var(--ink)}
@@ -318,15 +333,19 @@ const SORTS = {
   'total-desc': {label: 'Total QTY  high → low',   by: 'total', dir: -1}
 };
 function blankTab(t) {
-  return {text: '', items: [], threshold: 30, sort: 'name-asc', hideZero: false};
+  return {text: '', sohWh: '', sohLs: '', items: [], threshold: 30, sort: 'name-asc', hideZero: false};
 }
 function normTabState(s) {
   s = s || {};
   return {
     text: typeof s.text === 'string' ? s.text : '',
+    sohWh: typeof s.sohWh === 'string' ? s.sohWh : '',
+    sohLs: typeof s.sohLs === 'string' ? s.sohLs : '',
     items: Array.isArray(s.items) ? s.items.map(i => ({
       name: String((i && i.name) || ''), checked: !!(i && i.checked),
-      v: (i && i.v && typeof i.v === 'object') ? i.v : {}
+      v: (i && i.v && typeof i.v === 'object') ? i.v : {},
+      sohWh: (i && i.sohWh != null) ? String(i.sohWh) : '',
+      sohLs: (i && i.sohLs != null) ? String(i.sohLs) : ''
     })).filter(i => i.name) : [],
     threshold: isFinite(+s.threshold) ? +s.threshold : 30,
     sort: SORTS[s.sort] ? s.sort : (s.sort === 'total' ? 'total-asc' : 'name-asc'),
@@ -411,8 +430,10 @@ function setSync(kind, txt) {
 function payload() {
   const o = {client: CLIENT_ID, by: DEVICE, at: Date.now()};
   TABS.forEach(t => o[t.id] = {
-    text: ST[t.id].text, threshold: ST[t.id].threshold, sort: ST[t.id].sort, hideZero: !!ST[t.id].hideZero,
-    items: ST[t.id].items.map(i => ({name: i.name, checked: !!i.checked, v: i.v || {}}))
+    text: ST[t.id].text, sohWh: ST[t.id].sohWh || '', sohLs: ST[t.id].sohLs || '',
+    threshold: ST[t.id].threshold, sort: ST[t.id].sort, hideZero: !!ST[t.id].hideZero,
+    items: ST[t.id].items.map(i => ({name: i.name, checked: !!i.checked, v: i.v || {},
+      sohWh: i.sohWh || '', sohLs: i.sohLs || ''}))
   });
   return o;
 }
@@ -518,7 +539,8 @@ function syncItemsFromText(tabId) {
 
   const seen = new Map();
   const out = [];
-  st.text.split(/\r?\n/).forEach(rawLine => {
+  const whL = String(st.sohWh || '').split(/\r?\n/), lsL = String(st.sohLs || '').split(/\r?\n/);
+  st.text.split(/\r?\n/).forEach((rawLine, li) => {
     const line = rawLine.replace(/\s+$/, '');
     if (!line.trim()) return;
     let parts = line.split(/\t|;/).map(x => x.trim());
@@ -528,7 +550,8 @@ function syncItemsFromText(tabId) {
     if (!name) return;
     const key = norm(name);
     const old = prev.get(key);
-    const item = {name, checked: old ? old.checked : false, v: old ? Object.assign({}, old.v) : {}};
+    const item = {name, checked: old ? old.checked : false, v: old ? Object.assign({}, old.v) : {},
+      sohWh: sohCell(whL[li]), sohLs: sohCell(lsL[li])};
     if (parts.length > 1) {
       t.fields.forEach((f, i) => {
         const raw = parts[i + 1];
@@ -542,7 +565,53 @@ function syncItemsFromText(tabId) {
   st.items = out;
 }
 function textFromItems(tabId) {
-  ST[tabId].text = ST[tabId].items.map(i => i.name).join('\n');
+  const st = ST[tabId];
+  st.text = st.items.map(i => i.name).join('\n');
+  /* the SOH columns are aligned line-for-line with the names, so they are
+     rewritten together whenever rows are sorted, de-duplicated or removed */
+  const any = st.items.some(i => i.sohWh !== '' || i.sohLs !== '');
+  if (any || !st.items.length) {
+    st.sohWh = st.items.map(i => i.sohWh || '').join('\n');
+    st.sohLs = st.items.map(i => i.sohLs || '').join('\n');
+  }
+}
+/* one pasted SOH cell -> clean number string, or '' when blank / not a number */
+function sohCell(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s || !/^-?[\d.,\s]+$/.test(s)) return '';
+  return String(num(s));
+}
+/* ---------------------------------------------------------------------------
+   SOH check: the counted figure vs the SOH pasted from the sheet
+     OP Japanese       Total WH  vs SOH WH QTY,  Total LS vs SOH LS QTY
+     Pokemon JP / CN   WH QTY    vs SOH WH QTY,  LS QTY   vs SOH LS QTY
+   returns 'match' | 'miss' | '' (no SOH pasted for that row)
+   --------------------------------------------------------------------------- */
+function sohState(tabId, item, which) {
+  const soh = which === 'wh' ? item.sohWh : item.sohLs;
+  if (soh == null || soh === '') return '';
+  const counted = totalCol(tabId, which === 'wh' ? 'totWh' : 'totLs', item);
+  return Math.abs(counted - num(soh)) < 1e-9 ? 'match' : 'miss';
+}
+function sohTitle(tabId, item, which) {
+  const soh = which === 'wh' ? item.sohWh : item.sohLs;
+  if (soh == null || soh === '') return 'No SOH pasted for this row';
+  const counted = totalCol(tabId, which === 'wh' ? 'totWh' : 'totLs', item);
+  const lbl = tabId === 'op' ? (which === 'wh' ? 'Total WH' : 'Total LS') : (which === 'wh' ? 'WH QTY' : 'LS QTY');
+  const d = counted - num(soh);
+  return lbl + ' ' + fmtN(counted) + ' vs SOH ' + fmtN(num(soh)) + (d ? ' (' + (d > 0 ? '+' : '') + fmtN(d) + ')' : ' — match');
+}
+function sohTd(tabId, item, which) {
+  const v = which === 'wh' ? item.sohWh : item.sohLs;
+  return '<td class="soh ' + sohState(tabId, item, which) + '" data-soh="' + which + '" title="' +
+    esc(sohTitle(tabId, item, which)) + '">' + (v === '' || v == null ? '—' : fmtN(num(v))) + '</td>';
+}
+function sohCounts(tabId) {
+  let match = 0, miss = 0;
+  ST[tabId].items.forEach(i => ['wh', 'ls'].forEach(w => {
+    const s = sohState(tabId, i, w); if (s === 'match') match++; else if (s === 'miss') miss++;
+  }));
+  return {match, miss};
 }
 /* Keep the right-hand list in step with the pasted list on the left:
    new lines appear as fresh rows, removed lines drop out, and every row that
@@ -606,8 +675,14 @@ function renderEditor() {
       'Everything is saved in this browser automatically.</p>' +
     '<div class="split">' +
       '<div>' +
-        '<div class="eyebrow">Item names</div>' +
-        '<textarea id="paste" spellcheck="false" placeholder="black bolt&#10;white flare&#10;terastal festival&#10;…"></textarea>' +
+        '<div class="pastecols">' +
+          '<div><div class="eyebrow">Item names</div>' +
+          '<textarea id="paste" wrap="off" spellcheck="false" placeholder="black bolt&#10;white flare&#10;terastal festival&#10;…"></textarea></div>' +
+          '<div><div class="eyebrow" title="SOH WH QTY — pasted from the sheet, one value per line">SOH WH</div>' +
+          '<textarea id="pasteWh" class="sohp" wrap="off" spellcheck="false" placeholder="0&#10;0&#10;…"></textarea></div>' +
+          '<div><div class="eyebrow" title="SOH LS QTY — pasted from the sheet, one value per line">SOH LS</div>' +
+          '<textarea id="pasteLs" class="sohp" wrap="off" spellcheck="false" placeholder="0&#10;0&#10;…"></textarea></div>' +
+        '</div>' +
         '<div class="arow">' +
           '<button class="iconbtn" id="btnSortNames">↕ Sort A→Z</button>' +
           '<button class="iconbtn" id="btnDedupe">⧉ Remove duplicates</button>' +
@@ -615,6 +690,10 @@ function renderEditor() {
         '</div>' +
         '<p class="hint">You can also paste straight from a spreadsheet — a line like ' +
           '<span class="mono">name ⇥ 12 ⇥ 4</span> fills the count columns left to right.<br>' +
+          '<b>SOH WH / SOH LS</b> line up with the item names line by line — paste the sheet\'s SOH WH QTY and ' +
+          'SOH LS QTY columns there (copying both columns at once into SOH WH fills both). ' +
+          'They are checked against ' + (t.id === 'op' ? 'Total WH / Total LS' : 'WH QTY / LS QTY') +
+          ': green = match, red = different.<br>' +
           'Tick the checkbox to ' + (t.threshold
             ? 'keep an item in the report even when it is above the threshold.'
             : 'highlight the row in the report.') + '</p>' +
@@ -627,29 +706,52 @@ function renderEditor() {
       '</div>' +
     '</div>';
 
-  const ta = $('#paste');
-  ta.value = st.text;
+  const ta = $('#paste'), tWh = $('#pasteWh'), tLs = $('#pasteLs');
+  const areas = [ta, tWh, tLs];
+  ta.value = st.text; tWh.value = st.sohWh || ''; tLs.value = st.sohLs || '';
+  /* all three boxes share one height so the lines stay side by side */
   const autosize = () => {
-    const lines = (ta.value.match(/\n/g) || []).length + 2;
-    ta.style.height = Math.min(Math.max(160, lines * 22 + 26), Math.round(innerHeight * 0.7)) + 'px';
+    const lines = Math.max.apply(null, areas.map(a => (a.value.match(/\n/g) || []).length)) + 2;
+    const h = Math.min(Math.max(160, lines * 22 + 26), Math.round(innerHeight * 0.7)) + 'px';
+    areas.forEach(a => a.style.height = h);
   };
   autosize();
+  /* scroll together */
+  let syncing = false;
+  areas.forEach(a => a.addEventListener('scroll', () => {
+    if (syncing) return; syncing = true;
+    areas.forEach(b => { if (b !== a) b.scrollTop = a.scrollTop; });
+    requestAnimationFrame(() => syncing = false);
+  }));
   let tmr = null;
-  ta.addEventListener('input', () => {
-    autosize();
-    st.text = ta.value;
+  const reflow = () => {
     clearTimeout(tmr);
     tmr = setTimeout(() => { syncItemsFromText(CUR); saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav(); }, 220);
+  };
+  ta.addEventListener('input', () => { autosize(); st.text = ta.value; reflow(); });
+  tWh.addEventListener('input', () => { autosize(); st.sohWh = tWh.value; reflow(); });
+  tLs.addEventListener('input', () => { autosize(); st.sohLs = tLs.value; reflow(); });
+  /* two columns copied out of the sheet and pasted into SOH WH: first -> WH, second -> LS */
+  tWh.addEventListener('paste', e => {
+    const txt = (e.clipboardData || window.clipboardData).getData('text');
+    if (!txt || txt.indexOf('\t') < 0) return;
+    e.preventDefault();
+    const rows = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n');
+    tWh.value = rows.map(r => (r.split('\t')[0] || '').trim()).join('\n');
+    tLs.value = rows.map(r => (r.split('\t')[1] || '').trim()).join('\n');
+    st.sohWh = tWh.value; st.sohLs = tLs.value;
+    autosize(); reflow();
+    toast('SOH WH and SOH LS filled from ' + rows.length + ' line(s)', 'ok');
   });
   $('#btnSortNames').addEventListener('click', () => {
     st.items.sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
-    textFromItems(CUR); ta.value = st.text; saveState(); renderGrid(); renderReport();
+    textFromItems(CUR); ta.value = st.text; tWh.value = st.sohWh; tLs.value = st.sohLs; saveState(); renderGrid(); renderReport();
   });
   $('#btnDedupe').addEventListener('click', () => {
     const seen = new Set(), out = [];
     st.items.forEach(i => { const k = norm(i.name); if (seen.has(k)) return; seen.add(k); i.dup = false; out.push(i); });
     const removed = st.items.length - out.length;
-    st.items = out; textFromItems(CUR); ta.value = st.text; saveState();
+    st.items = out; textFromItems(CUR); ta.value = st.text; tWh.value = st.sohWh; tLs.value = st.sohLs; saveState();
     renderGrid(); renderCtrls(); renderReport(); renderNav();
     toast(removed ? removed + ' duplicate row(s) removed' : 'No duplicates found', 'ok');
   });
@@ -673,6 +775,10 @@ function renderGrid() {
     t.fields.map(f => '<th' + (f.hint ? ' title="' + esc(f.hint) + '"' : '') + '>' + esc(f.label) + '</th>').join('') +
     (t.totalOf ? '<th>Total</th>' : '') +
     tots.map(x => '<th class="tot" title="' + esc(x.how || '') + '">' + esc(x.label) + '</th>').join('') +
+    '<th class="soh" title="SOH WH QTY pasted from the sheet — green when it matches ' +
+      (CUR === 'op' ? 'Total WH' : 'WH QTY') + '">SOH WH QTY</th>' +
+    '<th class="soh" title="SOH LS QTY pasted from the sheet — green when it matches ' +
+      (CUR === 'op' ? 'Total LS' : 'LS QTY') + '">SOH LS QTY</th>' +
     '<th></th></tr>';
   let body = st.items.map((it, r) => {
     const tot = totalOf(CUR, it);
@@ -687,6 +793,7 @@ function renderGrid() {
       tots.map(x => '<td class="gtot tot' + (warn && x.k === 'totLs' ? ' warncase' : '') + '" data-tot="' + x.k + '"' +
         (warn && x.k === 'totLs' ? ' title="LS Case is not converted yet — fill in QTY / case"' : '') + '>' +
         fmtN(totalCol(CUR, x.k, it)) + '</td>').join('') +
+      sohTd(CUR, it, 'wh') + sohTd(CUR, it, 'ls') +
       '<td class="del"><button data-del="' + r + '" title="Remove row">×</button></td>' +
     '</tr>';
   }).join('');
@@ -710,7 +817,12 @@ function renderGrid() {
         if (flag) td.title = 'LS Case is not converted yet — fill in QTY / case';
         else td.removeAttribute('title');
       });
-      saveState(); scheduleReport();
+      $$('td[data-soh]', tr).forEach(td => {
+        const w = td.dataset.soh;
+        td.className = 'soh ' + sohState(CUR, it, w);
+        td.title = sohTitle(CUR, it, w);
+      });
+      saveState(); scheduleReport(); scheduleChips();
     });
     inp.addEventListener('keydown', e => {
       const r = +inp.dataset.r, c = +inp.dataset.c;
@@ -732,6 +844,7 @@ function renderGrid() {
   $$('button[data-del]', host).forEach(b => b.addEventListener('click', () => {
     st.items.splice(+b.dataset.del, 1);
     textFromItems(CUR); const ta = $('#paste'); if (ta) ta.value = st.text;
+    const tw = $('#pasteWh'); if (tw) tw.value = st.sohWh; const tl = $('#pasteLs'); if (tl) tl.value = st.sohLs;
     saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav();
   }));
 }
@@ -760,6 +873,7 @@ function renderCtrls() {
     '<span class="statchip">Items <b>' + st.items.length + '</b></span>' +
     '<span class="statchip">In report <b>' + rows.length + '</b></span>' +
     (st.items.some(i => i.checked) ? '<span class="statchip">Ticked <b>' + st.items.filter(i => i.checked).length + '</b></span>' : '') +
+    '<span id="sohChips">' + sohChipsHtml() + '</span>' +
     '</div>';
   host.innerHTML = html;
 
@@ -777,6 +891,17 @@ function renderCtrls() {
     nm.addEventListener('input', () => set(nm.value));
     $('#sortSel').addEventListener('change', e => { st.sort = e.target.value; saveState(); renderReport(); });
   }
+}
+function sohChipsHtml() {
+  const c = sohCounts(CUR);
+  if (!c.match && !c.miss) return '';
+  return '<span class="statchip match" title="SOH cells that match the count">SOH ✓ <b>' + c.match + '</b></span> ' +
+    '<span class="statchip miss" title="SOH cells that differ from the count">SOH ✗ <b>' + c.miss + '</b></span>';
+}
+let chipT = null;
+function scheduleChips() {
+  clearTimeout(chipT);
+  chipT = setTimeout(() => { const h = $('#sohChips'); if (h) h.innerHTML = sohChipsHtml(); }, 150);
 }
 function refreshChips() {
   const st = ST[CUR], rows = reportRows(CUR);

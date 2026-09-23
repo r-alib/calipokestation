@@ -238,7 +238,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 .stat{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:16px}
 .stat .n{font-family:var(--mono); font-weight:700; font-size:30px; letter-spacing:-.02em}
 .stat .l{font-size:12.5px; color:var(--muted); margin-top:3px}
-.stat.ok .n{color:var(--ok)} .stat.err .n{color:var(--err)} .stat.warn .n{color:var(--warn)}
+.stat.ok .n{color:var(--ok)} .stat.err .n{color:var(--err)} .stat.warn .n{color:var(--warn)} .stat.info .n{color:var(--info)}
 /* report viewer file chips */
 .rvfiles{display:flex; flex-direction:column; gap:8px; margin-top:12px}
 .rvfile{display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:9px 13px; font-size:13.5px}
@@ -709,6 +709,19 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn lg hide" id="packLogBtn">🧾 Pack log</button>
       <button class="btn lg hide" id="removedBtn">🗃 Removed orders</button>
     </div>
+    <!-- one scan box for every label: platform + shift are worked out automatically -->
+    <div class="scanwrap" id="gScanWrap" style="margin-bottom:14px">
+      <div class="scanhead">
+        <span class="mode label">Scan any label</span>
+        <span class="who">platform &amp; shift are found automatically</span>
+      </div>
+      <div class="scanrow">
+        <input id="gScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan a shipping label, or type the last 4 digits…">
+        <button class="btn primary" id="gCamBtn" title="Scan with phone camera">📷 Camera</button>
+        <button class="btn" id="gScanGo">Enter</button>
+      </div>
+    </div>
+    <div id="gScanArea"></div>
     <div class="shiftbar" id="shiftBar"></div>
     <div class="pgrid" id="pgrid"></div>
     <div id="adminActions" style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap">
@@ -962,7 +975,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-16a · warehouse plan mode';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-23a · global label scan + pending stats';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1592,7 +1605,7 @@ function show(screen){
   closeItemPick();
   window.scrollTo({top:0});
 }
-function goPlatforms(){ show('platforms'); renderPlatforms(); }
+function goPlatforms(){ show('platforms'); gChoice=null; renderGlobalChoice(); renderPlatforms(); setTimeout(gFocus,60); }
 function goMenu(){ show('menu'); renderMenu(); }
 
 /* ============================================================
@@ -1743,7 +1756,7 @@ function openPlatform(key){ curPlatformKey=key; activeOrder=null; activePick=nul
 function renderPackHeader(){ const p=S.platforms[curPlatformKey]; if(!p)return; const st=platformStats(p); $('#pDone').textContent=st.done; $('#pAll').textContent=st.all; }
 function setMode(m){ const tag=$('#modeTag'),hint=$('#modeHint'),inp=$('#scan'); if(m==='label'){tag.textContent='Scan label';tag.className='mode label';hint.textContent='tracking';inp.placeholder='Scan label, or type last 4 digits…';}else{tag.textContent='Scan items';tag.className='mode items';hint.textContent='item';inp.placeholder='Scan item barcode (or check manually)…';} }
 function focusScan(){ const i=$('#scan'); if(i){i.value='';i.focus();} }
-function activeScanInput(){ if(curScreen==='pack') return $('#scan'); if(curScreen==='picking') return $('#pkScan'); if(curScreen==='recv') return $('#rcScan'); if(curScreen==='guide') return $('#guideName'); return null; }
+function activeScanInput(){ if(curScreen==='platforms') return $('#gScan'); if(curScreen==='pack') return $('#scan'); if(curScreen==='picking') return $('#pkScan'); if(curScreen==='recv') return $('#rcScan'); if(curScreen==='guide') return $('#guideName'); return null; }
 
 function findInPlatform(pk,tid){ const p=S.platforms[pk]; if(!p)return null; const t=norm(tid),c=clean(tid); return p.orders.find(o=>norm(o.trackingId)===t)||p.orders.find(o=>clean(o.trackingId)===c)||null; }
 function findAnyPlatform(tid){ const t=norm(tid),c=clean(tid); for(const k in S.platforms){ const o=S.platforms[k].orders.find(o=>norm(o.trackingId)===t)||S.platforms[k].orders.find(o=>clean(o.trackingId)===c); if(o)return {platform:k,order:o}; } return null; }
@@ -2211,6 +2224,87 @@ async function confirmOrder(order){
 function backToScan(){ activeOrder=null; activePick=null; pendingChoice=null; setMode('label'); renderOrderArea(); focusScan(); }
 
 /* ============================================================
+   GLOBAL LABEL SCAN  (platforms screen)
+   Labels of different platforms / shifts get mixed up on the table. One scan
+   here searches every platform of every loaded shift, switches to the right
+   shift and platform by itself and opens the order exactly as if the packer
+   had gone in through the platform tile. Several hits → the packer chooses.
+   ============================================================ */
+let gChoice=null;            // {list:[match], code}
+let gBusy=false;
+function gFocus(){ const i=$('#gScan'); if(i && curScreen==='platforms') i.focus(); }
+function gSubmit(){ const i=$('#gScan'); if(!i) return; const v=i.value; i.value=''; globalLabelResolve(v); }
+
+async function globalLabelResolve(raw){
+  const val=(raw||'').trim(); if(!val) return;
+  if(gBusy) return;
+  gChoice=null; renderGlobalChoice();
+  const cv=clean(val);
+  if(cv.length<3){ flash('err');beep('err'); toast('Type at least the last 3-4 digits','err',3000); return; }
+  const all=allOrdersEverywhere();
+  if(!all.length){ flash('err');beep('err'); toast('No orders loaded yet','err',3000); return; }
+  const exact=all.filter(x=>clean(x.order.trackingId)===cv);
+  const matches = exact.length ? exact : all.filter(x=>{ const ct=clean(x.order.trackingId); if(!ct) return false;
+      return cv.length>=ct.length ? (ct.length>=4 && cv.endsWith(ct)) : (cv.length>=3 && ct.endsWith(cv)); });
+  if(!matches.length){ flash('err');beep('err'); toast('No order matching '+val+' on any platform of any loaded shift','err',3600); return; }
+  /* one hit from a full scan → straight in; a typed short code is confirmed first */
+  const one = matches.length===1 ? matches[0] : null;
+  if(one && (exact.length || cv.length>=clean(one.order.trackingId).length)){ await openGlobalMatch(one); return; }
+  /* several hits (or a short code) → fetch the real orders so the list shows status + items */
+  gBusy=true;
+  const full=(await Promise.all(matches.map(x=>hydrateMatch(x).then(f=>f?Object.assign({}, x, f, {lite:false}):x)))).filter(Boolean);
+  gBusy=false;
+  gChoice={list:full, code:cv}; beep('ok'); renderGlobalChoice(); closeCamIfOpen();
+}
+
+function renderGlobalChoice(){
+  const area=$('#gScanArea'); if(!area) return;
+  if(!gChoice){ area.innerHTML=''; return; }
+  const n=gChoice.list.length;
+  let h='<div class="card" style="margin-bottom:16px"><div class="eyebrow" style="color:var(--warn)">'+
+    (n===1 ? 'Is this the order? · “'+esc(gChoice.code)+'”' : n+' orders match “'+esc(gChoice.code)+'” — choose the one you are packing')+
+    '</div><div class="choices scroll">';
+  gChoice.list.forEach((x,i)=>{ const o=x.order; const sh=shiftName(x.shiftId||CUR_SHIFT);
+    const cur=(x.shiftId||CUR_SHIFT)===CUR_SHIFT;
+    h+='<button class="choice" data-g-pick="'+i+'"><span class="choicetop"><span class="trk">'+trkHi(o.trackingId,gChoice.code)+'</span>'+
+       '<span class="chip loc">'+esc(x.platform)+'</span>'+
+       '<span class="xshift" title="'+(cur?'Shift that is open now':'Another shift — it opens automatically')+'">🗓 '+esc(sh)+(cur?'':' ↪')+'</span>'+
+       (x.lite?'':orderStatusTag(o))+'</span>'+
+       '<span class="sub">'+(x.lite?'in shift '+esc(sh)+' — opens when picked':((o.items||[]).length+' item(s) · '+orderSummary(o)))+'</span></button>'; });
+  h+='</div><div class="orderfoot"><button class="btn ghost" id="gChoiceCancel">Cancel</button>'+
+     '<div class="spacer"></div><span class="sub" style="align-self:center;font-size:12.5px">'+
+     (n===1?'<kbd>Enter</kbd> yes · ':'')+'<kbd>Esc</kbd> cancel</span></div></div>';
+  area.innerHTML=h;
+  $$('#gScanArea [data-g-pick]').forEach(b=>b.onclick=()=>{ const x=gChoice&&gChoice.list[+b.dataset.gPick]; if(x) openGlobalMatch(x); });
+  const c=$('#gChoiceCancel'); if(c) c.onclick=()=>{ gChoice=null; renderGlobalChoice(); gFocus(); };
+}
+
+function waitFor(test, ms){
+  return new Promise(res=>{ const t0=Date.now();
+    (function tick(){ let ok=false; try{ ok=test(); }catch(e){}
+      if(ok) return res(true); if(Date.now()-t0>ms) return res(false); setTimeout(tick,120); })(); });
+}
+async function openGlobalMatch(x){
+  if(!x || !x.order) return;
+  if(gBusy) return; gBusy=true;
+  try{
+    gChoice=null; renderGlobalChoice();
+    const sid=x.shiftId||CUR_SHIFT, key=x.order._key, pk=x.platform;
+    if(sid && sid!==CUR_SHIFT){
+      if(!SHIFTS[sid]){ toast('That shift is no longer loaded','err',3200); return; }
+      setShift(sid);
+      toast('Switched to shift “'+shiftName(sid)+'”','info',2600);
+    }
+    const ok=await waitFor(()=>findByKey(key) && S.platforms[pk], 9000);
+    if(!ok){ flash('err');beep('err'); toast('Could not open that order — it may have been removed','err',3600); return; }
+    if(curScreen!=='platforms') return;               // the packer moved on while it loaded
+    openPlatform(pk);                                  // same screen as tapping the tile
+    await claimAndOpen(key);
+    closeCamIfOpen();
+  } finally { gBusy=false; }
+}
+
+/* ============================================================
    PICKING MODE  (read-only gather — no claim, no writes)
    ============================================================ */
 function enterPicking(){ pkOrder=null; pkChecked=null; pkChoice=null; show('picking'); renderPicking(); pkFocus(); }
@@ -2388,13 +2482,17 @@ function currentOrderList(){
 
 /* build report stats from a normalized order list (works for live shift AND loaded CSV) */
 function buildReportFromOrders(orders){
-  let ordersPacked=0, ordersPartial=0, ordersNotPacked=0, unitsPacked=0, unitsNotPacked=0;
+  let ordersPacked=0, ordersPartial=0, ordersNotPacked=0, unitsPacked=0, unitsNotPacked=0, ordersPending=0, unitsPending=0;
   const perPlatform={}, packedItems={}, byPacker={}; const unpackArr=[]; const packedOrders=[];
   for(const o of orders){
     const k=o.platform||'—';
-    if(!perPlatform[k]){ perPlatform[k]={ordersAll:0,ordersPacked:0,ordersPartial:0,ordersNotPacked:0,unitsPacked:0}; packedItems[k]={}; }
+    if(!perPlatform[k]){ perPlatform[k]={ordersAll:0,ordersPacked:0,ordersPartial:0,ordersNotPacked:0,unitsPacked:0,ordersPending:0,unitsPending:0}; packedItems[k]={}; }
     const st=o.status;
-    if(st!=='packed' && st!=='partial' && st!=='unpacked') continue;  // skip pending
+    if(st!=='packed' && st!=='partial' && st!=='unpacked'){   // still waiting — counted as "not yet packed"
+      ordersPending++; perPlatform[k].ordersPending++;
+      for(const it of (o.items||[])){ const q=it.qty||1; unitsPending+=q; perPlatform[k].unitsPending+=q; }
+      continue;
+    }
     perPlatform[k].ordersAll++;
     if(st==='packed'||st==='partial'){
       if(st==='packed'){ ordersPacked++; perPlatform[k].ordersPacked++; } else { ordersPartial++; perPlatform[k].ordersPartial++; }
@@ -2413,7 +2511,7 @@ function buildReportFromOrders(orders){
       }
     }
   }
-  return {ordersPacked,ordersPartial,ordersNotPacked,unitsPacked,unitsNotPacked,perPlatform,packedItems,unpackArr,byPacker,packedOrders};
+  return {ordersPacked,ordersPartial,ordersNotPacked,unitsPacked,unitsNotPacked,ordersPending,unitsPending,perPlatform,packedItems,unpackArr,byPacker,packedOrders};
 }
 
 function reportStatsHTML(r){
@@ -2421,12 +2519,14 @@ function reportStatsHTML(r){
     + stat(r.ordersPartial||0,'Orders partial',(r.ordersPartial?'warn':''))
     + stat(r.ordersNotPacked,'Orders NOT packed',r.ordersNotPacked?'err':'')
     + stat(r.unitsPacked,'Units packed','ok')
-    + stat(r.unitsNotPacked,'Units not packed',r.unitsNotPacked?'err':'');
+    + stat(r.unitsNotPacked,'Units not packed',r.unitsNotPacked?'err':'')
+    + stat(r.ordersPending||0,'Orders not yet packed (pending)',r.ordersPending?'info':'')
+    + stat(r.unitsPending||0,'Units not yet packed (pending)',r.unitsPending?'info':'');
 }
 function reportBodyHTML(r, opts){
   opts=opts||{}; let b='';
-  b+='<div class="tabsec"><h2>By platform</h2><table><thead><tr><th>Platform</th><th class="num">Packed</th><th class="num">Partial</th><th class="num">Units</th><th class="num">Not packed</th></tr></thead><tbody>';
-  for(const k in r.perPlatform){ const p=r.perPlatform[k]; b+='<tr><td>'+esc(k)+'</td><td class="num">'+p.ordersPacked+' / '+p.ordersAll+'</td><td class="num">'+(p.ordersPartial||'—')+'</td><td class="num">'+p.unitsPacked+'</td><td class="num">'+(p.ordersNotPacked||'—')+'</td></tr>'; }
+  b+='<div class="tabsec"><h2>By platform</h2><table><thead><tr><th>Platform</th><th class="num">Packed</th><th class="num">Partial</th><th class="num">Units</th><th class="num">Not packed</th><th class="num" title="Orders still waiting to be packed (units in brackets)">Pending</th></tr></thead><tbody>';
+  for(const k in r.perPlatform){ const p=r.perPlatform[k]; b+='<tr><td>'+esc(k)+'</td><td class="num">'+p.ordersPacked+' / '+p.ordersAll+'</td><td class="num">'+(p.ordersPartial||'—')+'</td><td class="num">'+p.unitsPacked+'</td><td class="num">'+(p.ordersNotPacked||'—')+'</td><td class="num">'+(p.ordersPending?p.ordersPending+' <span style="color:var(--muted)">('+p.unitsPending+' u)</span>':'—')+'</td></tr>'; }
   b+='</tbody></table></div>';
   if(Object.keys(r.byPacker).length){ b+='<div class="tabsec"><h2>By packer</h2><table><thead><tr><th>Packer</th><th class="num">Orders handled</th></tr></thead><tbody>'; for(const who in r.byPacker) b+='<tr><td>'+esc(who)+'</td><td class="num">'+r.byPacker[who]+'</td></tr>'; b+='</tbody></table></div>'; }
   if(r.packedOrders && r.packedOrders.length){
@@ -3152,6 +3252,18 @@ $('#scan').addEventListener('keydown',e=>{
   }
 });
 $('#scanGo').onclick=()=>handleScan($('#scan').value);
+$('#gScan').addEventListener('keydown',e=>{
+  const empty=$('#gScan').value.trim()==='';
+  if(e.key==='Enter'){ e.preventDefault();
+    if(!empty){ gSubmit(); return; }
+    if(gChoice && gChoice.list.length===1){ clickIf('#gScanArea [data-g-pick]'); }
+    return; }
+  if(e.key==='Escape'){ e.preventDefault();
+    if(gChoice){ gChoice=null; renderGlobalChoice(); return; }
+    $('#gScan').value=''; }
+});
+$('#gScanGo').onclick=gSubmit;
+$('#gCamBtn').onclick=openCam;
 $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the current order first','warn',2600); return; } pendingChoice={type:'all'}; renderOrderArea(); };
 
 // nav
@@ -3235,7 +3347,7 @@ $('#lightbox').onclick=()=>$('#lightbox').classList.add('hide');
    lost and only Enter reached the app. Route ALL stray input back into the scan box so
    nothing is dropped, on both the pack and picking screens. */
 document.addEventListener('keydown',e=>{
-  if(curScreen!=='pack' && curScreen!=='picking' && curScreen!=='recv' && curScreen!=='guide') return;
+  if(curScreen!=='pack' && curScreen!=='picking' && curScreen!=='recv' && curScreen!=='guide' && curScreen!=='platforms') return;
   if(!$('#lightbox').classList.contains('hide')) return;
   if($('#rcModal')) return;                                          // receiving modal owns input
   if($('#cam') && !$('#cam').classList.contains('hide')) return;      // camera modal owns input
@@ -3307,6 +3419,7 @@ function updateCamHint(){
   if(curScreen==='guide'){ m.textContent='lookup'; h.textContent='Scan a product barcode to look it up'; return; }
   if(curScreen==='recv'){ m.textContent='receiving'; h.textContent='Scan the item barcode'; return; }
   if(curScreen==='picking'){ m.textContent='find'; h.textContent='Scan a label to look up the order — every loaded shift is searched'; return; }
+  if(curScreen==='platforms'){ m.textContent='label'; h.textContent='Scan a shipping label — platform and shift are found automatically'; return; }
   if(activePick){ m.textContent='items'; const order=findByKey(activeOrder.key);
     h.textContent = order ? ('Order '+order.trackingId+' · scan each item') : 'Scan items'; }
   else { m.textContent='label'; h.textContent='Scan a shipping label / tracking barcode'; }
@@ -3341,6 +3454,7 @@ function onCamDecode(text){
   if(curScreen==='guide'){ guideF.name=String(text||'').trim(); const gi=$('#guideName'); if(gi) gi.value=guideF.name; renderGuide(); beep('ok'); closeCamIfOpen(); }
   else if(curScreen==='recv') rcScanCode(text);
   else if(curScreen==='picking') pickingResolve(text);
+  else if(curScreen==='platforms') globalLabelResolve(text);
   else handleScan(text);
   updateCamHint();
 }
