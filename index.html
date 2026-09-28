@@ -975,7 +975,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html'
 };
 
-const BUILD = '2026-09-23a · global label scan + pending stats';   // bump when you change this file; visible in the header
+const BUILD = '2026-09-25a · shelf locations from the inventory count';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1110,6 +1110,46 @@ function parseInventorySheet(arrayBuf){
 }
 
 /* ============================================================
+   SHELF LOCATIONS  (from the inventory count)
+   The Inventory mode keeps what sits on every shelf in
+   packstation/stockCount/counts/<shelf>/<item>. That is where a product
+   is shown to be: S-… and R-… shelves first (the pick shelves), then the
+   rest (A101, PL-003 …). Column C of the inventory sheet is used only
+   for products the count has not found anywhere (e.g. store display).
+   ============================================================ */
+const STOCK_PATH = 'packstation/stockCount';
+let SHELF = new Map();          // clean(item name) -> [{L, u}]
+let shelfT = null;
+function buildShelfIdx(counts){
+  const m = new Map();
+  for(const L in counts){ const c=counts[L]||{};
+    for(const k in c){ const v=c[k]; if(!v||typeof v!=='object') continue;
+      const u=(v.s||0)+(v.b||0)+(v.d||0)+(v.c||0); if(u<=0) continue;       // case count only needs to be > 0 here
+      const key=clean(v.n||k); if(!key) continue;
+      (m.get(key)||m.set(key,[]).get(key)).push({L, u:v, raw:u});
+    } }
+  const pri = L => /^[SR]-/i.test(L) ? 0 : (/^PL-/i.test(L) ? 2 : 1);
+  for(const list of m.values()) list.sort((a,b)=>pri(a.L)-pri(b.L) || a.L.localeCompare(b.L,undefined,{numeric:true}));
+  SHELF = m;
+  clearTimeout(shelfT);
+  shelfT=setTimeout(()=>{ if(['pack','picking','guide'].includes(curScreen)) renderCurrent(); }, 1200);
+}
+function shelfList(iv){
+  if(!iv) return null;
+  const n=iv.name||'', va=(iv.variation&&norm(iv.variation)!=='default')?iv.variation:'';
+  return SHELF.get(clean(n)) || (va && (SHELF.get(clean(n+va)) || SHELF.get(clean(n+' '+va)))) || null;
+}
+/* the location text shown on a product: counted shelves first, sheet column C otherwise */
+function locOf(iv){
+  const list=shelfList(iv);
+  if(list && list.length){
+    const shown=list.slice(0,3).map(x=>x.L).join(' · ');
+    return shown + (list.length>3 ? ' +'+(list.length-3) : '');
+  }
+  return (iv && iv.location) || '—';
+}
+
+/* ============================================================
    FIREBASE
    ============================================================ */
 function configReady(){ return firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE'); }
@@ -1133,6 +1173,8 @@ function connect(){
     renderCurrent();
   });
   // shared staff scan-only flag (admin-controlled). Default ON when unset.
+  /* shelf locations — live from the inventory count (Inventory mode) */
+  db.ref(STOCK_PATH+'/counts').on('value', snap=>{ buildShelfIdx(snap.val()||{}); });
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
   // the list of shifts is a small index node — the heavy order data is only fetched
@@ -1619,13 +1661,13 @@ const MODES=[
   {icon:'📦', name:'PICK &amp; PACK',   desc:'Pick and pack customer orders', bar:true, go:goPlatforms},
   {icon:'🚚', name:'NEW SHIPMENT',      desc:'Receive and count new stock', go:enterReceiving},
   {icon:'🏷️', name:'LABEL PRINT',       desc:'Print name and barcode labels', ext:'labels', ready:true},
-  {icon:'🔢', name:'INVENTORY',         desc:'Count inventory by shelf and compare with SOH', ext:'inventory', ready:true},
+  {icon:'🔢', name:'INVENTORY',         desc:'Count shelves together live · totals vs expected · transfers', ext:'inventory', ready:true},
   {icon:'📈', name:'STOCK UP REPORT',   desc:'Count OP / Pokemon JP / CN stock and build a restock report', ext:'stockup', ready:true},
   {icon:'📊', name:'ANALYZER',          desc:'Sales analytics by item, category and platform', ext:'analyzer', ready:true},
   {icon:'🧾', name:'SUPPLIER TRACKER',  desc:'Supplier orders and shipments — read-only, password protected', ext:'supplier', ready:true},
   {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
   {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
-  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Plan the floor — move and rotate racks, tables and stations', ext:'plan', ready:true}
+  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true}
 ];
 function openExternal(key){
   const f=EXTERNAL_MODES[key]; if(!f) return;
@@ -1935,7 +1977,7 @@ function openBarcodePick(order, ikeys, val){
   const grid=$('#pickGrid'); if(!grid){ return; }
   grid.innerHTML='';
   ikeys.forEach(ik=>{
-    const iv=S.inventory[ik]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—';
+    const iv=S.inventory[ik]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv);
     const inOrder=order.items.some(it=>it.invKey===ik);
     const b=document.createElement('button'); b.className='pickitem';
     b.innerHTML='<img src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
@@ -2032,7 +2074,7 @@ function renderOrderArea(){
   let html='<div class="card"><div class="orderhead"><div><div class="eyebrow" style="margin-bottom:4px">Label</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+stTag+'<div class="spacer"></div><div class="pill">Items: <b>'+order.items.length+'</b></div></div>'+
     syncBanner(order)+'<div class="items">';
   order.items.forEach((it,idx)=>{
-    const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—'; const stock=(iv.stock==null)?null:iv.stock;
+    const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv); const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
     const dmg=(iv.damaged==null)?null:iv.damaged;
@@ -2365,7 +2407,7 @@ function renderPicking(){
     (otherShift?' · <span class="xshift">🗓 '+esc(otherShift)+'</span>':'')+'</div><div class="trk">'+esc(order.trackingId)+'</div></div>'+
     orderStatusTag(order)+'<div class="spacer"></div><div class="pill">Items: <b>'+total+'</b></div></div><div class="pklist">';
   items.forEach((it,idx)=>{
-    const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=iv.location||'—';
+    const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv);
     const q=it.qty||1; const stock=(iv.stock==null)?null:iv.stock;
     const isTaken=pkChecked && pkChecked.has(idx); if(isTaken) taken++;
     let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="pkstock '+cls+'">stock '+stock+'</span>'; }
@@ -2445,7 +2487,7 @@ function renderGuide(){
   if(!list.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
   let h='<div class="pklist" style="margin-top:14px">';
   for(const v of list){
-    const img=v.image||PLACEHOLDER; const loc=v.location||'—';
+    const img=v.image||PLACEHOLDER; const loc=locOf(v);
     const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
     let chips=''; if(stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
     if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';

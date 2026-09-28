@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Warehouse Plan</title>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -304,6 +306,15 @@ dialog.wide{max-width:min(900px,95vw)}
   border:1px solid var(--line);background:var(--panel2)}
 .find-res .fr .locs button:hover{border-color:var(--accent)}
 .invstat{font-size:12px;color:var(--muted);line-height:1.5}
+.sec-h .stt{font-family:var(--body);font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:var(--panel2);color:var(--faint)}
+.sec-h .stt.done{color:var(--ok)} .sec-h .stt.started{color:var(--warn)} .sec-h .stt.stale{color:#A98BF5}
+.secadd{margin-left:6px;width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--accent);font-weight:700;font-size:13px;line-height:1;padding:0}
+.secadd:hover{border-color:var(--accent)}
+.irow{cursor:pointer}
+.ht-transfer{color:var(--info)} .ht-add{color:var(--ok)} .ht-remove{color:var(--err)} .ht-open{color:var(--warn)} .ht-count{color:var(--muted)} .ht-status{color:#A98BF5}
+.palchip{cursor:pointer}
+.palgrid{display:flex;flex-wrap:wrap;gap:6px;padding:10px}
+.palchip{font-family:var(--mono);font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px dashed var(--line);background:var(--panel2);color:var(--muted)}
 .invstat.err{color:var(--err)}
 @media (max-width:1180px){
   .app.withpanel{grid-template-columns:300px 1fr}
@@ -341,7 +352,7 @@ dialog.wide{max-width:min(900px,95vw)}
   <span class="spacer"></span>
   <span class="pill opt">islands <b id="hdIslands">0</b></span>
   <span class="pill opt">cells <b id="hdCells">0</b></span>
-  <span class="pill" id="hdInv" title="Inventory workbook — press Sync to reload">inventory —</span>
+  <span class="pill" id="hdInv" title="Locations come live from the inventory count">count data —</span>
   <span class="pill" id="hdOverlap">—</span>
 </header>
 
@@ -351,8 +362,9 @@ dialog.wide{max-width:min(900px,95vw)}
       <section class="block" id="invBlock">
         <h2>Inventory</h2>
         <div class="btn-grid">
-          <button class="btn primary" id="syncInv" title="Re-read the inventory workbook (column C = location)">⟳ Sync inventory</button>
-          <button class="btn" id="openReport">📋 Report <b id="trCount" style="font-family:var(--mono)">0</b></button>
+          <button class="btn primary" id="syncInv" title="Locations update live from the inventory count. This reloads product photos / barcodes from the inventory workbook.">⟳ Sync</button>
+          <button class="btn" id="openReport" title="History — every move, addition, removal, opened case and count edit, here and in the Inventory mode">🕘 History <b id="trCount" style="font-family:var(--mono)">0</b></button>
+          <button class="btn" id="showPal" title="Products on pallets (PL-…) — new arrivals and overstock" style="grid-column:1/-1">🧺 Show pallets</button>
         </div>
         <p class="invstat" id="invStat" style="margin:10px 0 0">Not loaded yet.</p>
         <input type="text" id="findItem" style="margin-top:12px" placeholder="Find a product — name or barcode…">
@@ -444,9 +456,8 @@ dialog.wide{max-width:min(900px,95vw)}
         <button data-mode="stock" aria-pressed="true">📦 Stock</button>
         <button data-mode="edit" aria-pressed="false">✎ Edit layout</button>
       </div>
-      <button class="zone" data-drop="TBA" data-zone="TBA" title="Not placed yet — click to open, drop here to un-assign">TBA <b id="zTBA">0</b></button>
-      <button class="zone" data-drop="STORE" data-zone="STORE" title="In the store (display) — click to open, drop here to send to the store">🏬 Store <b id="zSTORE">0</b></button>
-      <button class="zone warnz" data-zone="__UNK" id="zUnkBtn" hidden title="Locations in the sheet that match no island">⚠ Unknown <b id="zUNK">0</b></button>
+      <button class="zone" data-zone="__PAL" title="Products on pallets (PL-…) — click to open; drop onto a pallet header in the panel">🧺 Pallets <b id="zPAL">0</b></button>
+      <button class="zone warnz" data-zone="__UNK" id="zUnkBtn" hidden title="Counted locations that have no island on the plan">⚠ Not on plan <b id="zUNK">0</b></button>
       <div class="tb-sep"></div>
       <span class="tb-label">Zoom</span>
       <button class="btn icon" id="zoomOut" title="Zoom out">−</button>
@@ -728,7 +739,7 @@ function render(){
   renderStatus();
   renderList();
   renderInspector();
-  if (INV) buildHoldings();          // island names may have changed in Edit layout
+  buildHoldings();                   // island names may have changed in Edit layout
   paintStock();
 }
 function paintCollisions(){
@@ -903,7 +914,7 @@ field.addEventListener("pointerdown", e => {
   if (e.button !== 0) return;
   if (MODE === "stock"){                    // stock mode: a click opens the island's products, nothing moves
     const t = e.target.closest(".island");
-    if (t){ const it = byId(t.dataset.id); const L = it && String(it.label || "").trim().toUpperCase();
+    if (t){ const it = byId(t.dataset.id); const L = it && locKey(it.label);
       if (L) (OPEN === L ? closePanel() : openZone(L)); else toast("This island has no name"); }
     return;
   }
@@ -1346,7 +1357,7 @@ $("list").addEventListener("click", e => {
   const b = e.target.closest(".list-item"); if (!b) return;
   const id = b.dataset.id;
   if (MODE === "stock"){
-    const it0 = byId(id); const L = it0 && String(it0.label || "").trim().toUpperCase();
+    const it0 = byId(id); const L = it0 && locKey(it0.label);
     if (L) openZone(L);
     if (it0){ const r = pane.getBoundingClientRect(); pane.scrollLeft = it0.cx*S.cell + 24 - r.width/2; pane.scrollTop = it0.cy*S.cell + 24 - r.height/2; }
     return;
@@ -1410,24 +1421,32 @@ $("drawerBtn").addEventListener("click", () => {
 });
 
 /* =====================================================================
-   STOCK LAYER
-   The floor plan is tied to the inventory workbook: column C holds the
-   location of every product. "TBA" = not placed yet, "Store" = on display
-   in the shop, otherwise an island label (R-02) or an island section
-   (S-05-2, T-01-4). One product can sit in several places — the cell then
-   lists them separated by commas, optionally with a quantity each:
-       R-02 (5), R-01 (15)        or        R-02:5, R-01:15
-   A place without its own quantity gets whatever stock is left over.
+   STOCK LAYER (live)
+   Where products are comes from the shared inventory count
+   (Firebase packstation/stockCount — the Inventory mode writes it).
+   Each count location is a shelf id: an island label (R-02, A101),
+   an island section (S-05-2, T-01-4) or a pallet (PL-003).
+   An island named like a pallet (PL-003) shows that pallet's goods.
 
    Moving stock = drag a product row from the panel onto an island, a
-   section header or the TBA / Store chips. Every move is logged locally;
-   the Report turns the log into the new column-C values so the sheet can
-   be updated by hand, then Sync reloads the sheet.
+   section header or a pallet header. The move is written to the count
+   right away (same transfers as the Inventory mode's Locations tab),
+   so both screens always show the same thing.
    ===================================================================== */
-const INV_SHEET_ID  = "13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw";   // same workbook as the station
+const DB_PATH       = "packstation/stockCount";
+const firebaseConfig = {
+  apiKey: "AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc",
+  authDomain: "calipoke-packstation.firebaseapp.com",
+  databaseURL: "https://calipoke-packstation-default-rtdb.firebaseio.com",
+  projectId: "calipoke-packstation",
+  storageBucket: "calipoke-packstation.firebasestorage.app",
+  messagingSenderId: "125288117157",
+  appId: "1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+const INV_SHEET_ID  = "13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw";   // company inventory — images + barcodes only
 const INV_TAB       = "Inventory";
-const LS_INV        = "wtcg.whplan.inv.v1";
-const LS_TR         = "wtcg.whplan.transfers.v1";
+const LS_STOCK      = "wtcg.whplan.stock.v2";
+const LS_CAT        = "wtcg.whplan.cat.v2";
 const LS_MODE       = "wtcg.whplan.mode.v1";
 const IMG_PH = "data:image/svg+xml;utf8," + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" rx="12" fill="#1C2129"/>' +
@@ -1442,119 +1461,106 @@ function sectionsOf(label){
 }
 
 let MODE = "stock";            // "stock" | "edit"
-let INV = null;                // {items:[...], at, rows}
-let TR = [];                   // transfers [{id,k,from,to,qty,at,by}]
-let HOLD = new Map();          // itemKey -> Map(locKey -> {qty, est, base})
-let OPEN = null;               // locKey of the zone open in the panel ("R-02", "TBA", "STORE", "__UNK")
-const WHO = (() => { try { return localStorage.getItem("ps_name") || ""; } catch (e) { return ""; } })();
+let BASE = null;               // shared sheet snapshot written by the Inventory mode
+let COUNTS = {};               // L -> itemKey -> {s,b,d,c,n,…}
+let STATUS = {};               // L -> {st:'done'|'stale'}
+let LOG = [];                  // change history (shared with the Inventory mode)
+let CAT = {items:[], at:0};    // company catalog rows
+let CATIDX = new Map();        // clean(name) -> {image, barcodes[]}
+let HOLD = new Map();          // itemKey -> Map(L -> {qty})
+let OPEN = null;               // island label, "__PAL" or "__UNK"
+let R = null, DB_ON = false;
+const who = () => { try { return localStorage.getItem("ps_name") || ""; } catch (e) { return ""; } };
 
 const nrm = s => String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
-const itemKey = (n, v) => nrm(n) + "||" + nrm(v || "default");
+const cln = s => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const locKey = s => String(s == null ? "" : s).trim().toUpperCase().replace(/\s+/g, "").replace(/[.#$\/\[\]]/g, "_");
 const fmtN = n => Number(n || 0).toLocaleString("en-US");
 const hhmm = t => new Date(t).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+const isPal = L => /^PL-/.test(L);
+const arr = x => Array.isArray(x) ? x : (x && typeof x === "object" ? Object.keys(x).sort((a, b) => a - b).map(k => x[k]) : []);
 
 /* ---------------------------- location parsing --------------------------- */
 function islandIndex(){
   const m = new Map();
-  for (const it of S.islands){ const k = String(it.label || "").trim().toUpperCase().replace(/\s+/g, ""); if (k) m.set(k, it); }
+  for (const it of S.islands){ const k = locKey(it.label); if (k) m.set(k, it); }
   return m;
 }
 let ISL = new Map();
-/* one location string -> {key, kind:'island'|'tba'|'store'|'unknown', island, sec} */
+/* one count location -> {key, kind:'island'|'pallet'|'unknown', island, sec} */
 function parseLoc(raw){
-  const up = String(raw == null ? "" : raw).trim().toUpperCase().replace(/\s+/g, "");
-  if (!up || up === "TBA" || up === "#N/A") return {key:"TBA", kind:"tba"};
-  if (up === "STORE") return {key:"STORE", kind:"store"};
+  const up = locKey(raw);
   const ex = ISL.get(up);
-  if (ex) return {key:ex.label.trim().toUpperCase(), kind:"island", island:ex.label, sec:0};
+  if (ex) return {key:up, kind:"island", island:locKey(ex.label), sec:0};
   const m = up.match(/^(.+)-(\d+)$/);
   if (m){
     const isl = ISL.get(m[1]);
     const n = sectionsOf(isl && isl.label);
-    if (isl && n && +m[2] >= 1 && +m[2] <= n)
-      return {key:isl.label.trim().toUpperCase() + "-" + (+m[2]), kind:"island", island:isl.label, sec:+m[2]};
+    if (isl && n && +m[2] >= 1 && +m[2] <= n) return {key:locKey(isl.label) + "-" + (+m[2]), kind:"island", island:locKey(isl.label), sec:+m[2]};
   }
+  if (isPal(up)) return {key:up, kind:"pallet"};
   return {key:up, kind:"unknown"};
 }
-function locName(key){ return key === "TBA" ? "TBA" : (key === "STORE" ? "Store" : key); }
-function islandOfKey(key){ const p = parseLoc(key); return p.kind === "island" ? p.island.trim().toUpperCase() : null; }
+const locName = key => key;
+function islandOfKey(key){ const p = parseLoc(key); return p.kind === "island" ? p.island : null; }
 
-/* the column-C cell -> [{loc, qty|null}] */
-function splitCell(cell){
-  return String(cell == null ? "" : cell).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).map(part => {
-    const m = part.match(/^(.*?)\s*(?:\(\s*(\d+)\s*\)|:\s*(\d+))\s*$/);
-    if (m && m[1]) return {loc:m[1], qty:+(m[2] || m[3])};
-    return {loc:part, qty:null};
-  });
-}
+/* ------------------------------ items ------------------------------------ */
+const itemOf = k => (BASE && BASE.items && BASE.items[k]) || null;
+const qOf    = k => { const it = itemOf(k); return it && it.q > 0 ? it.q : 1; };
+function nameOf(k){ const it = itemOf(k); if (it) return it.n; for (const L in COUNTS){ const c = COUNTS[L][k]; if (c && c.n) return c.n; } return k; }
+const unitsOf = (k, v) => v ? (v.s || 0) * qOf(k) + (v.b || 0) + (v.d || 0) + (v.c || 0) : 0;
+function infoOf(k){ const n = nameOf(k); const c = CATIDX.get(cln(n)) || {}; return {name:n, image:c.image || "", barcodes:c.barcodes || []}; }
+function stateOf(L){ const st = STATUS[L]; if (st && st.st === "done") return "done"; if (st && st.st === "stale") return "stale";
+  return COUNTS[L] && Object.keys(COUNTS[L]).length ? "started" : "todo"; }
+const STATE_TXT = {done:"✓ counted", started:"counting…", stale:"awaiting update", todo:"not counted"};
 
 /* ------------------------------ holdings --------------------------------- */
 function buildHoldings(){
   ISL = islandIndex();
   HOLD = new Map();
-  if (!INV) return;
-  for (const it of INV.items){
-    const parts = splitCell(it.loc);
-    if (!parts.length) parts.push({loc:"TBA", qty:null});
-    const map = new Map();
-    const explicit = parts.reduce((a, p) => a + (p.qty != null ? p.qty : 0), 0);
-    const open = parts.filter(p => p.qty == null);
-    const rest = Math.max(0, it.stock - explicit);
-    parts.forEach(p => {
-      const L = parseLoc(p.loc);
-      const prev = map.get(L.key);
-      let q, est = false;
-      if (p.qty != null) q = p.qty;
-      else if (open.length === 1) q = rest;
-      else { q = (p === open[0]) ? rest : 0; est = true; }       // split unknown — first place takes the rest
-      if (prev){ prev.qty += q; prev.est = prev.est || est; }
-      else map.set(L.key, {qty:q, est, base:true, raw:p.loc});
-    });
-    HOLD.set(it.k, map);
+  for (const L in COUNTS){
+    for (const k in COUNTS[L]){
+      const u = unitsOf(k, COUNTS[L][k]);
+      if (!HOLD.has(k)) HOLD.set(k, new Map());
+      HOLD.get(k).set(L, {qty:u});
+    }
   }
-  for (const t of TR) applyTransfer(t);
 }
-function applyTransfer(t){
-  const map = HOLD.get(t.k); if (!map) return;
-  const f = map.get(t.from) || {qty:0, est:false, base:false};
-  f.qty = Math.max(0, f.qty - t.qty); f.est = false; map.set(t.from, f);
-  const to = map.get(t.to) || {qty:0, est:false, base:false};
-  to.qty += t.qty; to.est = false; map.set(t.to, to);
+function palletKeys(){
+  const s = new Set();
+  arr(BASE && BASE.locs).forEach(l => { const L = locKey(l && l.id); if (isPal(L)) s.add(L); });
+  Object.keys(COUNTS).forEach(L => { if (isPal(L)) s.add(L); });
+  return [...s].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
 }
-const itemByKey = k => INV && INV.byKey.get(k);
-
-/* everything sitting in one zone: island (all its sections), a section, TBA, Store, or unknown */
+/* everything sitting in one zone: an island (all its sections), a section, all pallets, or unknown */
 function contentsOf(zone){
   const out = [];
   for (const [k, map] of HOLD){
     for (const [loc, h] of map){
-      let hit = false;
-      if (zone === "__UNK") hit = parseLoc(loc).kind === "unknown";
-      else if (zone === "TBA" || zone === "STORE") hit = loc === zone;
+      let hit;
+      if (zone === "__PAL") hit = isPal(loc);
+      else if (zone === "__UNK") hit = parseLoc(loc).kind === "unknown";
       else hit = loc === zone || islandOfKey(loc) === zone;
-      if (hit) out.push({k, loc, qty:h.qty, est:h.est, base:h.base});
+      if (hit) out.push({k, loc, qty:h.qty});
     }
   }
   return out;
 }
 function zoneTotals(){
-  const t = {TBA:0, STORE:0, UNK:0, isl:new Map()};
+  const t = {PAL:new Set(), UNK:new Set(), isl:new Map()};
   for (const [k, map] of HOLD){
     for (const [loc, h] of map){
-      if (h.qty <= 0 && !h.est) continue;
-      if (loc === "TBA") t.TBA++;
-      else if (loc === "STORE") t.STORE++;
-      else {
-        const isl = islandOfKey(loc);
-        if (isl){ const c = t.isl.get(isl) || {keys:new Set(), sku:0, units:0}; c.keys.add(k); c.sku = c.keys.size; c.units += h.qty; t.isl.set(isl, c); }
-        else t.UNK++;
-      }
+      if (h.qty <= 0) continue;
+      if (isPal(loc)) t.PAL.add(k);
+      const isl = islandOfKey(loc);
+      if (isl){ const c = t.isl.get(isl) || {keys:new Set(), sku:0, units:0}; c.keys.add(k); c.sku = c.keys.size; c.units += h.qty; t.isl.set(isl, c); }
+      else if (!isPal(loc)) t.UNK.add(k);
     }
   }
   return t;
 }
 
-/* ------------------------------ sheet load ------------------------------- */
+/* ------------------------------ catalog (images) ------------------------- */
 function parseCSV(text){
   const rows = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++){
@@ -1570,7 +1576,20 @@ function parseCSV(text){
   if (cur !== "" || row.length){ row.push(cur); rows.push(row); }
   return rows;
 }
-async function fetchInventory(){
+function indexCatalog(){
+  CATIDX = new Map();
+  for (const p of CAT.items){
+    const bcs = String(p.barcode || "").split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+    [cln(p.name), cln(p.name + p.variation)].forEach(key => {
+      if (!key) return;
+      const e = CATIDX.get(key) || {image:"", barcodes:[]};
+      if (!e.image && p.image && p.image !== "#N/A") e.image = p.image;
+      bcs.forEach(b => { if (!e.barcodes.includes(b)) e.barcodes.push(b); });
+      CATIDX.set(key, e);
+    });
+  }
+}
+async function loadCatalog(){
   const url = "https://docs.google.com/spreadsheets/d/" + INV_SHEET_ID + "/gviz/tq?tqx=out:csv&headers=1&sheet=" +
     encodeURIComponent(INV_TAB) + "&_=" + Date.now();
   const r = await fetch(url, {credentials:"omit"});
@@ -1578,80 +1597,361 @@ async function fetchInventory(){
   const text = await r.text();
   if (/<!DOCTYPE|<html/i.test(text.slice(0, 300))) throw new Error('The inventory sheet is not shared as "Anyone with the link — Viewer"');
   const rows = parseCSV(text);
-  if (rows.length < 2) throw new Error("The Inventory tab is empty");
-  const H = rows[0].map(nrm);
+  const H = (rows[0] || []).map(nrm);
   const col = (names, def) => { for (const n of names){ const i = H.findIndex(h => h === n || h.indexOf(n) === 0); if (i >= 0) return i; } return def; };
-  const ci = {name:col(["item name","item","name"],0), variation:col(["variation"],1), loc:col(["location"],2),
-              stock:col(["stock"],3), barcode:col(["barcode"],4), image:col(["image"],5)};
-  const items = [], byKey = new Map();
+  const ci = {name:col(["item name","item","name"],0), variation:col(["variation"],1), barcode:col(["barcode"],4), image:col(["image"],5)};
+  const items = [];
   for (let i = 1; i < rows.length; i++){
-    const r = rows[i]; const name = String(r[ci.name] || "").trim();
-    if (!name || nrm(name) === "item name") continue;
-    const variation = String(r[ci.variation] || "").trim();
-    const k = itemKey(name, variation);
-    if (byKey.has(k)) continue;
-    const clean = v => { const s = String(v == null ? "" : v).trim(); return (s === "#N/A") ? "" : s; };
-    const it = {k, name, variation, loc:clean(r[ci.loc]), stock:Math.max(0, parseInt(String(r[ci.stock]).replace(/[, ]/g, ""), 10) || 0),
-                barcode:clean(r[ci.barcode]).replace(/\s/g, ""), image:clean(r[ci.image])};
-    items.push(it); byKey.set(k, it);
+    const r = rows[i]; const name = String(r[ci.name] || "").trim(); if (!name) continue;
+    items.push({name, variation:String(r[ci.variation] || "").trim(), barcode:String(r[ci.barcode] || "").trim(), image:String(r[ci.image] || "").trim()});
   }
-  if (!items.length) throw new Error("No products found in the Inventory tab");
-  return {items, byKey, at:Date.now()};
+  CAT = {items, at:Date.now()}; indexCatalog();
+  try{ localStorage.setItem(LS_CAT, JSON.stringify(CAT)); }catch(e){}
 }
-function saveInvCache(){
-  try{ localStorage.setItem(LS_INV, JSON.stringify({items:INV.items, at:INV.at})); }catch(e){}
-}
-function loadInvCache(){
-  try{
-    const o = JSON.parse(localStorage.getItem(LS_INV) || "null");
-    if (o && Array.isArray(o.items)){ INV = {items:o.items, at:o.at || 0, byKey:new Map(o.items.map(i => [i.k, i]))}; return true; }
-  }catch(e){}
-  return false;
-}
-function saveTR(){ try{ localStorage.setItem(LS_TR, JSON.stringify(TR)); }catch(e){} }
-function loadTR(){ try{ const a = JSON.parse(localStorage.getItem(LS_TR) || "[]"); TR = Array.isArray(a) ? a : []; }catch(e){ TR = []; } }
 
-function setInvStat(msg, err){
-  const el = $("invStat"); el.innerHTML = msg; el.classList.toggle("err", !!err);
+/* ------------------------------ live data -------------------------------- */
+function saveStock(){ try{ localStorage.setItem(LS_STOCK, JSON.stringify({BASE, COUNTS, STATUS, LOG:LOG.slice(-300), at:Date.now()})); }catch(e){} }
+function loadStock(){
+  try{ const o = JSON.parse(localStorage.getItem(LS_STOCK) || "null");
+    if (o){ BASE = o.BASE || null; COUNTS = o.COUNTS || {}; STATUS = o.STATUS || {}; LOG = o.LOG || []; return o.at || 0; } }catch(e){}
+  try{ const c = JSON.parse(localStorage.getItem(LS_CAT) || "null"); if (c && c.items){ CAT = c; indexCatalog(); } }catch(e){}
+  return 0;
 }
+function loadCatCache(){ try{ const c = JSON.parse(localStorage.getItem(LS_CAT) || "null"); if (c && c.items){ CAT = c; indexCatalog(); } }catch(e){} }
+let saveT = null, drawT = null;
+function onLive(){ clearTimeout(drawT); drawT = setTimeout(afterStockChange, 50); clearTimeout(saveT); saveT = setTimeout(saveStock, 900); }
+function setInvStat(msg, err){ const el = $("invStat"); el.innerHTML = msg; el.classList.toggle("err", !!err); }
 function refreshInvPill(){
   const p = $("hdInv");
-  if (!INV){ p.className = "pill alert"; p.innerHTML = "inventory <b>not loaded</b>"; return; }
-  p.className = "pill"; p.innerHTML = "inventory <b>" + fmtN(INV.items.length) + "</b> · " + hhmm(INV.at);
+  const n = Object.keys(COUNTS).length;
+  if (!DB_ON && !n){ p.className = "pill alert"; p.innerHTML = "count data <b>offline</b>"; return; }
+  p.className = "pill"; p.innerHTML = (DB_ON ? "● live" : "offline copy") + " · <b>" + fmtN(n) + "</b> locations" + (BASE && BASE.tab ? " · tab " + BASE.tab : "");
 }
-async function syncInventory(interactive){
+function connectDB(){
+  if (typeof firebase === "undefined" || !firebase.database){ setInvStat("Firebase did not load — showing the last saved copy.", true); return; }
+  try{ if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig); R = firebase.database().ref(DB_PATH); }
+  catch(e){ try{ R = firebase.database().ref(DB_PATH); }catch(e2){ setInvStat("Could not connect: " + esc(e.message), true); return; } }
+  firebase.database().ref(".info/connected").on("value", s => { DB_ON = !!s.val(); refreshInvPill();
+    setInvStat(DB_ON ? "Live — locations come from the inventory count and update by themselves." : "Reconnecting… showing the last known data.", !DB_ON); });
+  R.child("base").on("value", s => { const b = s.val(); if (b){ b.locs = arr(b.locs); b.tabs = arr(b.tabs); BASE = b; } onLive(); });
+  R.child("counts").on("value", s => { const v = s.val() || {}; const m = {};
+    for (const L in v){ const o = {}; let n = 0; for (const k in (v[L] || {})){ if (v[L][k] && typeof v[L][k] === "object"){ o[k] = v[L][k]; n++; } } if (n) m[L] = o; }
+    COUNTS = m; onLive(); });
+  R.child("status").on("value", s => { STATUS = s.val() || {}; onLive(); });
+  R.child("log").limitToLast(1500).on("value", s => { const a = []; s.forEach(c => { const v = c.val(); if (v){ v.id = c.key; a.push(v); } }); LOG = a; onLive(); });
+}
+async function syncNow(){
   const b = $("syncInv"); b.disabled = true; const lbl = b.textContent; b.textContent = "… loading";
-  setInvStat("Reading the inventory workbook…");
-  try{
-    const fresh = await fetchInventory();
-    const hadTR = TR.length;
-    INV = fresh; saveInvCache();
-    if (interactive && hadTR){
-      openDialog("Inventory synced",
-        `<p>The sheet was reloaded. There ${hadTR === 1 ? "is <b>1 transfer</b>" : "are <b>" + hadTR + " transfers</b>"} in the report.</p>
-         <p>If you have already copied the report into the sheet, clear them — otherwise they would be applied twice.
-            Keep them if the sheet has <b>not</b> been updated yet.</p>`,
-        [{label:"Clear transfers (sheet updated)", primary:true, act(){ TR = []; saveTR(); afterStockChange(); closeDialog(); toast("Transfers cleared"); }},
-         {label:"Keep them", act(){ closeDialog(); }}]);
-    }
-    afterStockChange();
-    setInvStat("✓ " + fmtN(INV.items.length) + " products · synced " + hhmm(INV.at));
-    if (interactive) toast("Inventory synced");
-  }catch(e){
-    setInvStat("Could not read the sheet: " + esc(e.message) + (INV ? "<br>Showing the copy from " + hhmm(INV.at) + "." : ""), true);
-    if (interactive) toast("Sync failed — " + e.message);
-  }
+  try{ await loadCatalog(); toast("Product photos reloaded · locations are live"); }
+  catch(e){ toast("Catalog not reloaded — " + e.message); }
   b.disabled = false; b.textContent = lbl;
-  refreshInvPill();
+  afterStockChange();
+}
+
+/* =====================================================================
+   STOCK OPS — shared by Inventory (inventory.html) and Warehouse Plan
+   (warehouse-plan.html). Keep both copies identical.
+   Every change of a counted line goes through here and is written to
+   packstation/stockCount/log as one history record:
+     {type, k, n, d:{<loc>:{s,b,c,d}}, qty, from, to, loc, reason, note,
+      by, at, mode, undoOf, undone}
+   type: transfer · add · remove · open (case opened) · count (counting
+         edit) · status (shelf completed / reopened / new count)
+   d holds the change of every touched location, so any add / remove /
+   open / transfer can be undone by applying it backwards.
+   ===================================================================== */
+function makeStockOps(env){
+  /* env: {ref:()=>firebaseRef|null, q:k=>qtyPerCase, name:k=>itemName, who:()=>user, mode:'inventory'|'plan',
+           local:{get(L,k), set(L,k,v), log(rec)}}   (local = offline fallback, optional) */
+  const F = ['s','b','c','d'];
+  const now = () => Date.now();
+  const sum = (a, b, sign) => { const o = {}; F.forEach(f => { o[f] = ((a && a[f]) || 0) + (sign || 1) * ((b && b[f]) || 0); }); return o; };
+  const neg = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = -d[f]; }); return o; };
+  const clean = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = d[f]; }); return o; };
+  const isZero = v => F.every(f => !((v && v[f]) || 0));
+  const unitsD = (k, d) => ((d && d.s) || 0) * env.q(k) + ((d && d.b) || 0) + ((d && d.c) || 0) + ((d && d.d) || 0);
+
+  /* take `qty` units out of a line: whole cases first, then loose boxes,
+     confirmed, one case broken open if needed, damaged last */
+  function planTake(v, qty, q){
+    const src = {s:v.s || 0, b:v.b || 0, c:v.c || 0, d:v.d || 0}, mv = {s:0, b:0, c:0, d:0}; let left = qty;
+    let k = Math.min(src.s, Math.floor(left / q)); src.s -= k; mv.s += k; left -= k * q;
+    let x = Math.min(src.b, left); src.b -= x; mv.b += x; left -= x;
+    x = Math.min(src.c, left); src.c -= x; mv.c += x; left -= x;
+    let broke = 0;
+    if (left > 0 && src.s > 0){ src.s -= 1; src.b += q - left; mv.b += left; left = 0; broke = 1; }
+    if (left > 0){ x = Math.min(src.d, left); src.d -= x; mv.d += x; left -= x; }
+    return left > 0 ? null : {src, mv, broke};
+  }
+  /* one line in a transaction: fn(cur) -> {next, ...info} | null (abort) */
+  async function tx(L, k, fn){
+    const R = env.ref();
+    if (!R){
+      if (!env.local) throw new Error('Not connected to the live database');
+      const r = fn(env.local.get(L, k)); if (!r) return null; env.local.set(L, k, r.next); return r;
+    }
+    let info = null;
+    const res = await R.child('counts/' + L + '/' + k).transaction(cur => { const r = fn(cur); if (!r){ info = null; return; } info = r; return r.next; });
+    return res.committed ? info : null;
+  }
+  function withDelta(k, cur, delta){
+    const base = cur || {s:0, b:0, c:0, d:0, n:env.name(k), a0:now()};
+    const v = sum(base, delta);
+    if (F.some(f => v[f] < 0)) return undefined;
+    if (isZero(v)) return null;
+    return Object.assign({}, base, v, {n:base.n || env.name(k), by:env.who(), at:now()});
+  }
+  const applyDelta = (L, k, delta) => tx(L, k, cur => { const nv = withDelta(k, cur, delta); return nv === undefined ? null : {next:nv}; });
+  async function log(rec){
+    const r = Object.assign({}, rec, {by:env.who() || '', at:now(), mode:env.mode});
+    Object.keys(r).forEach(x => { if (r[x] === undefined || r[x] === '') delete r[x]; });
+    const R = env.ref();
+    if (R){ const p = await R.child('log').push(r); return p.key; }
+    if (env.local && env.local.log){ r.id = 'l' + now() + Math.random().toString(36).slice(2, 5); env.local.log(r); return r.id; }
+  }
+  const need = (c, msg) => { if (!c) throw new Error(msg); };
+  const posInt = (x, what) => { const n = Math.floor(+x); need(n >= 1, 'Enter ' + (what || 'a quantity') + ' of at least 1'); return n; };
+
+  return {
+    planTake, unitsD, neg, clean, log,
+    /* move units between two places */
+    async transfer(k, from, to, qty){
+      qty = posInt(qty); need(from && to, 'Choose both places'); need(from !== to, 'That is the same place');
+      const q = env.q(k);
+      const a = await tx(from, k, cur => {
+        if (!cur) return null; const p = planTake(cur, qty, q); if (!p) return null;
+        const nv = Object.assign({}, cur, p.src, {by:env.who(), at:now()});
+        return {next:isZero(nv) ? null : nv, mv:p.mv, before:clean(cur)};
+      });
+      need(a, 'Not enough of it in ' + from);
+      const b = await applyDelta(to, k, a.mv);
+      if (!b){ await applyDelta(from, k, a.mv); throw new Error('Could not write to ' + to); }
+      const dFrom = sum(a.next ? clean(a.next) : {}, a.before, -1);
+      return log({type:'transfer', k, n:env.name(k), from, to, qty, d:{[from]:clean(dFrom), [to]:clean(a.mv)}});
+    },
+    /* new stock on a place: comp = {s,b,c,d} to add */
+    async add(k, L, comp, reason, note){
+      const d = clean(comp); need(!isZero(d) && F.every(f => (d[f] || 0) >= 0), 'Enter what to add');
+      need(reason, 'Choose a reason');
+      const r = await applyDelta(L, k, d); need(r, 'Could not add to ' + L);
+      return log({type:'add', k, n:env.name(k), loc:L, qty:unitsD(k, d), d:{[L]:d}, reason, note});
+    },
+    /* take stock off a place: qty = number of units, or 'all' */
+    async remove(k, L, qty, reason, note){
+      need(reason, 'Choose a reason');
+      const q = env.q(k); const all = qty === 'all'; if (!all) qty = posInt(qty);
+      const r = await tx(L, k, cur => {
+        if (!cur) return null;
+        if (all) return {next:null, mv:clean(cur)};
+        const p = planTake(cur, qty, q); if (!p) return null;
+        const nv = Object.assign({}, cur, p.src, {by:env.who(), at:now()});
+        return {next:isZero(nv) ? null : nv, mv:sum(clean(cur), isZero(nv) ? {} : clean(nv), -1)};
+      });
+      need(r, all ? 'Nothing to remove in ' + L : 'Not enough of it in ' + L);
+      const d = neg(r.mv);
+      return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, r.mv), d:{[L]:clean(d)}, reason, note, all:all || undefined});
+    },
+    /* open n cases → q × n loose boxes or confirmed units */
+    async openCase(k, L, n, into){
+      n = posInt(n, 'a number of cases'); into = into === 'c' ? 'c' : 'b';
+      const q = env.q(k); const d = {s:-n, [into]:n * q};
+      const r = await applyDelta(L, k, d); need(r, 'There are fewer than ' + n + ' case(s) in ' + L);
+      return log({type:'open', k, n:env.name(k), loc:L, qty:n * q, cases:n, into, d:{[L]:d}});
+    },
+    /* move every change of a record backwards */
+    async undo(rec){
+      need(rec && rec.d && ['transfer','add','remove','open'].includes(rec.type) && !rec.undone && !rec.undoOf, 'This change cannot be undone');
+      const steps = Object.keys(rec.d).map(L => ({L, d:neg(rec.d[L])}));
+      steps.sort((a, b) => F.reduce((s, f) => s + Math.min(0, a.d[f] || 0), 0) - F.reduce((s, f) => s + Math.min(0, b.d[f] || 0), 0));   // take away first
+      const done = [];
+      for (const st of steps){
+        const r = await applyDelta(st.L, rec.k, st.d);
+        if (!r){ for (const u of done) await applyDelta(u.L, rec.k, neg(u.d)); throw new Error('The stock has changed since — ' + st.L + ' no longer has it'); }
+        done.push(st);
+      }
+      const R = env.ref();
+      if (R && rec.id) await R.child('log/' + rec.id + '/undone').set(true);
+      else if (env.local && env.local.markUndone) env.local.markUndone(rec.id);
+      const d = {}; steps.forEach(s => d[s.L] = clean(s.d));
+      return log({type:rec.type, k:rec.k, n:rec.n, from:rec.to, to:rec.from, loc:rec.loc, qty:rec.qty, d, undoOf:rec.id, reason:'undo'});
+    }
+  };
+}
+/* labels shared by both history screens */
+const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', count:'✎ Count', status:'✓ Status'};
+function histChange(rec, q){
+  const parts = [];
+  const fmtD = d => ['s','b','c','d'].filter(f => d && d[f]).map(f => (d[f] > 0 ? '+' : '') + d[f] + ' ' + ({s:'case', b:'box', c:'conf', d:'dmg'}[f])).join(' ');
+  if (rec.type === 'transfer') parts.push(rec.qty + ' u · ' + rec.from + ' → ' + rec.to);
+  else if (rec.type === 'count'){ if (rec.f) parts.push(({s:'Case', b:'Boxes', c:'Confirmed', d:'Damaged'}[rec.f] || rec.f) + ' ' + (rec.old || 0) + ' → ' + (rec.val || 0)); if (rec.note) parts.push(rec.note); }
+  else if (rec.type === 'status') parts.push(rec.note || '');
+  else if (rec.d){ for (const L in rec.d) parts.push(fmtD(rec.d[L])); if (rec.qty) parts.push('(' + (rec.undoOf ? 'undo ' : (rec.type === 'remove' ? '−' : (rec.type === 'add' ? '+' : ''))) + rec.qty + ' u)'); }
+  return parts.filter(Boolean).join(' ');
+}
+function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' + rec.to) : (rec.loc || Object.keys(rec.d || {}).join(', ')); }
+const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan'};
+const REASONS_ADD = ['New shipment', 'Return', 'Other'];
+const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
+/* ===================== end of STOCK OPS ===================== */
+
+const OPS = makeStockOps({ref:() => R, q:k => qOf(k), name:k => nameOf(k), who:() => who(), mode:"plan"});
+
+/* ------------------------------ product actions -------------------------- */
+/* click a product row (without dragging) → add / remove / open case / move */
+const WP_TABS = [["add","＋ Add"],["remove","− Remove"],["open","📦 Open case"],["transfer","⇄ Move"]];
+function openActions(k, L, tab){
+  L = locKey(L);
+  const it = infoOf(k), q = qOf(k);
+  const cell = () => (COUNTS[L] && COUNTS[L][k]) || null;
+  tab = tab || (cell() ? "remove" : "add");
+  const reasonSel = list => `<div class="field-ctl" style="margin-top:10px"><label for="acR">Reason</label><select id="acR">${list.map(r => `<option>${r}</option>`).join("")}</select>
+      <input type="text" id="acN" style="margin-top:6px" placeholder="Details — required for “Other”"></div>`;
+  const num = (id, l) => `<div class="field-ctl"><label for="${id}">${l}</label><input type="number" id="${id}" min="0" step="1" value="0"></div>`;
+  function body(){
+    const v = cell() || {}; const u = unitsOf(k, v);
+    let h = `<div class="tr-item"><img src="${esc(it.image || IMG_PH)}" onerror="this.src='${IMG_PH}'" alt="">
+        <div><div style="font-weight:700">${esc(it.name)}</div><div class="hint" style="margin:2px 0 0">${esc(L)} · 1 case = ${q} · here: ${
+          [v.s ? v.s + " case" : "", v.b ? v.b + " box" : "", v.d ? v.d + " dmg" : "", v.c ? v.c + " conf" : ""].filter(Boolean).join(" · ") || "nothing"} (${fmtN(u)} u)</div></div></div>
+      <div class="seg" id="acTabs" style="margin-bottom:12px">${WP_TABS.map(([t, l]) => `<button data-t="${t}" aria-pressed="${t === tab}">${l}</button>`).join("")}</div>`;
+    if (tab === "add"){
+      h += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${num("acS","Case")}${num("acB","Boxes")}${num("acD","Damaged")}${num("acC","Confirmed")}</div>
+        <p class="hint" id="acPrev" style="margin:6px 0 0"></p>${reasonSel(REASONS_ADD)}`;
+    } else if (tab === "remove"){
+      h += `<div class="field-ctl"><label for="acQ">Units to remove — ${fmtN(u)} here</label><input type="number" id="acQ" class="qbig" min="1" max="${u}" step="1" value="${Math.min(1, u)}"></div>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="acAll"> Remove everything here (${fmtN(u)} u)</label>${reasonSel(REASONS_REMOVE)}`;
+    } else if (tab === "open"){
+      h += `<div class="field-ctl"><label for="acCases">Cases to open — ${v.s || 0} here</label><input type="number" id="acCases" class="qbig" min="1" max="${v.s || 0}" step="1" value="${v.s ? 1 : 0}"></div>
+        <div class="field-ctl" style="margin-top:10px"><label for="acInto">Put the units into</label><select id="acInto"><option value="b">Boxes</option><option value="c">Confirmed</option></select></div>
+        <p class="hint" id="acPrev" style="margin:8px 0 0"></p>`;
+    } else {
+      h += `<div class="field-ctl"><label for="acTo">To (island, section or pallet)</label><input type="text" id="acTo" list="acLocs" placeholder="S-01-2, R-09, PL-003 …">
+        <datalist id="acLocs">${allPlaces().map(p => `<option value="${esc(p)}">`).join("")}</datalist></div>
+        <div class="field-ctl" style="margin-top:10px"><label for="acQ">Units — up to ${fmtN(u)}</label><input type="number" id="acQ" class="qbig" min="1" max="${u}" step="1" value="${u}"></div>`;
+    }
+    return h;
+  }
+  const labels = {add:"Add", remove:"Remove", open:"Open case", transfer:"Move"};
+  function draw(){
+    openDialog("Stock · " + L, body(), [{label:labels[tab], primary:true, act:go}, {label:"Cancel", act:closeDialog}]);
+    $("dlgBody").querySelectorAll("#acTabs button").forEach(b => b.addEventListener("click", () => { tab = b.dataset.t; draw(); }));
+    const prev = () => { const p = $("acPrev"); if (!p) return;
+      if (tab === "add"){ const n = x => Math.max(0, Math.floor(+$(x).value || 0)); p.textContent = "+" + (n("acS") * q + n("acB") + n("acD") + n("acC")) + " units"; }
+      if (tab === "open"){ const n = Math.floor(+$("acCases").value || 0); p.textContent = n ? "−" + n + " case → +" + n * q + " " + ($("acInto").value === "c" ? "confirmed" : "boxes") : ""; } };
+    $("dlgBody").querySelectorAll("input,select").forEach(i => { i.addEventListener("input", prev); i.addEventListener("change", prev);
+      i.addEventListener("keydown", e => { if (e.key === "Enter" && i.id !== "acN"){ e.preventDefault(); go(); } }); });
+    prev();
+    const f = $("dlgBody").querySelector("input"); if (f) setTimeout(() => { f.focus(); if (f.select) f.select(); }, 40);
+  }
+  async function go(){
+    if (busy) return;
+    const reason = () => { const r = $("acR").value, n = $("acN").value.trim(); if (r === "Other" && !n){ toast("Describe the reason for “Other”"); $("acN").focus(); return null; } return {r, n}; };
+    const n = id => Math.max(0, Math.floor(+$(id).value || 0));
+    busy = true;
+    try{
+      if (tab === "add"){ const rs = reason(); if (!rs){ busy = false; return; }
+        await OPS.add(k, L, {s:n("acS"), b:n("acB"), d:n("acD"), c:n("acC")}, rs.r, rs.n); toast("Added to " + L + " · " + rs.r); }
+      else if (tab === "remove"){ const rs = reason(); if (!rs){ busy = false; return; }
+        await OPS.remove(k, L, $("acAll").checked ? "all" : n("acQ"), rs.r, rs.n); toast("Removed from " + L + " · " + rs.r); }
+      else if (tab === "open"){ await OPS.openCase(k, L, n("acCases"), $("acInto").value); toast("Case opened on " + L); }
+      else { const to = locKey($("acTo").value); if (!to){ toast("Choose where to move it"); busy = false; return; }
+        await OPS.transfer(k, L, to, n("acQ")); toast("Moved " + n("acQ") + " × " + nameOf(k) + " → " + to); }
+      closeDialog();
+    }catch(e){ toast(e.message); }
+    busy = false;
+  }
+  draw();
+}
+/* every place a product can be put: count locations + island labels + sections */
+function allPlaces(){
+  const s = new Set();
+  arr(BASE && BASE.locs).forEach(l => l && l.id && s.add(locKey(l.id)));
+  Object.keys(COUNTS).forEach(L => s.add(L));
+  for (const it of S.islands){ const L = locKey(it.label); if (!L) continue; const n = sectionsOf(L);
+    if (n) for (let i = 1; i <= n; i++) s.add(L + "-" + i); else s.add(L); }
+  return [...s].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
+}
+/* “＋” on a section / pallet header: choose the product, then add it */
+function pickProductFor(L){
+  const all = () => { const ks = new Set(Object.keys((BASE && BASE.items) || {})); HOLD.forEach((_, k) => ks.add(k)); return [...ks]; };
+  openDialog("Add stock to " + L,
+    `<p>Which product? (new shipment, return …)</p><input type="text" id="ppQ" placeholder="Name or barcode…" autocomplete="off">
+     <div class="find-res" id="ppRes" style="max-height:48vh"></div>`, [{label:"Cancel", act:closeDialog}]);
+  const draw = () => {
+    const f = nrm($("ppQ").value), fc = cln($("ppQ").value);
+    const hits = (f.length < 2 ? [] : all().filter(k => { const it = infoOf(k); return nrm(it.name).indexOf(f) >= 0 || (fc.length >= 5 && it.barcodes.some(b => cln(b).indexOf(fc) >= 0)); }))
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b))).slice(0, 40);
+    $("ppRes").innerHTML = f.length < 2 ? `<div class="empty">Type at least 2 letters</div>` : (hits.length ? hits.map(k =>
+      `<div class="fr" data-k="${esc(k)}" style="cursor:pointer"><b>${esc(nameOf(k))}</b><span style="color:var(--faint)"> · 1 case = ${qOf(k)}</span></div>`).join("") : `<div class="empty">Nothing found</div>`);
+    $("ppRes").querySelectorAll("[data-k]").forEach(d => d.addEventListener("click", () => openActions(d.dataset.k, L, "add")));
+  };
+  $("ppQ").addEventListener("input", draw);
+  $("ppQ").addEventListener("keydown", e => { if (e.key === "Enter"){ const d = $("ppRes").querySelector("[data-k]"); if (d) d.click(); } });
+  draw(); setTimeout(() => $("ppQ").focus(), 40);
+}
+
+/* ------------------------------- history --------------------------------- */
+let histType = "all", histMode = "all", histQ = "";
+function histRows(){
+  let list = LOG.slice().reverse();
+  if (histType !== "all") list = list.filter(r => r.type === histType);
+  if (histMode !== "all") list = list.filter(r => r.mode === histMode);
+  const q = nrm(histQ);
+  if (q) list = list.filter(r => [r.n, histPlaces(r), r.by, r.reason, r.note].some(x => nrm(x).indexOf(q) >= 0));
+  return list;
+}
+function histTable(){
+  const list = histRows().slice(0, 400);
+  return `<table class="rep-tbl"><thead><tr><th>Time</th><th>Screen</th><th>By</th><th>Action</th><th>Item</th><th>Location</th><th>Change</th><th>Reason</th><th></th></tr></thead><tbody>${
+    list.length ? list.map(r => { const canUndo = ["transfer","add","remove","open"].includes(r.type) && !r.undone && !r.undoOf;
+      return `<tr style="${r.undone ? "opacity:.45;text-decoration:line-through" : ""}"><td class="m">${esc(hhmm(r.at))}</td><td>${esc(HIST_MODE[r.mode] || r.mode || "")}</td><td>${esc(r.by || "—")}</td>
+        <td class="ht-${esc(r.type)}">${esc(HIST_TYPES[r.type] || r.type)}${r.undoOf ? " · undo" : ""}</td><td>${esc(r.n || "")}</td><td class="m">${esc(histPlaces(r))}</td>
+        <td class="m">${esc(histChange(r))}</td><td>${esc([r.reason === "undo" ? "" : r.reason, r.note && r.type !== "count" && r.type !== "status" ? r.note : ""].filter(Boolean).join(" — "))}</td>
+        <td>${canUndo ? `<button class="btn icon" data-undo="${esc(r.id)}" title="Undo" style="width:26px;height:26px;font-size:12px">↶</button>` : ""}</td></tr>`; }).join("")
+    : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No changes yet.</td></tr>`}</tbody></table>`;
+}
+function histCSV(){
+  const out = [["Time","Screen","By","Action","Item","Location","Change","Units","Reason","Details","Undone"]];
+  histRows().forEach(r => out.push([new Date(r.at).toLocaleString("en-US"), HIST_MODE[r.mode] || r.mode || "", r.by || "", HIST_TYPES[r.type] || r.type,
+    r.n || "", histPlaces(r), histChange(r), r.qty || "", r.reason || "", r.note || "", r.undone ? "yes" : (r.undoOf ? "undo" : "")]));
+  return "﻿" + csvOf(out);
+}
+function openHistory(){
+  const cnt = {all:LOG.length}; LOG.forEach(r => cnt[r.type] = (cnt[r.type] || 0) + 1);
+  openDialog("History · " + LOG.length + " change(s)",
+    `<p>Every change of stock — from this plan and from the Inventory mode: moves, stock added or removed (with reason), opened cases, counting edits, shelf status.</p>
+     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="hChips">${[["all","All"]].concat(Object.entries(HIST_TYPES)).map(([k, l]) =>
+        `<button class="zone${histType === k ? " on" : ""}" data-t="${k}">${l} <b>${cnt[k] || 0}</b></button>`).join("")}</div>
+     <div style="display:flex;gap:8px;margin-bottom:10px"><select id="hMode" style="max-width:190px"><option value="all">Both screens</option><option value="plan">Warehouse plan</option><option value="inventory">Inventory count</option></select>
+       <input type="text" id="hQ" placeholder="Filter by item, location, person, reason…" value="${esc(histQ)}"></div>
+     <div class="rep-wrap" id="hWrap" style="max-height:56vh">${histTable()}</div>`,
+    [{label:"⬇ Download (.csv)", primary:true, act(){ offerFile("warehouse-history_" + stamp() + ".csv", new Blob([histCSV()], {type:"text/csv;charset=utf-8"})); }},
+     {label:"Close", act:closeDialog}]);
+  dlg.classList.add("wide");
+  const body = $("dlgBody");
+  body.querySelector("#hMode").value = histMode;
+  const redraw = () => { $("hWrap").innerHTML = histTable(); wireUndo(); };
+  body.querySelectorAll("#hChips [data-t]").forEach(b => b.addEventListener("click", () => { histType = b.dataset.t; openHistory(); }));
+  body.querySelector("#hMode").addEventListener("change", e => { histMode = e.target.value; redraw(); });
+  body.querySelector("#hQ").addEventListener("input", e => { histQ = e.target.value; redraw(); });
+  function wireUndo(){
+    body.querySelectorAll("[data-undo]").forEach(b => b.addEventListener("click", async () => {
+      const r = LOG.find(x => x.id === b.dataset.undo); if (!r) return;
+      if (!confirm("Undo this change?\n" + (HIST_TYPES[r.type] || r.type) + " · " + (r.n || "") + " · " + histChange(r))) return;
+      b.disabled = true;
+      try{ await OPS.undo(r); toast("Undone"); setTimeout(redraw, 300); }
+      catch(e){ toast("Cannot undo — " + e.message); b.disabled = false; }
+    }));
+  }
+  wireUndo();
 }
 
 /* ------------------------------ painting --------------------------------- */
 function paintStock(){
-  if (!INV){ for (const [, el] of els){ const c = el.querySelector(".cnt"); if (c) c.remove(); el.classList.remove("stocked","empty-st"); } return; }
+  ISL = islandIndex();
   const t = zoneTotals();
   for (const it of S.islands){
     const el = els.get(it.id); if (!el) continue;
-    const c = t.isl.get(String(it.label || "").trim().toUpperCase());
+    const c = t.isl.get(locKey(it.label));
     let b = el.querySelector(".cnt");
     if (c && c.sku){
       if (!b){ b = document.createElement("span"); b.className = "cnt"; el.appendChild(b); }
@@ -1660,12 +1960,13 @@ function paintStock(){
     } else if (b) b.remove();
     el.classList.toggle("stocked", !!(c && c.sku));
     el.classList.toggle("empty-st", MODE === "stock" && !(c && c.sku));
-    el.classList.toggle("sel", S.sel.has(it.id) || (MODE === "stock" && OPEN === String(it.label || "").trim().toUpperCase()));
+    el.classList.toggle("sel", S.sel.has(it.id) || (MODE === "stock" && OPEN === locKey(it.label)));
   }
-  $("zTBA").textContent = fmtN(t.TBA); $("zSTORE").textContent = fmtN(t.STORE);
-  $("zUNK").textContent = fmtN(t.UNK); $("zUnkBtn").hidden = !t.UNK;
+  $("zPAL").textContent = fmtN(t.PAL.size);
+  $("zUNK").textContent = fmtN(t.UNK.size); $("zUnkBtn").hidden = !t.UNK.size;
   document.querySelectorAll(".zone[data-zone]").forEach(z => z.classList.toggle("on", OPEN === z.dataset.zone));
-  $("trCount").textContent = TR.length;
+  $("trCount").textContent = LOG.length;
+  refreshInvPill();
 }
 function afterStockChange(){
   buildHoldings(); paintStock();
@@ -1687,58 +1988,66 @@ function closePanel(){
   paintStock();
 }
 function rowHTML(r){
-  const it = itemByKey(r.k); if (!it) return "";
-  const moved = TR.filter(t => t.k === r.k && (t.to === r.loc || t.from === r.loc));
+  const it = infoOf(r.k);
+  const moved = LOG.filter(t => t.type === "transfer" && !t.undone && t.k === r.k && (t.to === r.loc || t.from === r.loc) && Date.now() - t.at < 7 * 864e5);
   const net = moved.reduce((a, t) => a + (t.to === r.loc ? t.qty : -t.qty), 0);
-  return `<div class="irow${r.qty <= 0 && !r.est ? " zero" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
+  const v = COUNTS[r.loc] && COUNTS[r.loc][r.k] || {};
+  const parts = [v.s ? v.s + " case" : "", v.b ? v.b + " box" : "", v.d ? v.d + " dmg" : "", v.c ? v.c + " conf" : ""].filter(Boolean).join(" · ");
+  return `<div class="irow${r.qty <= 0 ? " zero" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
     <span class="grip" title="Drag to move">⠿</span>
     <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
     <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
-      <div class="vr">${esc(it.variation && nrm(it.variation) !== "default" ? it.variation : "")}${
-        net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div></div>
-    <div class="q${r.est ? " est" : ""}" title="${r.est ? "The sheet lists several places without a quantity each — this split is a guess. Stock total: " + it.stock : "Quantity here"}">${
-      r.est ? "≈" : ""}${fmtN(r.qty)}<small>${r.est ? "split?" : "qty"}</small></div>
+      <div class="vr">${esc(parts)}${net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div></div>
+    <div class="q" title="Units here (case × ${qOf(r.k)} + boxes + damaged + confirmed)">${fmtN(r.qty)}<small>units</small></div>
   </div>`;
+}
+function secHTML(key, label, rows, empty){
+  const st = stateOf(key);
+  return `<div class="sec"><div class="sec-h" data-drop="${esc(key)}" title="Drop a product here to move it into ${esc(label)}">
+      ${esc(label)}<span class="stt ${st}">${STATE_TXT[st]}</span><button class="secadd" data-add="${esc(key)}" title="Add stock here (new shipment, return …)">＋</button><span class="n">${rows.length} · ${fmtN(rows.reduce((a, r) => a + r.qty, 0))} u</span></div>${
+      rows.length ? rows.map(rowHTML).join("") : `<div class="sec-empty">${empty || "Empty — drop products here"}</div>`}</div>`;
 }
 function renderPanel(){
   if (!OPEN) return;
   const body = $("spBody");
   const f = nrm($("spSearch").value), hideZero = $("spZero").checked;
   let rows = contentsOf(OPEN).filter(r => {
-    if (hideZero && r.qty <= 0 && !r.est) return false;
+    if (hideZero && r.qty <= 0) return false;
     if (!f) return true;
-    const it = itemByKey(r.k); return it && (nrm(it.name + " " + it.variation).indexOf(f) >= 0 || (it.barcode || "").indexOf(f) >= 0);
+    const it = infoOf(r.k); return nrm(it.name).indexOf(f) >= 0 || it.barcodes.some(b => b.indexOf(f) >= 0) || nrm(r.loc).indexOf(f) >= 0;
   });
-  const byName = (a, b) => { const A = itemByKey(a.k), B = itemByKey(b.k); return (A ? A.name : "").localeCompare(B ? B.name : "", undefined, {numeric:true}); };
-  rows.sort(byName);
+  rows.sort((a, b) => infoOf(a.k).name.localeCompare(infoOf(b.k).name, undefined, {numeric:true}));
   const units = rows.reduce((a, r) => a + r.qty, 0);
-  const title = OPEN === "__UNK" ? "Unknown locations" : locName(OPEN);
+  const title = OPEN === "__UNK" ? "Not on the plan" : (OPEN === "__PAL" ? "Pallets" : OPEN);
   $("spTitle").textContent = title;
-  $("spSub").textContent = !INV ? "Inventory not loaded — press Sync" :
-    rows.length + " product(s) · " + fmtN(units) + " unit(s)" + (OPEN === "TBA" ? " · not placed yet" : (OPEN === "STORE" ? " · on display in the store" : ""));
-  if (!INV){ body.innerHTML = `<div class="empty">Press <b>⟳ Sync inventory</b> to read the workbook.</div>`; return; }
+  $("spSub").textContent = rows.length + " line(s) · " + fmtN(units) + " unit(s)" +
+    (OPEN === "__PAL" ? " · new arrivals & overstock" : (OPEN === "__UNK" ? " · count locations with no island" : ""));
+  if (!BASE && !Object.keys(COUNTS).length){ body.innerHTML = `<div class="empty">No inventory count yet — start one in the <b>Inventory</b> mode.</div>`; return; }
 
-  const nSec = OPEN.length && !["TBA","STORE","__UNK"].includes(OPEN) ? sectionsOf(OPEN) : 0;
+  const nSec = !OPEN.startsWith("__") ? sectionsOf(OPEN) : 0;
   let h = "";
   if (nSec){
     const groups = [];
-    for (let i = 1; i <= nSec; i++) groups.push({key:OPEN + "-" + i, label:OPEN + "-" + i, rows:rows.filter(r => r.loc === OPEN + "-" + i)});
+    for (let i = 1; i <= nSec; i++) groups.push(secHTML(OPEN + "-" + i, OPEN + "-" + i, rows.filter(r => r.loc === OPEN + "-" + i)));
     const whole = rows.filter(r => r.loc === OPEN);
-    if (whole.length) groups.push({key:OPEN, label:OPEN + " · no section", rows:whole});
-    h = groups.map(g => `<div class="sec"><div class="sec-h" data-drop="${esc(g.key)}" title="Drop a product here to move it into ${esc(g.label)}">
-        ${esc(g.label)}<span class="n">${g.rows.length} · ${fmtN(g.rows.reduce((a, r) => a + r.qty, 0))} u</span></div>${
-        g.rows.length ? g.rows.map(rowHTML).join("") : `<div class="sec-empty">Empty — drop products here</div>`}</div>`).join("");
+    if (whole.length) groups.push(secHTML(OPEN, OPEN + " · no section", whole));
+    h = groups.join("");
+  } else if (OPEN === "__PAL"){
+    const pals = palletKeys();
+    const full = pals.filter(P => rows.some(r => r.loc === P)), empty = pals.filter(P => !rows.some(r => r.loc === P));
+    h = full.map(P => secHTML(P, P + (ISL.get(P) ? " · island on the plan" : ""), rows.filter(r => r.loc === P))).join("") ||
+        `<div class="empty">${f ? "Nothing matches the filter" : "All pallets are empty."}</div>`;
+    if (empty.length && !f) h += `<div class="sec"><div class="sec-h">Empty pallets<span class="n">${empty.length}</span></div>
+        <div class="palgrid">${empty.map(P => `<span class="palchip" data-drop="${esc(P)}" title="Drop a product here">${esc(P)}</span>`).join("")}</div></div>`;
   } else if (OPEN === "__UNK"){
     const locs = [...new Set(rows.map(r => r.loc))].sort();
-    h = locs.map(l => `<div class="sec"><div class="sec-h">${esc(l)}<span class="n">no island with this name</span></div>${
-      rows.filter(r => r.loc === l).map(rowHTML).join("")}</div>`).join("") ||
-      `<div class="empty">Every location in the sheet matches an island.</div>`;
+    h = locs.map(l => secHTML(l, l + " · no island with this name", rows.filter(r => r.loc === l))).join("") ||
+      `<div class="empty">Every counted location has an island.</div>`;
   } else {
-    h = `<div class="sec"><div class="sec-h" data-drop="${esc(OPEN)}">${esc(title)}<span class="n">${rows.length} · ${fmtN(units)} u</span></div>${
-      rows.length ? rows.map(rowHTML).join("") : `<div class="sec-empty">${f ? "Nothing matches the filter" : "Empty — drop products here"}</div>`}</div>`;
+    h = secHTML(OPEN, title, rows, f ? "Nothing matches the filter" : null);
   }
   h += `<p class="hint" style="margin:14px 14px 0">Drag a product (hold the row, or the ⠿ handle on a touch screen) onto another island,
-        a section header, or the <b>TBA</b> / <b>Store</b> chips to move stock.</p>`;
+        a section or pallet header to move it. <b>Click</b> a product to add, remove, open a case or move it; <b>＋</b> on a header adds new stock. Everything is logged in History.</p>`;
   body.innerHTML = h;
 }
 
@@ -1749,7 +2058,7 @@ function dropTargetAt(x, y){
   const d = el.closest("[data-drop]");
   if (d) return {el:d, key:d.dataset.drop};
   const isl = el.closest(".island");
-  if (isl){ const it = byId(isl.dataset.id); if (it && String(it.label || "").trim()) return {el:isl, key:String(it.label).trim().toUpperCase(), island:it}; }
+  if (isl){ const it = byId(isl.dataset.id); if (it && String(it.label || "").trim()) return {el:isl, key:locKey(it.label), island:it}; }
   return null;
 }
 function clearDropHi(){ document.querySelectorAll(".dropon").forEach(e => e.classList.remove("dropon")); }
@@ -1765,15 +2074,13 @@ document.addEventListener("pointermove", e => {
   if (!dnd.on){
     if (Math.hypot(e.clientX - dnd.x0, e.clientY - dnd.y0) < 6) return;
     dnd.on = true;
-    const it = itemByKey(dnd.k);
     dnd.ghost = document.createElement("div"); dnd.ghost.className = "dragghost none";
-    dnd.ghost.textContent = (it ? it.name : "item") + " · from " + locName(dnd.from);
+    dnd.ghost.textContent = nameOf(dnd.k) + " · from " + dnd.from;
     document.body.appendChild(dnd.ghost); document.body.classList.add("dragging");
   }
   dnd.ghost.style.left = e.clientX + "px"; dnd.ghost.style.top = e.clientY + "px";
-  /* scroll the floor when dragging near its edge */
-  /* only once the pointer has been well inside the floor, so merely crossing
-     the edge on the way in from the panel does not shift the plan */
+  /* scroll the floor near its edge — only once the pointer has been well inside,
+     so crossing the edge on the way in from the panel does not shift the plan */
   const r = pane.getBoundingClientRect(), M = 36;
   if (e.clientX > r.left + M*2 && e.clientX < r.right - M*2 && e.clientY > r.top + M*2 && e.clientY < r.bottom - M*2) dnd.inPane = true;
   if (dnd.inPane && e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom){
@@ -1785,143 +2092,98 @@ document.addEventListener("pointermove", e => {
   dnd.target = null;
   if (t && t.key !== dnd.from){
     t.el.classList.add("dropon"); dnd.target = t;
-    dnd.ghost.className = "dragghost"; dnd.ghost.textContent = (itemByKey(dnd.k) || {name:"item"}).name + "  →  " + locName(t.key);
+    dnd.ghost.className = "dragghost"; dnd.ghost.textContent = nameOf(dnd.k) + "  →  " + t.key;
   } else if (dnd.ghost){ dnd.ghost.className = "dragghost none"; }
 });
+let justDragged = false;
 function endDnd(){
   if (!dnd) return;
   const d = dnd; dnd = null;
+  if (d.on){ justDragged = true; setTimeout(() => { justDragged = false; }, 80); }
   clearDropHi(); document.body.classList.remove("dragging");
   if (d.ghost) d.ghost.remove();
   if (d.on && d.target) openTransfer(d.k, d.from, d.target.key);
 }
 document.addEventListener("pointerup", endDnd);
+/* a click (no drag) on a product → actions; ＋ on a header / an empty pallet → add stock */
+$("spBody").addEventListener("click", e => {
+  if (justDragged) return;
+  const add = e.target.closest("[data-add]"); if (add){ e.stopPropagation(); pickProductFor(add.dataset.add); return; }
+  const pal = e.target.closest(".palchip[data-drop]"); if (pal){ pickProductFor(pal.dataset.drop); return; }
+  const row = e.target.closest(".irow"); if (row) openActions(row.dataset.k, row.dataset.loc);
+});
 document.addEventListener("pointercancel", () => { if (dnd){ dnd.target = null; endDnd(); } });
 
 /* ------------------------------ transfer dialog -------------------------- */
 function openTransfer(k, from, to){
-  const it = itemByKey(k); if (!it) return;
+  const it = infoOf(k);
   const map = HOLD.get(k) || new Map();
-  const src = map.get(from) || {qty:0, est:false};
-  const max = src.est ? it.stock : src.qty;
-  if (max <= 0){ toast("Nothing left of this product in " + locName(from)); return; }
+  const max = (map.get(from) || {qty:0}).qty;
+  if (max <= 0){ toast("Nothing left of this product in " + from); return; }
   const pl = parseLoc(to);
   const n = (pl.kind === "island" && !pl.sec) ? sectionsOf(pl.island) : 0;     // dropped on the island itself → ask which section
   const secSel = n ? `<div class="field-ctl" style="margin-bottom:12px"><label for="trSec">Section of ${esc(to)}</label>
       <select id="trSec">${Array.from({length:n}, (_, i) => `<option value="${esc(to + "-" + (i + 1))}">${esc(to + "-" + (i + 1))}</option>`).join("")}
       <option value="${esc(to)}">${esc(to)} (no section)</option></select></div>` : "";
+  const v = COUNTS[from] && COUNTS[from][k] || {};
   openDialog("Move stock",
     `<div class="tr-item"><img src="${esc(it.image || IMG_PH)}" onerror="this.src='${IMG_PH}'" alt="">
-       <div><div style="font-weight:700">${esc(it.name)}</div><div class="hint" style="margin:2px 0 0">${esc(it.variation || "")}</div></div></div>
-     <div class="tr-route"><span>${esc(locName(from))}</span><i>→</i><span id="trTo">${esc(locName(n ? to + "-1" : to))}</span></div>
+       <div><div style="font-weight:700">${esc(it.name)}</div><div class="hint" style="margin:2px 0 0">1 case = ${qOf(k)} · here: ${
+         [v.s ? v.s + " case" : "", v.b ? v.b + " box" : "", v.d ? v.d + " dmg" : "", v.c ? v.c + " conf" : ""].filter(Boolean).join(" · ") || "—"}</div></div></div>
+     <div class="tr-route"><span>${esc(from)}</span><i>→</i><span id="trTo">${esc(n ? to + "-1" : to)}</span></div>
      ${secSel}
-     <div class="field-ctl"><label for="trQty">Quantity to move — up to ${fmtN(max)}${src.est ? " (split in the sheet unknown)" : ""}</label>
+     <div class="field-ctl"><label for="trQty">Units to move — up to ${fmtN(max)}</label>
        <input type="number" id="trQty" class="qbig" min="1" max="${max}" step="1" value="${max}"></div>`,
     [{label:"Move", primary:true, act(){ doTransfer(k, from, n ? $("trSec").value : to, $("trQty").value, max); }},
      {label:"Cancel", act:closeDialog}]);
   const q = $("trQty"); setTimeout(() => { q.focus(); q.select(); }, 40);
   q.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); doTransfer(k, from, n ? $("trSec").value : to, q.value, max); } });
-  if (n) $("trSec").addEventListener("change", e => { $("trTo").textContent = locName(e.target.value); });
+  if (n) $("trSec").addEventListener("change", e => { $("trTo").textContent = e.target.value; });
 }
-function doTransfer(k, from, to, qtyRaw, max){
+let busy = false;
+async function doTransfer(k, from, to, qtyRaw, max){
   const qty = Math.floor(+qtyRaw);
   if (!(qty >= 1)){ toast("Enter a quantity of at least 1"); return; }
-  if (qty > max){ toast("Only " + max + " available in " + locName(from)); return; }
-  if (to === from){ toast("That is the same place"); return; }
-  TR.push({id:"t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), k, from, to, qty, at:Date.now(), by:WHO});
-  saveTR(); closeDialog(); afterStockChange();
-  const it = itemByKey(k);
-  toast("Moved " + qty + " × " + (it ? it.name : "") + " → " + locName(to));
+  if (qty > max){ toast("Only " + max + " available in " + from); return; }
+  if (locKey(to) === from){ toast("That is the same place"); return; }
+  if (busy) return; busy = true;
+  try{ await OPS.transfer(k, from, locKey(to), qty); closeDialog(); toast("Moved " + qty + " × " + nameOf(k) + " → " + locKey(to)); }
+  catch(e){ toast(e.message); }
+  busy = false;
 }
 
-/* ------------------------------- report ---------------------------------- */
-/* the new text for column C, in the sheet's own style */
-function newCellFor(k){
-  const it = itemByKey(k), map = HOLD.get(k); if (!it || !map) return "";
-  const live = [...map.entries()].filter(([, h]) => h.qty > 0);
-  if (!live.length){
-    const last = TR.filter(t => t.k === k).pop();
-    return last ? locName(last.to) : (it.loc || "TBA");
-  }
-  if (live.length === 1) return locName(live[0][0]);
-  return live.map(([l, h]) => locName(l) + " (" + h.qty + ")").join(", ");
-}
-function reportRows(){
-  const ks = [...new Set(TR.map(t => t.k))];
-  return ks.map(k => { const it = itemByKey(k) || {name:k, variation:"", loc:""};
-    return {k, name:it.name, variation:it.variation, old:it.loc || "TBA", nu:newCellFor(k)}; })
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
-}
+/* ------------------------------- files ----------------------------------- */
 function csvOf(rows){ return rows.map(r => r.map(v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"').join(",")).join("\r\n"); }
 function stamp(){ const d = new Date(), p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()); }
-function reportCSV(){
-  const out = [["LOCATION UPDATES — paste the new value into column C (location)"], ["Item name", "Variation", "Location now (sheet)", "New location"]];
-  reportRows().forEach(r => out.push([r.name, r.variation, r.old, r.nu]));
-  out.push([]); out.push(["TRANSFER LOG"]); out.push(["Time", "Item name", "Variation", "From", "To", "Qty", "By"]);
-  TR.forEach(t => { const it = itemByKey(t.k) || {name:t.k, variation:""};
-    out.push([new Date(t.at).toLocaleString("en-US"), it.name, it.variation, locName(t.from), locName(t.to), t.qty, t.by || ""]); });
-  return "﻿" + csvOf(out);
-}
-function openReport(){
-  if (!TR.length){
-    openDialog("Transfer report", `<p>No transfers yet. Open an island, drag a product onto another island and enter the quantity — every move shows up here.</p>`,
-      [{label:"Close", primary:true, act:closeDialog}]);
-    return;
-  }
-  const rr = reportRows();
-  const upd = `<table class="rep-tbl"><thead><tr><th>Item</th><th>Variation</th><th>Column C now</th><th>New column C</th></tr></thead><tbody>${
-    rr.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.variation)}</td><td class="old">${esc(r.old)}</td><td class="new">${esc(r.nu)}</td></tr>`).join("")}</tbody></table>`;
-  const log = `<table class="rep-tbl"><thead><tr><th>Time</th><th>Item</th><th>From → To</th><th>Qty</th><th>By</th><th></th></tr></thead><tbody>${
-    TR.slice().reverse().map(t => { const it = itemByKey(t.k) || {name:t.k, variation:""};
-      return `<tr><td class="m">${esc(hhmm(t.at))}</td><td>${esc(it.name)}${it.variation && nrm(it.variation) !== "default" ? " · " + esc(it.variation) : ""}</td>
-        <td class="m">${esc(locName(t.from))} → ${esc(locName(t.to))}</td><td class="m">${t.qty}</td><td>${esc(t.by || "—")}</td>
-        <td><button class="btn icon" data-undo="${esc(t.id)}" title="Undo this transfer" style="width:26px;height:26px;font-size:12px">↶</button></td></tr>`; }).join("")}</tbody></table>`;
-  openDialog("Transfer report · " + TR.length + " move(s)",
-    `<p><b>1.</b> Download or copy the report · <b>2.</b> put the <b>New column C</b> values into the inventory sheet ·
-        <b>3.</b> press <b>⟳ Sync inventory</b> and clear the transfers.</p>
-     <h4 style="margin:12px 0 6px;font-family:var(--disp)">Location updates — ${rr.length} product(s)</h4>
-     <div class="rep-wrap">${upd}</div>
-     <h4 style="margin:16px 0 6px;font-family:var(--disp)">Transfer log</h4>
-     <div class="rep-wrap" style="max-height:30vh">${log}</div>`,
-    [{label:"⬇ Download report (.csv)", primary:true, act(){
-        offerFile("warehouse-transfers_" + stamp() + ".csv", new Blob([reportCSV()], {type:"text/csv;charset=utf-8"})); }},
-     {label:"⧉ Copy updates", act(){
-        copyText(rr.map(r => [r.name, r.variation, r.nu].join("\t")).join("\n")); }},
-     {label:"Clear transfers", danger:true, act(){
-        if (!confirm("Clear all " + TR.length + " transfers? Do this only after the sheet has been updated.")) return;
-        TR = []; saveTR(); afterStockChange(); closeDialog(); toast("Transfers cleared"); }},
-     {label:"Close", act:closeDialog}]);
-  dlg.classList.add("wide");
-  $("dlgBody").querySelectorAll("[data-undo]").forEach(b => b.addEventListener("click", () => {
-    TR = TR.filter(t => t.id !== b.dataset.undo); saveTR(); afterStockChange(); openReport(); toast("Transfer undone");
-  }));
-}
 dlg.addEventListener("close", () => dlg.classList.remove("wide"));
 
 /* ------------------------------- find ------------------------------------ */
 function runFind(){
   const inp = $("findItem"), box = $("findRes"); if (!inp) return;
-  const f = nrm(inp.value);
-  if (!f || f.length < 2 || !INV){ box.hidden = true; box.innerHTML = ""; return; }
-  const hits = INV.items.filter(it => nrm(it.name + " " + it.variation).indexOf(f) >= 0 || (it.barcode && it.barcode.indexOf(f.replace(/\s/g, "")) >= 0)).slice(0, 40);
+  const f = nrm(inp.value), fc = cln(inp.value);
+  if (!f || f.length < 2){ box.hidden = true; box.innerHTML = ""; return; }
+  const keys = new Set(HOLD.keys());
+  if (BASE && BASE.items) Object.keys(BASE.items).forEach(k => keys.add(k));
+  const hits = [...keys].filter(k => { const it = infoOf(k); return nrm(it.name).indexOf(f) >= 0 || (fc.length >= 5 && it.barcodes.some(b => cln(b).indexOf(fc) >= 0)); })
+    .sort((a, b) => nameOf(a).localeCompare(nameOf(b))).slice(0, 40);
   box.hidden = false;
   if (!hits.length){ box.innerHTML = `<div class="empty">Nothing found</div>`; return; }
-  box.innerHTML = hits.map(it => {
-    const map = HOLD.get(it.k) || new Map();
-    const locs = [...map.entries()].filter(([, h]) => h.qty > 0 || h.est);
-    return `<div class="fr"><b>${esc(it.name)}</b>${it.variation && nrm(it.variation) !== "default" ? " · " + esc(it.variation) : ""}
-      <span style="color:var(--faint);font-family:var(--mono)"> · ${fmtN(it.stock)}</span>
+  box.innerHTML = hits.map(k => {
+    const map = HOLD.get(k) || new Map();
+    const locs = [...map.entries()].filter(([, h]) => h.qty > 0).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}));
+    const tot = locs.reduce((a, [, h]) => a + h.qty, 0);
+    return `<div class="fr"><b>${esc(nameOf(k))}</b><span style="color:var(--faint);font-family:var(--mono)"> · ${fmtN(tot)}</span>
       <div class="locs">${locs.length ? locs.map(([l, h]) => {
-        const isl = islandOfKey(l); const zone = isl || (l === "TBA" || l === "STORE" ? l : "__UNK");
-        return `<button data-open="${esc(zone)}">${esc(locName(l))} · ${h.est ? "≈" : ""}${h.qty}</button>`; }).join("") :
-        `<span style="color:var(--faint)">no stock</span>`}</div></div>`;
+        const isl = islandOfKey(l); const zone = isl || (isPal(l) ? "__PAL" : "__UNK");
+        return `<button data-open="${esc(zone)}">${esc(l)} · ${h.qty}</button>`; }).join("") :
+        `<span style="color:var(--faint)">not counted anywhere</span>`}</div></div>`;
   }).join("");
 }
 $("findItem").addEventListener("input", runFind);
 $("findRes").addEventListener("click", e => {
   const b = e.target.closest("[data-open]"); if (!b) return;
   const z = b.dataset.open; openZone(z);
-  const isl = S.islands.find(i => String(i.label || "").trim().toUpperCase() === z);
+  const isl = S.islands.find(i => locKey(i.label) === z);
   if (isl){ const r = pane.getBoundingClientRect(); pane.scrollLeft = isl.cx*S.cell + 24 - r.width/2; pane.scrollTop = isl.cy*S.cell + 24 - r.height/2; }
 });
 
@@ -1944,9 +2206,12 @@ document.querySelectorAll(".zone[data-zone]").forEach(z => z.addEventListener("c
 $("spClose").addEventListener("click", closePanel);
 $("spSearch").addEventListener("input", renderPanel);
 $("spZero").addEventListener("change", renderPanel);
-$("syncInv").addEventListener("click", () => syncInventory(true));
-$("openReport").addEventListener("click", openReport);
+$("syncInv").addEventListener("click", syncNow);
+$("openReport").addEventListener("click", openHistory);
+$("showPal").addEventListener("click", () => { if (MODE !== "stock") setMode("stock"); OPEN === "__PAL" ? closePanel() : openZone("__PAL"); });
 $("optBadges").addEventListener("change", e => document.body.classList.toggle("nobadges", !e.target.checked));
+/* console / test handle */
+window.WPLAN = {S, els, openZone, closePanel, render, nid, closeDialog, afterStockChange, get COUNTS(){ return COUNTS; }, get LOG(){ return LOG; }, get dlgOpen(){ return dlg.open; }};
 
 /* ====================== boot ====================== */
 const hadSave = load();
@@ -1961,15 +2226,16 @@ $("newSwatches").addEventListener("click", e => {
   S.newHue = +b.dataset.h;
   [...$("newSwatches").children].forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.h === S.newHue)));
 });
-loadTR();
-const hadInv = loadInvCache();
+const hadStock = loadStock(); loadCatCache();
 let savedMode = "stock"; try{ savedMode = localStorage.getItem(LS_MODE) || "stock"; }catch(e){}
 applyFieldSize();
 setMode(savedMode);                 // renders
 refreshUndoBtns();
 refreshInvPill();
-if (hadInv) setInvStat("Copy from " + hhmm(INV.at) + " — refreshing…");
-syncInventory(false);
+if (hadStock) setInvStat("Last saved copy from " + hhmm(hadStock) + " — connecting…");
+buildHoldings(); paintStock();
+connectDB();
+loadCatalog().then(afterStockChange).catch(() => {});
 flagSaved(hadSave ? "restored" : "saved");
 requestAnimationFrame(() => { if (!hadSave) fitZoom(); });
 
