@@ -359,6 +359,7 @@ dialog.wide{max-width:min(900px,95vw)}
   <span class="pill opt">islands <b id="hdIslands">0</b></span>
   <span class="pill opt">cells <b id="hdCells">0</b></span>
   <span class="pill" id="hdInv" title="Locations come live from the inventory count">count data —</span>
+  <span class="pill" id="hdPlan" title="Is this floor plan shared with the other devices?">plan …</span>
   <span class="pill" id="hdOverlap">—</span>
 </header>
 
@@ -376,6 +377,15 @@ dialog.wide{max-width:min(900px,95vw)}
         <input type="text" id="findItem" style="margin-top:12px" placeholder="Find a product — name or barcode…">
         <div class="find-res" id="findRes" hidden></div>
         <label class="toggle" style="margin-top:6px"><input type="checkbox" id="optBadges" checked> Show product counts on islands</label>
+      </section>
+
+      <section class="block" id="planBlock">
+        <h2>Floor plan · shared</h2>
+        <p class="invstat" id="planStat" style="margin:0 0 10px">Connecting…</p>
+        <div class="btn-grid">
+          <button class="btn" style="grid-column:1/-1" id="planShare" title="Replace the shared plan with the one on this screen — every device gets it">⤴ Share this device's plan</button>
+          <button class="btn" style="grid-column:1/-1" id="planLoad" title="Throw away this screen's plan and load the shared one">⤵ Load shared plan</button>
+        </div>
       </section>
 
       <section class="block">
@@ -2336,7 +2346,17 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-function setSyncState(t){ flagSaved(t); }
+const PLAN_BUILD = "2026-09-29c · shared floor plan";
+let planErr = "";
+function setSyncState(t){
+  flagSaved(t);
+  const el = $("planStat"); if (!el) return;
+  const ok = PR && planReady && !/offline|NOT/.test(t);
+  el.classList.toggle("err", !ok && !/connecting|saving/.test(t));
+  el.innerHTML = (ok ? "● " : "") + esc(t) + " · " + S.islands.length + " islands" + (planErr ? "<br>" + esc(planErr) : "") +
+    "<br><span style=\"color:var(--faint)\">build " + PLAN_BUILD + "</span>";
+  const pill = $("hdPlan"); if (pill){ pill.textContent = ok ? "plan synced" : (/connecting|saving/.test(t) ? "plan " + t : "plan NOT shared"); pill.className = "pill" + (ok || /connecting|saving/.test(t) ? "" : " alert"); }
+}
 
 /* local edits → only the islands that changed since the last sync */
 function pushPlan(){
@@ -2352,13 +2372,15 @@ function pushPlan(){
   if (!Object.keys(up).length) return;
   up.meta = {at:Date.now(), by:who() || ""};
   setSyncState("saving…");
-  PR.update(up).then(() => { markSynced(); setSyncState("synced"); }).catch(e => setSyncState("NOT synced — " + e.message));
+  PR.update(up).then(() => { planErr = ""; markSynced(); setSyncState("synced"); }).catch(e => { planErr = e.message; setSyncState("NOT synced"); });
 }
 function markSynced(){ try{ const d = JSON.parse(localStorage.getItem(KEY) || "{}"); d.syncedAt = Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
 function uploadWholePlan(){
   const isl = {}; S.islands.forEach(it => { isl[it.id] = planPayload(it); });
   planSynced = new Map(S.islands.map(it => [it.id, planJ(it)])); planField = JSON.stringify({cols:S.cols, rows:S.rows});
-  return PR.set({field:{cols:S.cols, rows:S.rows}, islands:isl, meta:{at:Date.now(), by:who() || ""}}).then(() => { markSynced(); setSyncState("synced"); });
+  return PR.set({field:{cols:S.cols, rows:S.rows}, islands:isl, meta:{at:Date.now(), by:who() || ""}})
+    .then(() => { planErr = ""; markSynced(); setSyncState("synced"); })
+    .catch(e => { planErr = e.message; setSyncState("NOT synced"); });
 }
 
 /* someone else's edits → into this screen, keeping what is being edited here */
@@ -2430,8 +2452,19 @@ function connectPlan(){
     if (!planReady) return;
     if (!d || !d.islands){ uploadWholePlan(); return; }                // wiped — put ours back
     adoptRemote(d);
-  }, e => setSyncState("offline — saved on this device only"));
+  }, e => { planErr = "Database error: " + (e && e.message || e); setSyncState("offline — saved on this device only"); });
 }
+$("planShare").addEventListener("click", () => {
+  if (!PR){ toast("Not connected to the database"); return; }
+  if (!confirm("Replace the SHARED floor plan with the plan on this screen (" + S.islands.length + " islands)?\nEvery device will switch to it.")) return;
+  planReady = true; uploadWholePlan().then(() => toast("This plan is now the shared one"));
+});
+$("planLoad").addEventListener("click", () => {
+  if (!PR){ toast("Not connected to the database"); return; }
+  if (!confirm("Load the shared floor plan? Unshared changes on this screen are discarded.")) return;
+  PR.once("value").then(s => { const d = s.val(); if (!d || !d.islands){ toast("No shared plan yet — use “Share this device's plan”"); return; }
+    planReady = true; planSynced = new Map(); S.islands = []; S.sel.clear(); adoptRemote(d); render(); markSynced(); toast("Shared plan loaded"); });
+});
 document.addEventListener("pointerup", () => { if (pendingRemote) setTimeout(() => { if (pendingRemote && !drag && !marquee) adoptRemote(pendingRemote); }, 60); });
 
 /* ====================== boot ====================== */
