@@ -462,7 +462,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-09-29 · inventory v3 · confirmed by variation';
+const BUILD = '2026-09-29b · inventory v3 · exact lines + variations in add/remove/transfer';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -834,9 +834,18 @@ function makeStockOps(env){
            local:{get(L,k), set(L,k,v), log(rec)}}   (local = offline fallback, optional) */
   const F = ['s','b','c','d'];
   const now = () => Date.now();
-  const sum = (a, b, sign) => { const o = {}; F.forEach(f => { o[f] = ((a && a[f]) || 0) + (sign || 1) * ((b && b[f]) || 0); }); return o; };
-  const neg = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = -d[f]; }); return o; };
-  const clean = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = d[f]; }); return o; };
+  /* a line / a change: {s,b,c,d, cv:{variationKey:n}} — cv is the part of c
+     whose variation is known; c − Σcv = confirmed with no variation noted */
+  const cvSum = cv => cv ? Object.values(cv).reduce((a, x) => a + (+x || 0), 0) : 0;
+  const sum = (a, b, sign) => { const o = {}; sign = sign || 1;
+    F.forEach(f => { o[f] = ((a && a[f]) || 0) + sign * ((b && b[f]) || 0); });
+    const cv = {}; [a && a.cv, b && b.cv].forEach((m, i) => { if (m) for (const x in m){ cv[x] = (cv[x] || 0) + (i ? sign : 1) * (+m[x] || 0); } });
+    for (const x in cv) if (!cv[x]) delete cv[x];
+    if (Object.keys(cv).length) o.cv = cv; return o; };
+  const neg = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = -d[f]; });
+    if (d && d.cv){ const cv = {}; for (const x in d.cv) if (d.cv[x]) cv[x] = -d.cv[x]; if (Object.keys(cv).length) o.cv = cv; } return o; };
+  const clean = d => { const o = {}; F.forEach(f => { if (d && d[f]) o[f] = d[f]; });
+    if (d && d.cv){ const cv = {}; for (const x in d.cv) if (+d.cv[x]) cv[x] = +d.cv[x]; if (Object.keys(cv).length) o.cv = cv; } return o; };
   const isZero = v => F.every(f => !((v && v[f]) || 0));
   const unitsD = (k, d) => ((d && d.s) || 0) * env.q(k) + ((d && d.b) || 0) + ((d && d.c) || 0) + ((d && d.d) || 0);
 
@@ -878,8 +887,12 @@ function makeStockOps(env){
     const base = cur || {s:0, b:0, c:0, d:0, n:env.name(k), a0:now()};
     const v = sum(base, delta);
     if (F.some(f => v[f] < 0)) return undefined;
+    if (v.cv && (Object.values(v.cv).some(x => x < 0) || cvSum(v.cv) > (v.c || 0))) return undefined;
     if (isZero(v)) return null;
-    return Object.assign({}, base, v, {n:base.n || env.name(k), by:env.who(), at:now()});
+    const o = Object.assign({}, base, v, {n:base.n || env.name(k), by:env.who(), at:now()});
+    if (!v.cv) delete o.cv;
+    if (delta && delta.cv) delete o.cvx;      // an exact variation change keeps the split right
+    return o;
   }
   const applyDelta = (L, k, delta) => tx(L, k, cur => { const nv = withDelta(k, cur, delta); return nv === undefined ? null : {next:nv}; });
   async function log(rec){
@@ -893,10 +906,19 @@ function makeStockOps(env){
   const posInt = (x, what) => { const n = Math.floor(+x); need(n >= 1, 'Enter ' + (what || 'a quantity') + ' of at least 1'); return n; };
 
   return {
-    planTake, unitsD, neg, clean, log,
-    /* move units between two places */
-    async transfer(k, from, to, qty){
-      qty = posInt(qty); need(from && to, 'Choose both places'); need(from !== to, 'That is the same place');
+    planTake, unitsD, neg, clean, log, cvSum,
+    /* move stock between two places — what = {s,b,c,d,cv} (exact lines and
+       variations), or a number of units (taken automatically) */
+    async transfer(k, from, to, what){
+      need(from && to, 'Choose both places'); need(from !== to, 'That is the same place');
+      if (what && typeof what === 'object'){
+        const d = clean(what); need(!isZero(d), 'Enter what to move');
+        const a = await applyDelta(from, k, neg(d)); need(a, 'Not that much of it in ' + from);
+        const b = await applyDelta(to, k, d);
+        if (!b){ await applyDelta(from, k, d); throw new Error('Could not write to ' + to); }
+        return log({type:'transfer', k, n:env.name(k), from, to, qty:unitsD(k, d), d:{[from]:neg(d), [to]:d}});
+      }
+      let qty = posInt(what);
       const q = env.q(k);
       const a = await tx(from, k, cur => {
         if (!cur) return null; const p = planTake(cur, qty, q); if (!p) return null;
@@ -911,14 +933,20 @@ function makeStockOps(env){
     },
     /* new stock on a place: comp = {s,b,c,d} to add */
     async add(k, L, comp, reason, note){
-      const d = clean(comp); need(!isZero(d) && F.every(f => (d[f] || 0) >= 0), 'Enter what to add');
+      const d = clean(comp); need(!isZero(d) && F.every(f => (d[f] || 0) >= 0) && (!d.cv || cvSum(d.cv) <= (d.c || 0)), 'Enter what to add');
       need(reason, 'Choose a reason');
       const r = await applyDelta(L, k, d); need(r, 'Could not add to ' + L);
       return log({type:'add', k, n:env.name(k), loc:L, qty:unitsD(k, d), d:{[L]:d}, reason, note});
     },
-    /* take stock off a place: qty = number of units, or 'all' */
-    async remove(k, L, qty, reason, note){
+    /* take stock off a place: what = {s,b,c,d,cv} (exact), a number of units, or 'all' */
+    async remove(k, L, what, reason, note){
       need(reason, 'Choose a reason');
+      if (what && typeof what === 'object'){
+        const d = clean(what); need(!isZero(d), 'Enter what to remove');
+        const r = await applyDelta(L, k, neg(d)); need(r, 'Not that much of it in ' + L);
+        return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, d), d:{[L]:neg(d)}, reason, note});
+      }
+      let qty = what;
       const q = env.q(k); const all = qty === 'all'; if (!all) qty = posInt(qty);
       const r = await tx(L, k, cur => {
         if (!cur) return null;
@@ -961,8 +989,16 @@ function makeStockOps(env){
 const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', count:'✎ Count', status:'✓ Status'};
 function histChange(rec, q){
   const parts = [];
-  const fmtD = d => ['s','b','c','d'].filter(f => d && d[f]).map(f => (d[f] > 0 ? '+' : '') + d[f] + ' ' + ({s:'case', b:'box', c:'conf', d:'dmg'}[f])).join(' ');
-  if (rec.type === 'transfer') parts.push(rec.qty + ' u · ' + rec.from + ' → ' + rec.to);
+  const lbl = x => (typeof histVarLabel === 'function' ? histVarLabel(rec.k, x) : x);
+  const sg = n => (n > 0 ? '+' : '') + n;
+  const fmtD = (d, abs) => {
+    const out = ['s','b','d'].filter(f => d && d[f]).map(f => (abs ? Math.abs(d[f]) : sg(d[f])) + ' ' + ({s:'case', b:'box', d:'dmg'}[f]));
+    if (d && d.c){ const cv = d.cv || {}; const known = Object.values(cv).reduce((a, x) => a + x, 0);
+      Object.keys(cv).forEach(x => out.push((abs ? Math.abs(cv[x]) : sg(cv[x])) + ' ' + lbl(x)));
+      if (d.c - known) out.push((abs ? Math.abs(d.c - known) : sg(d.c - known)) + ' conf'); }
+    return out.join(' ');
+  };
+  if (rec.type === 'transfer') parts.push(rec.qty + ' u' + (rec.d && rec.d[rec.to] ? ' (' + fmtD(rec.d[rec.to], true) + ')' : '') + ' · ' + rec.from + ' → ' + rec.to);
   else if (rec.type === 'count'){ if (rec.f) parts.push(({s:'Case', b:'Boxes', c:'Confirmed', d:'Damaged'}[rec.f] || rec.f) + ' ' + (rec.old || 0) + ' → ' + (rec.val || 0)); if (rec.note) parts.push(rec.note); }
   else if (rec.type === 'status') parts.push(rec.note || '');
   else if (rec.d){ for (const L in rec.d) parts.push(fmtD(rec.d[L])); if (rec.qty) parts.push('(' + (rec.undoOf ? 'undo ' : (rec.type === 'remove' ? '−' : (rec.type === 'add' ? '+' : ''))) + rec.qty + ' u)'); }
@@ -990,7 +1026,7 @@ const OPS = makeStockOps({
    “＋ Add stock” button and the Locations tab.
    ============================================================ */
 const ACT_TABS=[['add','＋ Add'],['remove','− Remove'],['open','📦 Open case'],['transfer','⇄ Transfer']];
-function openActions(k, L0, tab){
+function openActions(k, L0, tab, toPre){
   const places=whereIs(k).filter(x=>x.u>0);
   let L=locKey(L0 || (places[0]&&places[0].L) || CUR || '');
   const cellAt=()=> (COUNTS[L]&&COUNTS[L][k]) || null;
@@ -1007,7 +1043,7 @@ function openActions(k, L0, tab){
     '<div id="acFix"></div>'+
   '</div></div>';
   const here=()=>{ const v=cellAt();
-    $('#acHere').innerHTML = v ? ('Here now: <b>'+fmt(units(k,v))+'</b> units — '+[v.s?v.s+' case':'',v.b?v.b+' box':'',v.d?v.d+' dmg':'',v.c?v.c+' conf':''].filter(Boolean).join(' · ')) :
+    $('#acHere').innerHTML = v ? ('Here now: <b>'+fmt(units(k,v))+'</b> units — '+[v.s?v.s+' case':'',v.b?v.b+' box':'',v.d?v.d+' dmg':'',v.c?v.c+' conf':''].filter(Boolean).join(' · ')+(v.cv?' <span style="color:var(--info)">('+esc(cvText(k,v))+')</span>':'')) :
       (L ? 'Not on '+esc(L)+' yet'+(locOf(L)?'':' · <span style="color:var(--warn)">not in the Location tab</span>') : 'Choose a location');
     const st=L && shelfState(L);
     $('#acFix').innerHTML = (v && st && st!=='done') ? '<p class="mini" style="margin-top:12px">Counting mistake? <button class="btn sm ghost" id="acDel">Delete this line</button> (logged as a count edit, no reason needed)</p>' : '';
@@ -1015,61 +1051,80 @@ function openActions(k, L0, tab){
   };
   const reasonSel=(list)=>'<div class="fld"><label>Reason</label><select id="acR" class="gsel">'+list.map(r=>'<option>'+r+'</option>').join('')+'</select>'+
     '<input id="acN" class="tinput" style="margin-top:6px" placeholder="Details — required for “Other”" autocomplete="off"></div>';
-  const numIn=(id,l,v)=>'<div class="qcell" style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px"><div class="mini" style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700">'+l+'</div>'+
-    '<input id="'+id+'" class="qi" inputmode="numeric" value="'+(v||0)+'" autocomplete="off"></div>';
+  /* the exact lines to add / take: Case · Boxes · Damaged · Confirmed by variation */
+  function editor(take){
+    const v=cellAt()||{}; const vars=varsOf(k).slice();
+    Object.keys(v.cv||{}).forEach(x=>{ if(!vars.some(y=>y.key===x)) vars.push({key:x,label:x}); });
+    const un=Math.max(0,(v.c||0)-OPS.cvSum(v.cv));
+    const rows=[['s','Case',v.s||0],['b','Boxes',v.b||0],['d','Damaged',v.d||0]];
+    const cvRows = vars.length ? vars.map(x=>['v_'+x.key, x.label, (v.cv&&v.cv[x.key])||0, x.key]).concat([['u','Confirmed — no variation', un]]) : [['c','Confirmed',v.c||0]];
+    const line=([id,label,max])=> (take && !max) ? '' :
+      '<label class="cvrow"><span>'+esc(label)+(take?'<small>here: '+max+'</small>':'')+'</span><span class="rcq"><button class="step" data-m="'+id+'" tabindex="-1">−</button>'+
+      '<input class="qi" id="ce_'+id+'" data-max="'+(take?max:'')+'" inputmode="numeric" value="0" autocomplete="off"><button class="step" data-p="'+id+'" tabindex="-1">+</button></span></label>';
+    const a=rows.map(line).join(''), b=cvRows.map(line).join('');
+    if(take && !a && !b) return '<div class="empty" style="margin-top:12px">Nothing here to take.</div>';
+    return '<div class="cvgrid">'+a+(vars.length&&b?'<div class="mini" style="margin:6px 2px 0">Confirmed by variation</div>':'')+b+'</div>'+
+      (take?'<div class="rcrow" style="margin-top:6px"><button class="btn sm ghost" id="ceAll" type="button">Everything here</button></div>':'')+
+      '<div class="sumline"><span class="mini">'+(take?'Units':'Adds')+'</span><b id="ceSum">0</b></div>';
+  }
+  function readComp(){
+    const g=id=>{ const i=$('#ce_'+id); return i?Math.max(0,int(i.value)):0; };
+    const o={s:g('s'), b:g('b'), d:g('d')}; const cv={};
+    $$('#acBody input[id^="ce_v_"]').forEach(i=>{ const n=Math.max(0,int(i.value)); if(n) cv[i.id.slice(5)]=n; });
+    const known=Object.values(cv).reduce((a,x)=>a+x,0);
+    o.c = $('#ce_c') ? g('c') : known+g('u');
+    if(known) o.cv=cv;
+    return o;
+  }
+  function wireEditor(){
+    const ins=$$('#acBody input.qi');
+    const upd=()=>{ const c=readComp(); const s=$('#ceSum'); if(s) s.textContent=(tab==='add'?'+':'')+(c.s*qOf(k)+c.b+c.d+c.c); };
+    ins.forEach((i,idx)=>{ i.addEventListener('focus',()=>i.select());
+      i.addEventListener('input',()=>{ i.value=i.value.replace(/[^0-9]/g,''); if(i.dataset.max!=='' && int(i.value)>int(i.dataset.max)) i.value=i.dataset.max; upd(); });
+      i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); if(idx<ins.length-1 && !(e.ctrlKey||e.metaKey)) ins[idx+1].focus(); else go(); } }); });
+    $$('#acBody [data-p]').forEach(b=>b.onclick=()=>{ const i=$('#ce_'+b.dataset.p); let n=int(i.value)+1; if(i.dataset.max!=='') n=Math.min(n,int(i.dataset.max)); i.value=n; upd(); });
+    $$('#acBody [data-m]').forEach(b=>b.onclick=()=>{ const i=$('#ce_'+b.dataset.m); i.value=Math.max(0,int(i.value)-1); upd(); });
+    const all=$('#ceAll'); if(all) all.onclick=()=>{ ins.forEach(i=>{ if(i.dataset.max!=='') i.value=i.dataset.max; }); upd(); };
+    upd();
+  }
   function draw(){
     $$('#acTabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===tab));
     const v=cellAt(); const q=qOf(k); let h='';
-    if(tab==='add'){
-      h='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">'+numIn('acS','Case')+numIn('acB','Boxes')+numIn('acD','Damaged')+numIn('acC','Confirmed')+'</div>'+
-        '<div class="mini" id="acPrev" style="margin-top:6px"></div>'+reasonSel(REASONS_ADD);
-      $('#acGo').textContent='Add';
-    } else if(tab==='remove'){
-      const u=v?units(k,v):0;
-      h='<div class="fld"><label>How much</label><div class="rcrow">'+
-          '<label class="chip" style="cursor:pointer"><input type="radio" name="acAll" value="qty" checked> Units:</label>'+
-          '<input id="acQ" class="tinput" inputmode="numeric" style="max-width:120px;min-width:0" value="1">'+
-          '<label class="chip" style="cursor:pointer"><input type="radio" name="acAll" value="all"> Everything ('+u+' u)</label></div>'+
-          '<div class="mini" style="margin-top:4px">Units are taken as: whole cases first, then boxes, confirmed, one case opened if needed, damaged last.</div></div>'+
-        reasonSel(REASONS_REMOVE);
-      $('#acGo').textContent='Remove';
-    } else if(tab==='open'){
+    if(tab==='add'){ h=editor(false)+reasonSel(REASONS_ADD); $('#acGo').textContent='Add'; }
+    else if(tab==='remove'){ h=editor(true)+reasonSel(REASONS_REMOVE); $('#acGo').textContent='Remove'; }
+    else if(tab==='open'){
       const s=v?(v.s||0):0;
       h='<div class="fld"><label>Cases to open — '+s+' here</label><input id="acCases" class="tinput" inputmode="numeric" value="'+(s?1:0)+'"></div>'+
         '<div class="fld"><label>Put the units into</label><select id="acInto" class="gsel"><option value="b">Boxes</option><option value="c">Confirmed</option></select></div>'+
         '<div class="mini" id="acPrev" style="margin-top:8px"></div>';
       $('#acGo').textContent='Open case';
     } else {
-      const u=v?units(k,v):0;
-      h='<div class="fld"><label>To</label><input id="acTo" class="tinput" list="acLocs" placeholder="S-01-2, R-09, PL-003 …" autocomplete="off" spellcheck="false"></div>'+
-        '<div class="fld"><label>Units — up to '+u+'</label><input id="acQ" class="tinput" inputmode="numeric" value="'+u+'"></div>';
+      h='<div class="fld"><label>To</label><input id="acTo" class="tinput" list="acLocs" placeholder="S-01-2, R-09, PL-003 …" autocomplete="off" spellcheck="false" value="'+esc(toPre||'')+'"></div>'+editor(true);
       $('#acGo').textContent='Move';
     }
     $('#acBody').innerHTML=h;
-    const prev=()=>{ const p=$('#acPrev'); if(!p) return;
-      if(tab==='add'){ const u=int($('#acS').value)*q+int($('#acB').value)+int($('#acD').value)+int($('#acC').value); p.textContent='+'+u+' units'; }
-      if(tab==='open'){ const n=int($('#acCases').value); const into=$('#acInto').value==='c'?'confirmed':'boxes'; p.textContent=n?('−'+n+' case → +'+(n*q)+' '+into+' (1 case = '+q+')'):''; } };
-    $$('#acBody input, #acBody select').forEach(i=>{ i.addEventListener('input',prev); i.addEventListener('change',prev);
-      i.addEventListener('focus',()=>{ if(i.select) i.select(); });
-      i.addEventListener('keydown',e=>{ if(e.key==='Enter' && i.id!=='acN'){ e.preventDefault(); go(); } }); });
-    prev();
-    const f=$('#acBody input'); if(f) setTimeout(()=>f.focus(),40);
+    if(tab==='open'){
+      const prev=()=>{ const n=int($('#acCases').value); const into=$('#acInto').value==='c'?'confirmed':'boxes'; $('#acPrev').textContent=n?('−'+n+' case → +'+(n*q)+' '+into+' (1 case = '+q+')'):''; };
+      ['acCases','acInto'].forEach(id=>{ $('#'+id).addEventListener('input',prev); $('#'+id).addEventListener('change',prev); });
+      $('#acCases').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } });
+      prev();
+    } else wireEditor();
+    const f = tab==='transfer' && !toPre ? $('#acTo') : $('#acBody input'); if(f) setTimeout(()=>{ f.focus(); if(f.select) f.select(); },40);
   }
   async function go(){
     L=locKey($('#acLoc').value);
     if(!L){ toast('Choose a location','warn'); $('#acLoc').focus(); return; }
     const reason=()=>{ const r=$('#acR').value, n=$('#acN').value.trim(); if(r==='Other' && !n){ toast('Describe the reason for “Other”','warn'); $('#acN').focus(); return null; } return {r, n}; };
-    const btn=$('#acGo'); btn.disabled=true;
+    const btn=$('#acGo'); if(btn.disabled) return; btn.disabled=true;
     try{
       if(tab==='add'){
         const rs=reason(); if(!rs){ btn.disabled=false; return; }
         if(!locOf(L) && !confirm(L+' is not in the Location tab. Add there anyway?')){ btn.disabled=false; return; }
-        await OPS.add(k, L, {s:int($('#acS').value), b:int($('#acB').value), d:int($('#acD').value), c:int($('#acC').value)}, rs.r, rs.n);
+        await OPS.add(k, L, readComp(), rs.r, rs.n);
         toast('Added to '+L+' · '+rs.r,'ok');
       } else if(tab==='remove'){
         const rs=reason(); if(!rs){ btn.disabled=false; return; }
-        const all=document.querySelector('input[name=acAll]:checked').value==='all';
-        await OPS.remove(k, L, all?'all':int($('#acQ').value), rs.r, rs.n);
+        await OPS.remove(k, L, readComp(), rs.r, rs.n);
         toast('Removed from '+L+' · '+rs.r,'ok');
       } else if(tab==='open'){
         await OPS.openCase(k, L, int($('#acCases').value), $('#acInto').value);
@@ -1078,17 +1133,19 @@ function openActions(k, L0, tab){
         const to=locKey($('#acTo').value);
         if(!to){ toast('Choose where to move it','warn'); btn.disabled=false; $('#acTo').focus(); return; }
         if(!locOf(to) && !confirm(to+' is not in the Location tab. Move there anyway?')){ btn.disabled=false; return; }
-        await OPS.transfer(k, L, to, int($('#acQ').value));
-        toast('Moved '+int($('#acQ').value)+' × '+nameOf(k)+' · '+L+' → '+to,'ok',3000);
+        const c=readComp();
+        await OPS.transfer(k, L, to, c);
+        toast('Moved '+(c.s*qOf(k)+c.b+c.d+c.c)+' × '+nameOf(k)+' · '+L+' → '+to,'ok',3000);
       }
       beep('ok'); closeModal();
     }catch(e){ btn.disabled=false; beep('err'); toast(e.message,'err',4200); }
   }
   $$('#acTabs button').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; draw(); });
-  $('#acLoc').addEventListener('input',()=>{ L=locKey($('#acLoc').value); here(); draw(); });
+  $('#acLoc').addEventListener('change',()=>{ L=locKey($('#acLoc').value); here(); draw(); });
   $('#acGo').onclick=go; $('#acX').onclick=closeModal;
   here(); draw();
 }
+function histVarLabel(k,x){ return varLabel(k,x); }
 /* “＋ Add stock” on a shelf: pick the product first */
 function addStockHere(){ if(!CUR) return; openBrowse('', false, k=>openActions(k, CUR, 'add')); }
 
