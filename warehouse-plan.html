@@ -1576,10 +1576,13 @@ function parseCSV(text){
   if (cur !== "" || row.length){ row.push(cur); rows.push(row); }
   return rows;
 }
+let VARL = new Map();          // clean(name) -> {variationKey: label}
 function indexCatalog(){
-  CATIDX = new Map();
+  CATIDX = new Map(); VARL = new Map();
   for (const p of CAT.items){
     const bcs = String(p.barcode || "").split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+    const va = String(p.variation || "").trim();
+    if (va && nrm(va) !== "default"){ const m = VARL.get(cln(p.name)) || {}; m[cln(va) || ("v" + va.length)] = va; VARL.set(cln(p.name), m); }
     [cln(p.name), cln(p.name + p.variation)].forEach(key => {
       if (!key) return;
       const e = CATIDX.get(key) || {image:"", barcodes:[]};
@@ -1683,15 +1686,26 @@ function makeStockOps(env){
     if (left > 0){ x = Math.min(src.d, left); src.d -= x; mv.d += x; left -= x; }
     return left > 0 ? null : {src, mv, broke};
   }
+  /* Confirmed may be split by variation (cv = {variationKey: qty}). When stock
+     leaves the Confirmed column, the split can no longer be right: it is cut
+     down to fit (largest variations first) and flagged cvx = “recheck”. */
+  function fitCv(v){
+    if (!v || !v.cv) return v;
+    const cv = Object.assign({}, v.cv); let over = Object.values(cv).reduce((a, b) => a + (+b || 0), 0) - (v.c || 0);
+    if (over <= 0) return v;
+    Object.keys(cv).sort((a, b) => cv[b] - cv[a]).forEach(x => { if (over <= 0) return; const t = Math.min(cv[x], over); cv[x] -= t; over -= t; if (!cv[x]) delete cv[x]; });
+    const o = Object.assign({}, v, {cvx:true}); if (Object.keys(cv).length) o.cv = cv; else delete o.cv;
+    return o;
+  }
   /* one line in a transaction: fn(cur) -> {next, ...info} | null (abort) */
   async function tx(L, k, fn){
     const R = env.ref();
     if (!R){
       if (!env.local) throw new Error('Not connected to the live database');
-      const r = fn(env.local.get(L, k)); if (!r) return null; env.local.set(L, k, r.next); return r;
+      const r = fn(env.local.get(L, k)); if (!r) return null; r.next = fitCv(r.next); env.local.set(L, k, r.next); return r;
     }
     let info = null;
-    const res = await R.child('counts/' + L + '/' + k).transaction(cur => { const r = fn(cur); if (!r){ info = null; return; } info = r; return r.next; });
+    const res = await R.child('counts/' + L + '/' + k).transaction(cur => { const r = fn(cur); if (!r){ info = null; return; } r.next = fitCv(r.next); info = r; return r.next; });
     return res.committed ? info : null;
   }
   function withDelta(k, cur, delta){
@@ -1993,11 +2007,17 @@ function rowHTML(r){
   const net = moved.reduce((a, t) => a + (t.to === r.loc ? t.qty : -t.qty), 0);
   const v = COUNTS[r.loc] && COUNTS[r.loc][r.k] || {};
   const parts = [v.s ? v.s + " case" : "", v.b ? v.b + " box" : "", v.d ? v.d + " dmg" : "", v.c ? v.c + " conf" : ""].filter(Boolean).join(" · ");
+  let cvt = "";
+  if (v.cv){ const lbl = VARL.get(cln(nameOf(r.k))) || {};
+    const ps = Object.keys(v.cv).filter(x => v.cv[x] > 0).map(x => (lbl[x] || x) + " " + v.cv[x]);
+    const un = (v.c || 0) - Object.values(v.cv).reduce((a, b) => a + (+b || 0), 0); if (un > 0) ps.push("unspecified " + un);
+    cvt = ps.join(" · ") + (v.cvx ? " · recheck" : ""); }
   return `<div class="irow${r.qty <= 0 ? " zero" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
     <span class="grip" title="Drag to move">⠿</span>
     <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
     <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
-      <div class="vr">${esc(parts)}${net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div></div>
+      <div class="vr">${esc(parts)}${net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div>${
+      cvt ? `<div class="vr" style="color:var(--info)">✓ ${esc(cvt)}</div>` : ""}</div>
     <div class="q" title="Units here (case × ${qOf(r.k)} + boxes + damaged + confirmed)">${fmtN(r.qty)}<small>units</small></div>
   </div>`;
 }

@@ -186,6 +186,20 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .rm{background:none; border:none; color:var(--muted); font-size:15px; padding:6px; border-radius:7px}
 .rm:hover{color:var(--err); background:#1f1417}
 .qlab{display:none}
+.qi.cvq{cursor:pointer; border-style:dashed; border-color:#3a4a5f}
+.qi.cvq:hover{border-color:var(--info)}
+.cvadd{display:block; width:100%; margin-top:3px; background:none; border:none; color:var(--info); font-size:10.5px; font-weight:600; padding:0; white-space:nowrap}
+.cvadd:hover{text-decoration:underline}
+.ns.cvl{color:var(--info)} .ns.cvl:empty{display:none}
+.cvgrid{display:flex; flex-direction:column; gap:6px; margin-top:12px; max-height:52vh; overflow:auto; padding-right:4px}
+.cvrow{display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--panel2); border:1px solid var(--border); border-radius:9px; padding:7px 10px; font-weight:600; font-size:14px}
+.cvrow small{display:block; font-weight:500; font-size:11px; color:var(--muted)}
+.cvrow.un{border-style:dashed}
+.rcq{display:flex; align-items:center; gap:5px}
+.rcq .qi{width:64px}
+.step{width:32px; height:32px; border-radius:8px; border:1.5px solid var(--line); background:var(--raised); color:var(--ink); font-size:18px; font-weight:700; line-height:1}
+.sumline{display:flex; justify-content:space-between; align-items:center; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 14px; margin-top:12px}
+.sumline b{font-family:var(--mono); font-size:22px; color:var(--accent)}
 
 /* ---------- tables ---------- */
 .tscroll{max-height:66vh; overflow:auto; border:1px solid var(--border); border-radius:var(--r); background:var(--panel); margin-top:12px}
@@ -448,7 +462,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-09-25b · inventory v3 · adjustments with reasons + history';
+const BUILD = '2026-09-29 · inventory v3 · confirmed by variation';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -557,7 +571,7 @@ function totalUnits(){ let u=0; for(const L in COUNTS) u+=shelfUnits(L); return 
 
 /* ---------------- indexes ---------------- */
 function buildIdx(){
-  IDX={bc:{}, img:{}, locBc:{}, nameKey:{}};
+  IDX={bc:{}, img:{}, locBc:{}, nameKey:{}, vars:{}};
   if(BASE && BASE.items){
     for(const k in BASE.items){ const c=clean(BASE.items[k].n); if(!IDX.nameKey[c]) IDX.nameKey[c]=k; }
   }
@@ -565,6 +579,12 @@ function buildIdx(){
     const k = IDX.nameKey[clean(p.name)] || IDX.nameKey[clean(p.name+p.variation)] || IDX.nameKey[clean(p.name+' '+p.variation)];
     if(!k) return;
     if(p.image && !IDX.img[k]) IDX.img[k]=p.image;
+    /* variations of the product (not Default, not a Case) — what “Confirmed” is made of */
+    const va=String(p.variation||'').trim();
+    if(IDX.nameKey[clean(p.name)]===k && va && norm(va)!=='default' && !/case/i.test(va)){
+      const vk=varKey(va); const list=(IDX.vars[k]=IDX.vars[k]||[]);
+      if(!list.some(x=>x.key===vk)) list.push({key:vk, label:va});
+    }
     String(p.barcode||'').split(/[,;\n\s]+/).map(clean).filter(Boolean).forEach(b=>{ IDX.bc[b]=k; });
   });
   for(const b in BIND){ if(itemOf(BIND[b])) IDX.bc[b]=BIND[b]; }
@@ -573,6 +593,17 @@ function buildIdx(){
   });
 }
 const imgOf = k => IDX.img[k] || IMG_PH;
+const varKey = s => clean(s) || ('v'+String(s||'').length);
+const varsOf = k => IDX.vars[k] || [];
+function varLabel(k, vk){ const x=varsOf(k).find(v=>v.key===vk); return x ? x.label : vk; }
+/* “love 2 · luck 4 · unspecified 1” */
+function cvText(k, v){
+  if(!v || !v.cv) return '';
+  const parts=Object.keys(v.cv).filter(x=>v.cv[x]>0).map(x=>varLabel(k,x)+' '+v.cv[x]);
+  const sp=Object.values(v.cv).reduce((a,b)=>a+(+b||0),0), un=(v.c||0)-sp;
+  if(un>0) parts.push('unspecified '+un);
+  return parts.join(' · ');
+}
 
 /* ============================================================
    FIREBASE
@@ -821,15 +852,26 @@ function makeStockOps(env){
     if (left > 0){ x = Math.min(src.d, left); src.d -= x; mv.d += x; left -= x; }
     return left > 0 ? null : {src, mv, broke};
   }
+  /* Confirmed may be split by variation (cv = {variationKey: qty}). When stock
+     leaves the Confirmed column, the split can no longer be right: it is cut
+     down to fit (largest variations first) and flagged cvx = “recheck”. */
+  function fitCv(v){
+    if (!v || !v.cv) return v;
+    const cv = Object.assign({}, v.cv); let over = Object.values(cv).reduce((a, b) => a + (+b || 0), 0) - (v.c || 0);
+    if (over <= 0) return v;
+    Object.keys(cv).sort((a, b) => cv[b] - cv[a]).forEach(x => { if (over <= 0) return; const t = Math.min(cv[x], over); cv[x] -= t; over -= t; if (!cv[x]) delete cv[x]; });
+    const o = Object.assign({}, v, {cvx:true}); if (Object.keys(cv).length) o.cv = cv; else delete o.cv;
+    return o;
+  }
   /* one line in a transaction: fn(cur) -> {next, ...info} | null (abort) */
   async function tx(L, k, fn){
     const R = env.ref();
     if (!R){
       if (!env.local) throw new Error('Not connected to the live database');
-      const r = fn(env.local.get(L, k)); if (!r) return null; env.local.set(L, k, r.next); return r;
+      const r = fn(env.local.get(L, k)); if (!r) return null; r.next = fitCv(r.next); env.local.set(L, k, r.next); return r;
     }
     let info = null;
-    const res = await R.child('counts/' + L + '/' + k).transaction(cur => { const r = fn(cur); if (!r){ info = null; return; } info = r; return r.next; });
+    const res = await R.child('counts/' + L + '/' + k).transaction(cur => { const r = fn(cur); if (!r){ info = null; return; } r.next = fitCv(r.next); info = r; return r.next; });
     return res.committed ? info : null;
   }
   function withDelta(k, cur, delta){
@@ -1285,23 +1327,34 @@ function rowHTML(L,k,locked){
   const sub = it ? ('1 case = '+q+' · expected '+fmt(it.e)+' in total') : 'not in tab '+esc(BASE.tab)+' — kept, not in totals';
   return '<div class="irow'+(it?'':' orph')+'" data-k="'+esc(k)+'">'+
     '<div class="inm"><img src="'+esc(imgOf(k))+'" onerror="this.src=\''+IMG_PH+'\'" loading="lazy"><div style="min-width:0"><div class="nm">'+esc(nameOf(k,v))+'</div>'+
-      '<div class="ns" data-sub>'+sub+(v.by?(' · '+esc(v.by)):'')+'</div></div></div>'+
-    FIELDS.map(([f,l])=>'<div><span class="qlab">'+l+'</span><input class="qi'+((v[f]||0)?'':' zero')+'" id="'+rid(k,f)+'" data-k="'+esc(k)+'" data-f="'+f+'" inputmode="numeric" autocomplete="off" value="'+(v[f]||0)+'"'+(locked?' disabled':'')+'></div>').join('')+
+      '<div class="ns" data-sub>'+sub+(v.by?(' · '+esc(v.by)):'')+'</div>'+
+      '<div class="ns cvl" data-cvl>'+cvLine(k,v)+'</div></div></div>'+
+    FIELDS.map(([f,l])=>{ const cvf = f==='c' && varsOf(k).length;
+      return '<div><span class="qlab">'+l+'</span><input class="qi'+((v[f]||0)?'':' zero')+(cvf?' cvq':'')+'" id="'+rid(k,f)+'" data-k="'+esc(k)+'" data-f="'+f+'"'+(cvf?' data-cv="1" readonly title="Click to enter the variations"':'')+' inputmode="numeric" autocomplete="off" value="'+(v[f]||0)+'"'+(locked?' disabled':'')+'>'+
+        (cvf && !locked?'<button class="cvadd" data-cvk="'+esc(k)+'" tabindex="-1">＋ variations</button>':'')+'</div>'; }).join('')+
     '<div class="tot" data-tot>'+fmt(units(k,v))+'<small>UNITS</small></div>'+
     '<button class="rm" data-act="'+esc(k)+'" title="Add · remove · open case · transfer">⋯</button>'+
   '</div>';
 }
+function cvLine(k,v){ const t=cvText(k,v); return t ? ('✓ '+esc(t)+(v.cvx?' <span style="color:var(--warn)">· recheck — stock moved since</span>':'')) : ''; }
 function patchRow(L,k){
   const row=document.querySelector('.irow[data-k="'+CSS.escape(k)+'"]'); const v=COUNTS[L]&&COUNTS[L][k]; if(!row||!v) return;
   FIELDS.forEach(([f])=>{ const i=document.getElementById(rid(k,f)); if(!i) return;
     if(i!==document.activeElement && int(i.value)!==(v[f]||0)) i.value=v[f]||0;
     i.classList.toggle('zero', !(v[f]||0) && i!==document.activeElement); });
   const t=row.querySelector('[data-tot]'); if(t) t.innerHTML=fmt(units(k,v))+'<small>UNITS</small>';
+  const cl=row.querySelector('[data-cvl]'); if(cl) cl.innerHTML=cvLine(k,v);
   patchShelfHead(L);
 }
 const wTimers={};
 function wireRows(L){
-  $$('#rows .qi').forEach(i=>{
+  $$('#rows .qi[data-cv]').forEach(i=>{
+    const open=()=>{ if(!i.disabled) openVariations(L, i.dataset.k); };
+    i.addEventListener('click',open);
+    i.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } if(e.key==='Escape'){ const q=$('#itemQ'); if(q) q.focus(); } });
+  });
+  $$('#rows [data-cvk]').forEach(b=>b.onclick=()=>openVariations(L,b.dataset.cvk));
+  $$('#rows .qi:not([data-cv])').forEach(i=>{
     const k=i.dataset.k, f=i.dataset.f, id=i.id;
     i.addEventListener('focus',()=>{ i.select(); i.classList.remove('zero'); });
     i.addEventListener('input',()=>{ i.value=i.value.replace(/[^0-9]/g,''); clearTimeout(wTimers[id]);
@@ -1315,13 +1368,54 @@ function wireRows(L){
       if(e.key==='Enter'||(e.key==='Tab'&&!e.shiftKey&&f==='c')){
         e.preventDefault(); clearTimeout(wTimers[id]); writeField(L,k,f,i.value);
         const idx=FIELDS.findIndex(x=>x[0]===f);
-        if(idx<FIELDS.length-1){ const n=document.getElementById(rid(k,FIELDS[idx+1][0])); if(n) n.focus(); }
+        if(idx<FIELDS.length-1){ const n=document.getElementById(rid(k,FIELDS[idx+1][0])); if(n && n.dataset.cv) openVariations(L,k); else if(n) n.focus(); }
         else { const q=$('#itemQ'); if(q) q.focus(); }
       }
       if(e.key==='Escape'){ const q=$('#itemQ'); if(q) q.focus(); }
     });
   });
   $$('#rows [data-act]').forEach(b=>b.onclick=()=>openActions(b.dataset.act, L));
+}
+/* Confirmed, split by variation. The total report still uses the plain
+   Confirmed number (= the sum); the split tells what is actually on the shelf. */
+function openVariations(L,k){
+  const v=(COUNTS[L]&&COUNTS[L][k]) || {}; const vars=varsOf(k); const cv=v.cv||{};
+  const sp=Object.values(cv).reduce((a,b)=>a+(+b||0),0); const un=Math.max(0,(v.c||0)-sp);
+  const extra=Object.keys(cv).filter(x=>!vars.some(y=>y.key===x));      // variations no longer in the catalog
+  const rows=vars.map(x=>({key:x.key,label:x.label,q:cv[x.key]||0})).concat(extra.map(x=>({key:x,label:x+' (not in catalog)',q:cv[x]})));
+  $('#modalHost').innerHTML='<div class="modal" id="cvModal"><div class="mbox">'+
+    '<div class="eyebrow">'+esc(L)+' · confirmed by variation</div><h2>'+esc(nameOf(k,v))+'</h2>'+
+    '<p class="sub">Enter how many of each variation are on this shelf. Confirmed = their sum.</p>'+
+    '<div class="cvgrid">'+rows.map((r,i)=>'<label class="cvrow"><span>'+esc(r.label)+'</span>'+
+      '<span class="rcq"><button class="step" data-m="'+i+'" tabindex="-1">−</button><input class="qi" id="cv_'+i+'" data-key="'+esc(r.key)+'" inputmode="numeric" value="'+r.q+'" autocomplete="off"><button class="step" data-p="'+i+'" tabindex="-1">+</button></span></label>').join('')+
+      '<label class="cvrow un"><span>Unspecified<small>confirmed, variation not noted</small></span><span class="rcq"><button class="step" data-m="u" tabindex="-1">−</button><input class="qi" id="cv_u" inputmode="numeric" value="'+un+'" autocomplete="off"><button class="step" data-p="u" tabindex="-1">+</button></span></label>'+
+    '</div>'+
+    '<div class="sumline"><span class="mini">Confirmed</span><b id="cvSum">0</b></div>'+
+    '<div class="rcrow" style="margin-top:16px"><button class="btn primary lg" id="cvGo" style="flex:1">Save</button><button class="btn ghost" id="cvX">Cancel</button></div>'+
+  '</div></div>';
+  const ins=$$('#cvModal input.qi');
+  const sum=()=>{ const s=ins.reduce((a,i)=>a+Math.max(0,int(i.value)),0); $('#cvSum').textContent=s; return s; };
+  ins.forEach((i,idx)=>{
+    i.addEventListener('focus',()=>i.select());
+    i.addEventListener('input',()=>{ i.value=i.value.replace(/[^0-9]/g,''); sum(); });
+    i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); if(e.ctrlKey||e.metaKey||idx===ins.length-1) save(); else ins[idx+1].focus(); } });
+  });
+  $$('#cvModal [data-p]').forEach(b=>b.onclick=()=>{ const i=$('#cv_'+b.dataset.p); i.value=int(i.value)+1; sum(); });
+  $$('#cvModal [data-m]').forEach(b=>b.onclick=()=>{ const i=$('#cv_'+b.dataset.m); i.value=Math.max(0,int(i.value)-1); sum(); });
+  function save(){
+    const cur=COUNTS[L]&&COUNTS[L][k]; if(!cur){ closeModal(); return; }
+    const ncv={}; ins.forEach(i=>{ if(i.id==='cv_u') return; const n=Math.max(0,int(i.value)); if(n) ncv[i.dataset.key]=n; });
+    const c=sum(); const old=cur.c||0; const oldTxt=cvText(k,cur);
+    cur.c=c; cur.cv=Object.keys(ncv).length?ncv:null; if(!cur.cv) delete cur.cv; delete cur.cvx; cur.by=WHO; cur.at=Date.now();
+    dbUpdate('counts/'+L+'/'+k, {c, cv:Object.keys(ncv).length?ncv:null, cvx:null, by:WHO, at:cur.at});
+    touchStatusOnEdit(L);
+    const nt=cvText(k,cur);
+    if(old!==c || oldTxt!==nt) OPS.log({type:'count', k, n:nameOf(k), loc:L, f:'c', old, val:c, note:nt?('variations: '+nt):'variations cleared'});
+    closeModal(); patchRow(L,k); beep('ok');
+    const n=document.getElementById(rid(k,'c')); if(n) setTimeout(()=>{ const q=$('#itemQ'); if(q) q.focus(); },80);
+  }
+  $('#cvGo').onclick=save; $('#cvX').onclick=closeModal;
+  sum(); setTimeout(()=>{ if(ins[0]) ins[0].focus(); },50);
 }
 function restoreQi(i,L,k,f){ const v=COUNTS[L]&&COUNTS[L][k]; i.value=v?(v[f]||0):0; const t=i.closest('.irow'); if(t) patchRow(L,k); }
 function focusRow(k, how){
@@ -1495,12 +1589,12 @@ function exportXlsx(){
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols']=[{wch:44},{wch:10},{wch:7},{wch:8},{wch:9},{wch:10},{wch:7},{wch:8},{wch:8},{wch:8},{wch:11},{wch:40}];
   XLSX.utils.book_append_sheet(wb,ws,'count '+BASE.tab);
-  const per=[['Location','Type','Status','Item','Qty / case','Case','Boxes','Damaged','Confirmed','Total','Counted by','Time']];
+  const per=[['Location','Type','Status','Item','Qty / case','Case','Boxes','Damaged','Confirmed','Confirmed by variation','Total','Counted by','Time']];
   allLocs().forEach(l=>{ const c=COUNTS[l.L]||{}; const st=STATE_LABEL[shelfState(l.L)];
     const ks=Object.keys(c); if(!ks.length){ per.push([l.id,l.type,st,'(empty)']); return; }
-    ks.forEach(k=>{ const v=c[k]; per.push([l.id,l.type,st,nameOf(k,v),qOf(k),v.s||0,v.b||0,v.d||0,v.c||0,units(k,v),v.by||'',v.at?new Date(v.at).toLocaleString():'']); }); });
+    ks.forEach(k=>{ const v=c[k]; per.push([l.id,l.type,st,nameOf(k,v),qOf(k),v.s||0,v.b||0,v.d||0,v.c||0,cvText(k,v),units(k,v),v.by||'',v.at?new Date(v.at).toLocaleString():'']); }); });
   const ws2=XLSX.utils.aoa_to_sheet(per);
-  ws2['!cols']=[{wch:10},{wch:14},{wch:15},{wch:44},{wch:9},{wch:6},{wch:7},{wch:8},{wch:9},{wch:7},{wch:14},{wch:20}];
+  ws2['!cols']=[{wch:10},{wch:14},{wch:15},{wch:44},{wch:9},{wch:6},{wch:7},{wch:8},{wch:9},{wch:34},{wch:7},{wch:14},{wch:20}];
   XLSX.utils.book_append_sheet(wb,ws2,'by location');
   XLSX.writeFile(wb,'inventory count '+BASE.tab+' '+fileStamp()+'.xlsx');
   toast('Exported — rows match tab '+BASE.tab+' one to one','ok',3200);
