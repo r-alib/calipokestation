@@ -551,7 +551,8 @@ function hueFor(label){
 const SWATCH_HUES = [214,264,302,344,24,48,152,188,2,210];
 
 let uid = 1;
-const nid = () => "i" + (uid++);
+/* ids must not clash between devices editing the same plan */
+const nid = () => "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + (uid++);
 
 function planIslands(){
   return PLAN.map(([label,x,y,w,h]) => ({
@@ -883,14 +884,20 @@ function refreshUndoBtns(){ $("undoBtn").disabled = !undoStack.length; $("redoBt
 
 /* ====================== persistence ====================== */
 let saveTimer = null;
-function save(){
+function saveLocal(){
   try{
+    let prev = {}; try{ prev = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){}
     localStorage.setItem(KEY, JSON.stringify({
       cols:S.cols, rows:S.rows, cell:S.cell, islands:S.islands,
-      inside:S.inside, collide:S.collide, labels:S.labels
+      inside:S.inside, collide:S.collide, labels:S.labels, savedAt:Date.now(), syncedAt:prev.syncedAt
     }));
-    flagSaved("saved");
-  }catch(e){ flagSaved("not saved in this browser"); }
+    return true;
+  }catch(e){ return false; }
+}
+function save(){
+  const ok = saveLocal();
+  if (typeof pushPlan === "function" && PR && planReady) pushPlan();
+  else flagSaved(ok ? "saved on this device" : "not saved in this browser");
 }
 function saveSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
 function flagSaved(t){ $("stSaved").textContent = t; }
@@ -2310,7 +2317,122 @@ $("openReport").addEventListener("click", openHistory);
 $("showPal").addEventListener("click", () => { if (MODE !== "stock") setMode("stock"); OPEN === "__PAL" ? closePanel() : openZone("__PAL"); });
 $("optBadges").addEventListener("change", e => document.body.classList.toggle("nobadges", !e.target.checked));
 /* console / test handle */
-window.WPLAN = {S, els, openZone, closePanel, render, nid, closeDialog, afterStockChange, get COUNTS(){ return COUNTS; }, get LOG(){ return LOG; }, get dlgOpen(){ return dlg.open; }};
+window.WPLAN = {S, els, openZone, closePanel, render, nid, closeDialog, afterStockChange, get COUNTS(){ return COUNTS; }, get LOG(){ return LOG; }, get planReady(){ return planReady; }, get dlgOpen(){ return dlg.open; }};
+
+/* =====================================================================
+   SHARED FLOOR PLAN
+   The layout lives in Firebase (packstation/floorPlan) so every device
+   sees the same plan and several people can edit it at once:
+     field          {cols, rows}
+     islands/<id>   {label, cx, cy, w, h, rot, hue, locked}
+     meta           {at, by}
+   Each island is its own record, so two people moving different islands
+   never overwrite each other. Zoom, labels, overlap checks and the other
+   view options stay per device.
+   ===================================================================== */
+const PLAN_PATH = "packstation/floorPlan";
+let PR = null, planReady = false, planSynced = new Map(), planField = "", pendingRemote = null, planMeta = null;
+const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, w:+it.w, h:+it.h, rot:+it.rot || 0,
+  hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
+const planJ = it => JSON.stringify(planPayload(it));
+function planSig(list){ return list.map(planJ).sort().join("|"); }
+function setSyncState(t){ flagSaved(t); }
+
+/* local edits → only the islands that changed since the last sync */
+function pushPlan(){
+  if (!PR || !planReady) return;
+  const up = {}; const seen = new Set();
+  for (const it of S.islands){
+    seen.add(it.id); const j = planJ(it);
+    if (planSynced.get(it.id) !== j){ up["islands/" + it.id] = planPayload(it); planSynced.set(it.id, j); }
+  }
+  for (const id of [...planSynced.keys()]) if (!seen.has(id)){ up["islands/" + id] = null; planSynced.delete(id); }
+  const f = JSON.stringify({cols:S.cols, rows:S.rows});
+  if (f !== planField){ up.field = {cols:S.cols, rows:S.rows}; planField = f; }
+  if (!Object.keys(up).length) return;
+  up.meta = {at:Date.now(), by:who() || ""};
+  setSyncState("saving…");
+  PR.update(up).then(() => { markSynced(); setSyncState("synced"); }).catch(e => setSyncState("NOT synced — " + e.message));
+}
+function markSynced(){ try{ const d = JSON.parse(localStorage.getItem(KEY) || "{}"); d.syncedAt = Date.now(); localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+function uploadWholePlan(){
+  const isl = {}; S.islands.forEach(it => { isl[it.id] = planPayload(it); });
+  planSynced = new Map(S.islands.map(it => [it.id, planJ(it)])); planField = JSON.stringify({cols:S.cols, rows:S.rows});
+  return PR.set({field:{cols:S.cols, rows:S.rows}, islands:isl, meta:{at:Date.now(), by:who() || ""}}).then(() => { markSynced(); setSyncState("synced"); });
+}
+
+/* someone else's edits → into this screen, keeping what is being edited here */
+function adoptRemote(d){
+  if (drag || marquee){ pendingRemote = d; return; }
+  pendingRemote = null;
+  planMeta = d.meta || null;
+  const remote = d.islands || {};
+  const local = new Map(S.islands.map(it => [it.id, it]));
+  /* islands changed here but not pushed yet win over the remote copy */
+  const dirty = new Set(S.islands.filter(it => planSynced.get(it.id) !== planJ(it)).map(it => it.id));
+  const deletedHere = new Set([...planSynced.keys()].filter(id => !local.has(id)));
+  const next = []; let changed = false;
+  for (const id of Object.keys(remote)){
+    if (deletedHere.has(id)) continue;
+    if (dirty.has(id) && local.has(id)){ next.push(local.get(id)); continue; }
+    const r = remote[id]; const j = JSON.stringify(planPayload(r));
+    planSynced.set(id, j);
+    const cur = local.get(id);
+    if (cur && planJ(cur) === j){ next.push(cur); continue; }
+    changed = true;
+    next.push(Object.assign(cur || {id}, planPayload(r), {id}));
+  }
+  for (const it of S.islands) if (!remote[it.id] && (dirty.has(it.id) && !planSynced.has(it.id))) next.push(it);   // created here, not pushed yet
+  for (const it of S.islands) if (!remote[it.id] && !next.includes(it)){ changed = true; planSynced.delete(it.id); }   // deleted elsewhere
+  const f = d.field || {};
+  if (f.cols && f.rows && (f.cols !== S.cols || f.rows !== S.rows)){
+    S.cols = +f.cols; S.rows = +f.rows; changed = true;
+    $("fCols").value = S.cols; $("fRows").value = S.rows; applyFieldSize();
+  }
+  planField = JSON.stringify({cols:S.cols, rows:S.rows});
+  for (const it of next){ const n = +String(it.id).replace(/\D/g, ""); if (n >= uid && n < 1e9) uid = n + 1; }
+  if (changed){
+    S.islands = next;
+    S.sel = new Set([...S.sel].filter(id => S.islands.some(i => i.id === id)));
+    undoStack.length = 0; redoStack.length = 0; refreshUndoBtns();   // undo would roll back someone else's work
+    render(); saveLocal();
+  }
+  setSyncState("synced" + (planMeta && planMeta.by && planMeta.by !== who() ? " · last edit " + planMeta.by + " " + hhmm(planMeta.at) : ""));
+}
+function connectPlan(){
+  if (typeof firebase === "undefined" || !firebase.database){ setSyncState("offline — saved on this device only"); return; }
+  try{ PR = firebase.database().ref(PLAN_PATH); }catch(e){ setSyncState("offline — saved on this device only"); return; }
+  let first = true;
+  PR.on("value", snap => {
+    const d = snap.val();
+    if (first){
+      first = false;
+      let loc = {}; try{ loc = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }catch(e){}
+      if (!d || !d.islands){                                    // nobody has shared a plan yet — this device's plan becomes the shared one
+        planReady = true; uploadWholePlan(); toast("Floor plan shared — every device now uses it"); return;
+      }
+      const remoteList = Object.keys(d.islands).map(id => Object.assign({id}, d.islands[id]));
+      const neverShared = Array.isArray(loc.islands) && !loc.syncedAt;      // a plan edited here before sharing existed
+      if (neverShared && planSig(remoteList) !== planSig(S.islands)){
+        /* this device has its own edits from before sharing existed — ask which plan to keep */
+        openDialog("Which floor plan to keep?",
+          `<p>This device has its own plan${loc.savedAt ? " saved <b>" + esc(hhmm(loc.savedAt)) + "</b>" : ""} (${S.islands.length} islands) that was never shared.</p>
+           <p>The shared plan${d.meta && d.meta.by ? " (last edit by <b>" + esc(d.meta.by) + "</b> " + esc(hhmm(d.meta.at)) + ")" : ""} has <b>${remoteList.length}</b> islands.</p>
+           <p>Replacing the shared plan changes it for everyone.</p>`,
+          [{label:"Use the shared plan", primary:true, act(){ closeDialog(); planReady = true; planSynced = new Map(); S.islands = []; adoptRemote(d); render(); markSynced(); }},
+           {label:"Share this device's plan", danger:true, act(){ closeDialog(); planReady = true; uploadWholePlan(); toast("This device's plan is now the shared one"); }}]);
+        return;
+      }
+      planReady = true; planSynced = new Map(); S.islands = S.islands.filter(() => false);
+      adoptRemote(d); render(); markSynced();
+      return;
+    }
+    if (!planReady) return;
+    if (!d || !d.islands){ uploadWholePlan(); return; }                // wiped — put ours back
+    adoptRemote(d);
+  }, e => setSyncState("offline — saved on this device only"));
+}
+document.addEventListener("pointerup", () => { if (pendingRemote) setTimeout(() => { if (pendingRemote && !drag && !marquee) adoptRemote(pendingRemote); }, 60); });
 
 /* ====================== boot ====================== */
 const hadSave = load();
@@ -2334,8 +2456,9 @@ refreshInvPill();
 if (hadStock) setInvStat("Last saved copy from " + hhmm(hadStock) + " — connecting…");
 buildHoldings(); paintStock();
 connectDB();
+flagSaved("connecting…");
+connectPlan();
 loadCatalog().then(afterStockChange).catch(() => {});
-flagSaved(hadSave ? "restored" : "saved");
 requestAnimationFrame(() => { if (!hadSave) fitZoom(); });
 
 window.addEventListener("resize", syncRulers);
