@@ -125,6 +125,18 @@ main{max-width:1560px;margin:0 auto;padding:20px 16px 90px}
 .chip.warn{color:var(--warn);border-color:#473a1c;background:#2b2412;font-weight:600}
 .chip.crit{color:var(--err);border-color:#4a2128;background:#311518;font-weight:600}
 
+/* product photos in lists + enlarged view */
+.namecell{display:inline-flex;align-items:center;gap:10px;min-width:0}
+.thumb{width:38px;height:38px;object-fit:contain;background:var(--raised);border-radius:7px;border:1px solid var(--border);flex:none;display:inline-block}
+.thumb.sm{width:26px;height:26px;border-radius:6px}
+.thumb.none{visibility:hidden}
+img.zoomable{cursor:zoom-in;transition:transform .12s}
+img.zoomable:hover{transform:scale(1.08);border-color:var(--accent)}
+.lightbox{position:fixed;inset:0;z-index:300;background:rgba(4,6,10,.86);display:grid;place-items:center;padding:20px;cursor:zoom-out}
+.lightbox img{width:500px;height:500px;max-width:92vw;max-height:82vh;object-fit:contain;background:#0e1116;border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.lightbox .lbcap{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:var(--muted);font-size:13px;pointer-events:none;padding:0 20px}
+.lightbox .lbclose{position:absolute;top:16px;right:20px;font-size:30px;color:var(--muted);line-height:1}
+
 /* search */
 .searchwrap{position:relative;max-width:660px}
 .searchwrap input{width:100%;padding:15px 16px 15px 44px;font-family:var(--mono);font-weight:700;
@@ -274,6 +286,10 @@ const CFG = {
   INV_TAB: 'Inventory',
   DEFAULT_WEEKS: 3,
   CACHE_VERSION: 4,
+  /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
+  SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
+  SB_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c2hreWNzZGVkYnlubnN3d3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNzc0MDksImV4cCI6MjEwNDg1MzQwOX0.WZ0uaDDNRsRXkKagiPBbNZ7om_3VVqlsPZSQJz1kFi0',
+  SB_TABLE: 'baseline',
   FRESH_MS: 20 * 60 * 1000,          // current/last week: re-fetch after 20 min
   OLD_MS  : 45 * 24 * 60 * 60 * 1000 // closed weeks: keep ~45 days
 };
@@ -587,6 +603,58 @@ async function loadInventory(force) {
   return data;
 }
 
+/* ------------------------------- average cost ----------------------------- */
+/* Supabase REST (read-only anon key). Rows: item_key, item_name, baseline_date,
+   soh, avg_cost, updated_at. Paged 1000 at a time; cached for offline use. */
+async function loadCosts(force) {
+  const key = 'cost1';
+  if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
+  try {
+    const rows = []; const page = 1000;
+    for (let from = 0; from < 50000; from += page) {
+      const r = await fetch(CFG.SB_URL + '/rest/v1/' + CFG.SB_TABLE + '?select=item_key,item_name,avg_cost,baseline_date,updated_at&order=item_key',
+        {headers: {apikey: CFG.SB_KEY, Authorization: 'Bearer ' + CFG.SB_KEY, Range: from + '-' + (from + page - 1), 'Range-Unit': 'items'}, cache: 'no-store'});
+      if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); if (j && j.message) m += ' — ' + j.message; } catch (e) {} throw new Error(m); }
+      const part = await r.json();
+      rows.push.apply(rows, part);
+      if (part.length < page) break;
+    }
+    const data = {rows, at: Date.now()};
+    await IDB.set(key, {ts: Date.now(), data});
+    return data;
+  } catch (e) {
+    const stale = await IDB.get(key);
+    if (stale) { stale.data.stale = e.message; return stale.data; }
+    throw e;
+  }
+}
+function indexCosts(d) {
+  DATA.cost.clear(); DATA.costInfo = {n: 0, at: d.at, stale: d.stale || '', date: ''};
+  (d.rows || []).forEach(r => {
+    const c = Number(r.avg_cost);
+    if (!isFinite(c) || r.avg_cost === null || r.avg_cost === '') return;
+    [r.item_name, r.item_key].forEach(n => { const k = norm(n); if (k && !DATA.cost.has(k)) DATA.cost.set(k, c); });
+    DATA.costInfo.n++;
+    if (r.baseline_date && r.baseline_date > DATA.costInfo.date) DATA.costInfo.date = r.baseline_date;
+  });
+}
+const costOf = key => DATA.cost.has(key) ? DATA.cost.get(key) : null;
+const money = (n, dp) => n == null || !isFinite(n) ? '—' : '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: dp == null ? 2 : dp, maximumFractionDigits: dp == null ? 2 : dp});
+const money0 = n => money(n, Math.abs(n) >= 1000 ? 0 : 2);
+/* table columns shared by every item list */
+const COST_COLS = (unitsKey, cogsLabel) => [
+  {k: 'cost', label: 'Avg cost', type: 'num', hint: 'Average cost per unit (Supabase baseline)', render: r => r.cost == null ? '<span class="zero">—</span>' : money(r.cost), csv: r => r.cost == null ? '' : r.cost.toFixed(2)},
+  {k: 'cogs', label: cogsLabel || 'COGS', type: 'num', hint: 'Cost of goods sold = units sold × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}
+];
+function withCost(rows, unitsKey) {
+  rows.forEach(r => { r.cost = costOf(r.key); r.cogs = r.cost == null ? null : (r[unitsKey || 'units'] || 0) * r.cost; });
+  return rows;
+}
+function costNote(units, unitsNoCost) {
+  if (!DATA.cost.size) return DATA.costErr ? '<span class="chip warn">cost not loaded</span>' : 'loading cost…';
+  return unitsNoCost ? fmt(unitsNoCost) + ' of ' + fmt(units) + ' units have no cost' : 'all sold units have a cost';
+}
+
 /* ==========================================================================
    STATE
    ========================================================================== */
@@ -599,6 +667,8 @@ const DATA = {
   invByBarcode: new Map(),
   channels: new Map(),   // name -> {name, loc, bufp}
   itemNames: [],         // union of inventory + sheet item names
+  cost    : new Map(),   // norm(item name) -> avg cost per unit (USD)
+  costInfo: null, costErr: '',
   loadedAt: 0
 };
 const FILTER = {
@@ -736,9 +806,10 @@ function aggregate(from, to) {
         u += v;
         it.byChannel.set(c.name, (it.byChannel.get(c.name) || 0) + v);
         let cs = byChannel.get(c.name);
-        if (!cs) { cs = {name: c.name, loc: c.loc, bufp: c.bufp, units: 0, byDate: new Map(), items: new Map()};
+        if (!cs) { cs = {name: c.name, loc: c.loc, bufp: c.bufp, units: 0, cogs: 0, noCost: 0, byDate: new Map(), items: new Map()};
                    byChannel.set(c.name, cs); }
         cs.units += v;
+        const uc = costOf(key); if (uc == null) cs.noCost += v; else cs.cogs += v * uc;
         cs.byDate.set(rec.date, (cs.byDate.get(rec.date) || 0) + v);
         cs.items.set(key, (cs.items.get(key) || 0) + v);
         dayRow.byChannel.set(c.name, (dayRow.byChannel.get(c.name) || 0) + v);
@@ -764,7 +835,11 @@ function aggregate(from, to) {
   });
 
   const dayCount = rows.length;
+  let cogs = 0, noCost = 0;
   byItem.forEach(it => {
+    it.avgCost = costOf(it.key);
+    it.cogs = it.avgCost == null ? null : it.units * it.avgCost;
+    if (it.cogs == null) noCost += it.units; else cogs += it.cogs;
     it.avgPerDay = dayCount ? it.units / dayCount : 0;
     const inv = DATA.invByKey.get(it.key);
     it.inv = inv || null;
@@ -772,7 +847,7 @@ function aggregate(from, to) {
     it.daysLeft = (it.avgPerDay > 0 && it.stock != null) ? it.stock / it.avgPerDay : null;
   });
 
-  return {from, to, dayCount, rows, byItem, byChannel, byDate, total,
+  return {from, to, dayCount, rows, byItem, byChannel, byDate, total, cogs, noCost,
           totForPacks, totCannot, totRecv, totRet, totDisc,
           dates: rows.map(r => r.date)};
 }
@@ -927,7 +1002,8 @@ function barsH(host, rows, opts) {
     const row = el('div', {style: 'margin-bottom:9px'});
     row.innerHTML =
       '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:3px">' +
-        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.label) + '</span>' +
+        '<span style="display:flex;align-items:center;gap:8px;min-width:0">' + (r.key ? thumbHTML(r.key, r.label, 'thumb sm') : '') +
+          '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(r.label) + '</span></span>' +
         '<span class="num" style="color:var(--muted);flex:none">' + fmt(r.value) +
           (opts.share !== false && total ? ' <span style="color:var(--faint)">· ' + (r.value / total * 100).toFixed(1) + '%</span>' : '') +
         '</span></div>' +
@@ -1078,6 +1154,29 @@ function rangeShort() {
   return prettyDate(AGG.dates[0]) + ' → ' + prettyDate(AGG.dates[AGG.dates.length - 1]) + ' · ' + AGG.dayCount + 'd';
 }
 function itemMeta(key) { return DATA.invByKey.get(key) || null; }
+/* product photo next to the name — click it to see it large */
+function thumbHTML(key, name, cls) {
+  const inv = key ? itemMeta(key) : null;
+  if (!inv || !inv.image) return '<span class="' + (cls || 'thumb') + ' none"></span>';
+  return '<img class="' + (cls || 'thumb') + ' zoomable" src="' + esc(inv.image) + '" loading="lazy" alt="" data-cap="' + esc(name || inv.name || '') +
+    '" title="Click to enlarge" onerror="this.classList.add(\'none\');this.removeAttribute(\'src\')">';
+}
+function nameCell(r) { return '<span class="namecell">' + thumbHTML(r.key, r.name) + '<span class="rowlink">' + esc(r.name) + '</span></span>'; }
+function openLightbox(src, cap) {
+  closeLightbox();
+  const lb = el('div', {class: 'lightbox', id: 'lightbox'});
+  lb.innerHTML = '<img src="' + esc(src) + '" alt=""><div class="lbcap">' + esc(cap || '') + '</div><span class="lbclose">×</span>';
+  lb.addEventListener('click', closeLightbox);
+  document.body.appendChild(lb);
+}
+function closeLightbox() { const lb = document.getElementById('lightbox'); if (lb) lb.remove(); }
+document.addEventListener('click', e => {
+  const img = e.target.closest && e.target.closest('img.zoomable');
+  if (!img || !img.getAttribute('src')) return;
+  e.preventDefault(); e.stopPropagation();        // do not also open the row
+  openLightbox(img.getAttribute('src'), img.dataset.cap);
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('lightbox')) { e.stopPropagation(); closeLightbox(); } }, true);
 function goItem(key) {
   UI.item = key; UI.view = 'item';
   $$('.nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.view === 'item'));
@@ -1154,7 +1253,7 @@ function viewItem(root) {
   if (!UI.item) {
     const top = el('div');
     const rows = Array.from(AGG.byItem.values()).sort((a, b) => b.units - a.units).slice(0, 12)
-      .map(it => ({label: it.name, value: it.units, onclick: () => goItem(it.key)}));
+      .map(it => ({label: it.name, key: it.key, value: it.units, onclick: () => goItem(it.key)}));
     barsH(top, rows);
     root.appendChild(card('Top sellers in this period', rangeLabel(), top));
     return;
@@ -1169,7 +1268,7 @@ function viewItem(root) {
 
   const head = el('div', {class: 'card'});
   const hb = el('div', {class: 'itemhead'});
-  if (inv && inv.image) hb.appendChild(el('img', {src: inv.image, alt: '', loading: 'lazy',
+  if (inv && inv.image) hb.appendChild(el('img', {src: inv.image, alt: '', loading: 'lazy', class: 'zoomable', title: 'Click to enlarge', 'data-cap': it.name,
     onerror: function () { this.style.visibility = 'hidden'; }}));
   const info = el('div', {style: 'flex:1;min-width:0'});
   info.appendChild(el('h2', {text: it.name}));
@@ -1207,6 +1306,11 @@ function viewItem(root) {
   k.appendChild(kpi('Best day', best ? fmt(best[1]) : '—', best ? prettyFull(best[0]) : ''));
   k.appendChild(kpi('Received', fmt(it.receipts), 'Returns ' + fmt(it.returns)));
   k.appendChild(kpi('Cannot pack', fmt(it.cannotPack), 'Discrepancy ' + fmt(it.disc) + ' · For packs ' + fmt(it.forPacks)));
+  const uc = costOf(key);
+  k.appendChild(kpi('Avg cost', uc == null ? '—' : money(uc), uc == null ? (DATA.cost.size ? 'not in the cost table' : costNote(0, 0)) :
+    'per unit' + (DATA.costInfo && DATA.costInfo.date ? ' · baseline ' + esc(DATA.costInfo.date) : '')));
+  k.appendChild(kpi('Cost of goods sold', uc == null ? '—' : money0(it.units * uc), uc == null ? '' : fmt(it.units) + ' units × ' + money(uc) +
+    (it.stock != null ? ' · stock value ' + money0(it.stock * uc) : '')));
   root.appendChild(k);
 
   const g = el('div', {class: 'grid2'});
@@ -1320,13 +1424,14 @@ function viewCat(root) {
   const label = [sel.type, sel.brand, sel.series].filter(Boolean).join(' › ') || 'All catalogued items';
 
   const rows = [];
-  let units = 0, prevUnits = 0, recv = 0, ret = 0, cannot = 0, stock = 0, disc = 0;
+  let units = 0, prevUnits = 0, recv = 0, ret = 0, cannot = 0, stock = 0, disc = 0, cogs = 0, noCost = 0;
   const chTot = new Map(), byDate = new Map();
   members.forEach(inv => {
     const it = AGG.byItem.get(inv.key);
     const p  = AGG_PREV ? AGG_PREV.byItem.get(inv.key) : null;
     const u = it ? it.units : 0;
     units += u; prevUnits += p ? p.units : 0;
+    const uc = costOf(inv.key); if (uc == null) noCost += u; else cogs += u * uc;
     recv += it ? it.receipts : 0; ret += it ? it.returns : 0;
     cannot += it ? it.cannotPack : 0; disc += it ? it.disc : 0;
     const st = it && it.stock != null ? it.stock : inv.stock;
@@ -1351,6 +1456,8 @@ function viewCat(root) {
   k.appendChild(kpi('Stock on hand', fmt(stock), 'total units in the group'));
   k.appendChild(kpi('Received', fmt(recv), 'Returns ' + fmt(ret)));
   k.appendChild(kpi('Cannot pack', fmt(cannot), 'Discrepancy ' + fmt(disc)));
+  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(cogs) : '—', costNote(units, noCost)));
+  k.appendChild(kpi('Avg cost / unit sold', DATA.cost.size && units - noCost > 0 ? money(cogs / (units - noCost)) : '—', 'weighted by units sold'));
   root.appendChild(k);
 
   const g = el('div', {class: 'grid2'});
@@ -1368,19 +1475,20 @@ function viewCat(root) {
 
   const tb = el('div');
   renderTable(tb, {id: 'catTable', sortKey: 'units', cols: [
-    {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+    {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
     {k: 'series', label: 'Series'},
     {k: 'units', label: 'Sold', type: 'num'},
     {k: 'trend', label: 'Trend', nosort: true, render: r => sparkSVG(r.spark, cssVar('--s1')), csv: () => ''},
     {k: 'prev', label: 'Prev.', type: 'num'},
     {k: 'chg', label: 'Change', type: 'num', nosort: true, render: r => deltaHTML(r.units, r.prev) || '—', csv: r => r.prev ? ((r.units - r.prev) / r.prev * 100).toFixed(1) + '%' : ''},
-    {k: 'avg', label: '/ day', type: 'num', dp: 1},
+    {k: 'avg', label: '/ day', type: 'num', dp: 1}]
+    .concat(COST_COLS('units'), [
     {k: 'stock', label: 'Stock', type: 'num'},
     {k: 'days', label: 'Days left', type: 'num', dp: 0, render: r => r.days == null ? '—' :
       '<span class="' + (r.days < 7 ? 'chip crit' : r.days < 21 ? 'chip warn' : '') + '">' + fmt(r.days) + '</span>'},
     {k: 'recv', label: 'Recv', type: 'num'},
     {k: 'cannot', label: 'Cannot pack', type: 'num'}
-  ], rows, onRow: r => goItem(r.key), maxHeight: 620});
+  ]), rows: withCost(rows), onRow: r => goItem(r.key), maxHeight: 620});
   root.appendChild(card('Items — ' + label, members.length + ' items · click a row to open it', tb,
     exportBtn(tb, 'category-report.csv')));
 
@@ -1405,6 +1513,8 @@ function viewPlat(root) {
   const busiest = Array.from(AGG.byDate.values()).sort((x, y) => y.units - x.units)[0];
   k.appendChild(kpi('Busiest day', busiest ? fmt(busiest.units) : '—', busiest ? prettyFull(busiest.date) : ''));
   k.appendChild(kpi('Avg per day', fmt(AGG.dayCount ? AGG.total / AGG.dayCount : 0, 0), AGG.dayCount + ' days'));
+  const pc = chans.reduce((a, c) => a + c.cogs, 0), pn = chans.reduce((a, c) => a + c.noCost, 0);
+  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(pc) : '—', costNote(AGG.total, pn)));
   root.appendChild(k);
 
   const top = chans.slice(0, 8);
@@ -1429,7 +1539,8 @@ function viewPlat(root) {
     return {name: c.name, loc: c.loc === 'ls' ? 'Store / live' : 'Warehouse', bufp: c.bufp ? 'BUFP' : '',
       units: c.units, share: AGG.total ? c.units / AGG.total * 100 : 0,
       items: c.items.size, avg: AGG.dayCount ? c.units / AGG.dayCount : 0,
-      prev: p ? p.units : 0, key: c.name,
+      prev: p ? p.units : 0, key: c.name, cogs: DATA.cost.size ? c.cogs : null,
+      cost: DATA.cost.size && c.units - c.noCost > 0 ? c.cogs / (c.units - c.noCost) : null,
       spark: AGG.dates.map(d => c.byDate.get(d) || 0), color: seriesColor(i)};
   });
   renderTable(tblBox, {id: 'platTable', sortKey: 'units', cols: [
@@ -1439,10 +1550,11 @@ function viewPlat(root) {
     {k: 'trend', label: 'Trend', nosort: true, render: r => sparkSVG(r.spark, r.color), csv: () => ''},
     {k: 'share', label: 'Share %', type: 'num', dp: 1},
     {k: 'avg', label: '/ day', type: 'num', dp: 1},
-    {k: 'items', label: 'Distinct items', type: 'num'},
+    {k: 'items', label: 'Distinct items', type: 'num'}]
+    .concat(COST_COLS('units').map(c => c.k === 'cost' ? Object.assign({}, c, {label: 'Avg cost / unit', hint: 'COGS ÷ units with a cost'}) : c), [
     {k: 'prev', label: 'Prev.', type: 'num'},
     {k: 'chg', label: 'Change', type: 'num', nosort: true, render: r => deltaHTML(r.units, r.prev) || '—', csv: r => r.prev ? ((r.units - r.prev) / r.prev * 100).toFixed(1) + '%' : ''}
-  ], rows: prows, onRow: r => { UI.plat = r.key; render(); }});
+  ]), rows: prows, onRow: r => { UI.plat = r.key; render(); }});
   g.appendChild(card('All platforms', 'Sortable — click a header', tblBox, exportBtn(tblBox, 'platforms.csv')));
   root.appendChild(g);
 
@@ -1456,17 +1568,18 @@ function viewPlat(root) {
         allUnits: it ? it.units : v, stock: it ? it.stock : (inv ? inv.stock : null)};
     });
     renderTable(box, {id: 'platItems', sortKey: 'units', cols: [
-      {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+      {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
       {k: 'type', label: 'Type'}, {k: 'series', label: 'Series'},
       {k: 'units', label: 'Units here', type: 'num'},
       {k: 'share', label: '% of platform', type: 'num', dp: 1},
-      {k: 'allUnits', label: 'Units all platforms', type: 'num'},
+      {k: 'allUnits', label: 'Units all platforms', type: 'num'}]
+      .concat(COST_COLS('units', 'COGS here'), [
       {k: 'stock', label: 'Stock', type: 'num'}
-    ], rows, onRow: r => goItem(r.key), limit: 200, maxHeight: 560});
+    ]), rows: withCost(rows), onRow: r => goItem(r.key), limit: 200, maxHeight: 560});
     const tools = el('div', {style: 'display:flex;gap:8px'});
     tools.appendChild(exportBtn(box, 'platform-items.csv'));
     tools.appendChild(el('button', {class: 'iconbtn', onclick: () => { UI.plat = null; render(); }}, ['✕ Close']));
-    root.appendChild(card('What sells on ' + UI.plat, fmt(c.units) + ' units · ' + c.items.size + ' distinct items', box, tools));
+    root.appendChild(card('What sells on ' + UI.plat, fmt(c.units) + ' units · ' + c.items.size + ' distinct items' + (DATA.cost.size ? ' · COGS ' + money0(c.cogs) : ''), box, tools));
   }
 }
 
@@ -1482,6 +1595,7 @@ function viewInsight(root) {
   k.appendChild(kpi('Returns', fmt(AGG.totRet), 'customer returns'));
   k.appendChild(kpi('Discrepancies', fmt(AGG.totDisc), 'stock corrections'));
   k.appendChild(kpi('Cannot pack', fmt(AGG.totCannot), 'For packs ' + fmt(AGG.totForPacks)));
+  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(AGG.cogs) : '—', costNote(AGG.total, AGG.noCost)));
   root.appendChild(k);
 
   const tc = el('div');
@@ -1502,11 +1616,12 @@ function viewInsight(root) {
     const g = el('div', {class: 'grid2'});
     const up = el('div'), dn = el('div');
     const mcols = [
-      {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+      {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
       {k: 'prev', label: 'Previous', type: 'num'}, {k: 'units', label: 'Current', type: 'num'},
       {k: 'diff', label: 'Δ units', type: 'num', render: r => (r.diff > 0 ? '<span class="delta up">+' : r.diff < 0 ? '<span class="delta down">' : '<span class="delta flat">') + fmt(r.diff) + '</span>'},
       {k: 'stock', label: 'Stock', type: 'num'}
-    ];
+    ].concat(COST_COLS('units'));
+    withCost(movers);
     renderTable(up, {id: 'gainers', sortKey: 'diff', sortDir: -1, cols: mcols, rows: movers.filter(m => m.diff > 0), limit: 15, onRow: r => goItem(r.key)});
     renderTable(dn, {id: 'decliners', sortKey: 'diff', sortDir: 1, cols: mcols, rows: movers.filter(m => m.diff < 0), limit: 15, onRow: r => goItem(r.key)});
     g.appendChild(card('Biggest gainers', 'vs the previous ' + AGG_PREV.dayCount + ' days', up, exportBtn(up, 'gainers.csv')));
@@ -1529,13 +1644,13 @@ function viewInsight(root) {
       series: (itemMeta(i.key) || {}).series || '', type: (itemMeta(i.key) || {}).type || ''}));
   const ab = el('div');
   renderTable(ab, {id: 'alerts', sortKey: 'days', sortDir: 1, cols: [
-    {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+    {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
     {k: 'type', label: 'Type'}, {k: 'series', label: 'Series'},
     {k: 'stock', label: 'Stock', type: 'num'}, {k: 'units', label: 'Sold in period', type: 'num'},
     {k: 'avg', label: '/ day', type: 'num', dp: 2},
     {k: 'days', label: 'Days of stock', type: 'num', dp: 1, render: r =>
       '<span class="chip ' + (r.days < 7 ? 'crit' : 'warn') + '">' + fmt(r.days, 1) + '</span>'}
-  ], rows: alerts, onRow: r => goItem(r.key), limit: 60, maxHeight: 480});
+  ].concat(COST_COLS('units')), rows: withCost(alerts), onRow: r => goItem(r.key), limit: 60, maxHeight: 480});
   root.appendChild(card('Running out — reorder shortlist', alerts.length + ' items have under 21 days of stock at the current rate', ab, exportBtn(ab, 'reorder.csv')));
 
   /* --- dead stock --- */
@@ -1549,10 +1664,12 @@ function viewInsight(root) {
   });
   const db = el('div');
   renderTable(db, {id: 'dead', sortKey: 'stock', cols: [
-    {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+    {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
     {k: 'type', label: 'Type'}, {k: 'brand', label: 'Brand'}, {k: 'series', label: 'Series'},
-    {k: 'location', label: 'Location'}, {k: 'stock', label: 'Units sitting', type: 'num'}
-  ], rows: dead, onRow: r => goItem(r.key), limit: 100, maxHeight: 480});
+    {k: 'location', label: 'Location'}, {k: 'stock', label: 'Units sitting', type: 'num'},
+    COST_COLS()[0],
+    {k: 'cogs', label: 'Value sitting', type: 'num', hint: 'Units sitting × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}
+  ], rows: withCost(dead, 'stock'), onRow: r => goItem(r.key), limit: 100, maxHeight: 480});
   root.appendChild(card('Dead stock', 'In stock but zero sales across every platform in this period — ' + dead.length + ' items', db, exportBtn(db, 'dead-stock.csv')));
 
   /* --- losses & corrections --- */
@@ -1561,13 +1678,13 @@ function viewInsight(root) {
     .map(i => ({key: i.key, name: i.name, recv: i.receipts, ret: i.returns, disc: i.disc,
       cannot: i.cannotPack, packs: i.forPacks, units: i.units, stock: i.stock}));
   renderTable(lb, {id: 'loss', sortKey: 'cannot', cols: [
-    {k: 'name', label: 'Item', wide: true, render: r => '<span class="rowlink">' + esc(r.name) + '</span>'},
+    {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
     {k: 'recv', label: 'Received', type: 'num'}, {k: 'ret', label: 'Returns', type: 'num'},
     {k: 'packs', label: 'For packs', type: 'num'}, {k: 'cannot', label: 'Cannot pack', type: 'num'},
     {k: 'disc', label: 'Discrepancy', type: 'num', render: r => r.disc ?
       '<span class="' + (r.disc < 0 ? 'delta down' : 'delta up') + '">' + (r.disc > 0 ? '+' : '') + fmt(r.disc) + '</span>' : '<span class="zero">0</span>'},
     {k: 'units', label: 'Sold', type: 'num'}, {k: 'stock', label: 'Stock', type: 'num'}
-  ], rows: loss, onRow: r => goItem(r.key), limit: 120, maxHeight: 520});
+  ].concat(COST_COLS('units')), rows: withCost(loss), onRow: r => goItem(r.key), limit: 120, maxHeight: 520});
   root.appendChild(card('Receipts, returns & corrections', 'Where stock enters, leaves or goes missing', lb, exportBtn(lb, 'stock-movement.csv')));
 }
 
@@ -1676,7 +1793,11 @@ async function reload(force) {
   } catch (e) {
     $('#bootNote').innerHTML = '<div class="errbox">Inventory sheet: ' + esc(e.message) + '</div>';
   }
+  const costP = loadCosts(force).then(d => { indexCosts(d); DATA.costErr = d.stale || ''; })
+    .catch(e => { DATA.costErr = e.message; });
   const failed = await ensureWeeks(force);
+  await Promise.race([costP, new Promise(r => setTimeout(r, 4000))]);   // do not hold the screen for a slow cost table
+  costP.then(() => { if (DATA.cost.size) refresh(true); });
   $('#bootBar').style.width = '100%';
   DATA.loadedAt = Date.now();
   $('#boot').classList.add('hide'); $('#views').classList.remove('hide');
@@ -1689,6 +1810,13 @@ async function reload(force) {
   }
   setStatus('Updated ' + new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}) +
             ' · ' + DATA.days.length + ' days · ' + DATA.channels.size + ' platforms', '');
+  costP.then(() => {
+    if (DATA.costErr && !DATA.cost.size) {
+      const box = el('div', {class: 'errbox', html: 'Average cost (Supabase “' + esc(CFG.SB_TABLE) + '”) could not be loaded: ' + esc(DATA.costErr) +
+        '. Cost columns stay empty until it loads — press Refresh data to retry.'});
+      $('#views').insertBefore(box, $('#views').firstChild);
+    }
+  });
   loadComparisonWeeks();
 }
 
