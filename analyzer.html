@@ -312,7 +312,10 @@ const CFG = {
   /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
   SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
   SB_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c2hreWNzZGVkYnlubnN3d3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNzc0MDksImV4cCI6MjEwNDg1MzQwOX0.WZ0uaDDNRsRXkKagiPBbNZ7om_3VVqlsPZSQJz1kFi0',
-  SB_TABLE: 'baseline',
+  SB_TABLE: 'latest_avg_cost',   // table with the current average cost
+  SB_NAME : 'item_name',         // column: item name (no variation) — matched to the inventory name
+  SB_COST : 'new_avg_cost',      // column: average cost per unit, USD
+  SB_DATE : 'effective_date',    // column: date the cost is valid from ('' if the table has none)
   FRESH_MS: 20 * 60 * 1000,          // current/last week: re-fetch after 20 min
   OLD_MS  : 45 * 24 * 60 * 60 * 1000 // closed weeks: keep ~45 days
 };
@@ -694,12 +697,13 @@ function askPassword() {
 /* Supabase REST (read-only anon key). Rows: item_key, item_name, baseline_date,
    soh, avg_cost, updated_at. Paged 1000 at a time; cached for offline use. */
 async function loadCosts(force) {
-  const key = 'cost1';
+  const key = 'cost2:' + CFG.SB_TABLE;
   if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
   try {
     const rows = []; const page = 1000;
     for (let from = 0; from < 50000; from += page) {
-      const r = await fetch(CFG.SB_URL + '/rest/v1/' + CFG.SB_TABLE + '?select=item_key,item_name,avg_cost,baseline_date,updated_at&order=item_key',
+      const cols = [CFG.SB_NAME, CFG.SB_COST].concat(CFG.SB_DATE ? [CFG.SB_DATE] : []).join(',');
+      const r = await fetch(CFG.SB_URL + '/rest/v1/' + CFG.SB_TABLE + '?select=' + cols + '&order=' + CFG.SB_NAME,
         {headers: {apikey: CFG.SB_KEY, Authorization: 'Bearer ' + CFG.SB_KEY, Range: from + '-' + (from + page - 1), 'Range-Unit': 'items'}, cache: 'no-store'});
       if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); if (j && j.message) m += ' — ' + j.message; } catch (e) {} throw new Error(m); }
       const part = await r.json();
@@ -716,13 +720,16 @@ async function loadCosts(force) {
   }
 }
 function indexCosts(d) {
-  DATA.cost.clear(); DATA.costInfo = {n: 0, at: d.at, stale: d.stale || '', date: ''};
+  DATA.cost.clear(); DATA.costDate.clear(); DATA.costInfo = {n: 0, at: d.at, stale: d.stale || '', date: ''};
   (d.rows || []).forEach(r => {
-    const c = Number(r.avg_cost);
-    if (!isFinite(c) || r.avg_cost === null || r.avg_cost === '') return;
-    [r.item_name, r.item_key].forEach(n => { const k = norm(n); if (k && !DATA.cost.has(k)) DATA.cost.set(k, c); });
+    const raw = r[CFG.SB_COST], c = Number(raw);
+    if (raw === null || raw === '' || raw === undefined || !isFinite(c)) return;
+    const k = norm(r[CFG.SB_NAME]); if (!k || DATA.cost.has(k)) return;
+    DATA.cost.set(k, c);
+    const dt = CFG.SB_DATE ? r[CFG.SB_DATE] : '';
+    if (dt) DATA.costDate.set(k, String(dt).slice(0, 10));
     DATA.costInfo.n++;
-    if (r.baseline_date && r.baseline_date > DATA.costInfo.date) DATA.costInfo.date = r.baseline_date;
+    if (dt && dt > DATA.costInfo.date) DATA.costInfo.date = String(dt).slice(0, 10);
   });
 }
 const costOf = key => DATA.cost.has(key) ? DATA.cost.get(key) : null;
@@ -730,7 +737,7 @@ const money = (n, dp) => n == null || !isFinite(n) ? '—' : '$' + Number(n).toL
 const money0 = n => money(n, Math.abs(n) >= 1000 ? 0 : 2);
 /* table columns shared by every item list */
 const COST_COLS = (unitsKey, cogsLabel) => !COST_OK ? [] : [
-  {k: 'cost', label: 'Avg cost', type: 'num', hint: 'Average cost per unit (Supabase baseline)', render: r => r.cost == null ? '<span class="zero">—</span>' : money(r.cost), csv: r => r.cost == null ? '' : r.cost.toFixed(2)},
+  {k: 'cost', label: 'Avg cost', type: 'num', hint: 'Average cost per unit (Supabase)', render: r => r.cost == null ? '<span class="zero">—</span>' : money(r.cost), csv: r => r.cost == null ? '' : r.cost.toFixed(2)},
   {k: 'cogs', label: cogsLabel || 'COGS', type: 'num', hint: 'Cost of goods sold = units sold × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}
 ];
 function withCost(rows, unitsKey) {
@@ -755,6 +762,7 @@ const DATA = {
   channels: new Map(),   // name -> {name, loc, bufp}
   itemNames: [],         // union of inventory + sheet item names
   cost    : new Map(),   // norm(item name) -> avg cost per unit (USD)
+  costDate: new Map(),   // norm(item name) -> date the cost is valid from
   costInfo: null, costErr: '',
   loadedAt: 0
 };
@@ -1395,7 +1403,7 @@ function viewItem(root) {
   k.appendChild(kpi('Cannot pack', fmt(it.cannotPack), 'Discrepancy ' + fmt(it.disc) + ' · For packs ' + fmt(it.forPacks)));
   const uc = costOf(key);
   if (COST_OK) k.appendChild(kpi('Avg cost', uc == null ? '—' : money(uc), uc == null ? (DATA.cost.size ? 'not in the cost table' : costNote(0, 0)) :
-    'per unit' + (DATA.costInfo && DATA.costInfo.date ? ' · baseline ' + esc(DATA.costInfo.date) : '')));
+    'per unit' + (DATA.costDate.get(key) ? ' · since ' + esc(DATA.costDate.get(key)) : '')));
   if (COST_OK) k.appendChild(kpi('Cost of goods sold', uc == null ? '—' : money0(it.units * uc), uc == null ? '' : fmt(it.units) + ' units × ' + money(uc) +
     (it.stock != null ? ' · stock value ' + money0(it.stock * uc) : '')));
   root.appendChild(k);
