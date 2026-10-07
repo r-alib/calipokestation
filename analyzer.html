@@ -125,6 +125,18 @@ main{max-width:1560px;margin:0 auto;padding:20px 16px 90px}
 .chip.warn{color:var(--warn);border-color:#473a1c;background:#2b2412;font-weight:600}
 .chip.crit{color:var(--err);border-color:#4a2128;background:#311518;font-weight:600}
 
+/* password gate */
+.gate{position:fixed;inset:0;z-index:400;background:var(--bg);display:grid;place-items:center;padding:20px}
+.gatebox{width:min(380px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;display:flex;flex-direction:column;gap:10px}
+.gatebox h2{font-family:var(--disp);margin:0;font-size:22px}
+.gatebox p{margin:0 0 6px;color:var(--muted);font-size:13px}
+.gatebox input{padding:12px 14px;font-size:15px;border-radius:10px;text-align:center;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);outline:none}
+.gatebox input:focus{border-color:var(--accent)}
+.gatebox button{padding:12px;border-radius:10px;font-weight:700;font-size:15px;border:1px solid var(--accent);background:var(--accent);color:#06210F;cursor:pointer}
+.gateerr{color:var(--err);font-size:13px;min-height:18px}
+.gatebox.shake{animation:gshake .35s}
+@keyframes gshake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}
+
 /* product photos in lists + enlarged view */
 .namecell{display:inline-flex;align-items:center;gap:10px;min-width:0}
 .thumb{width:38px;height:38px;object-fit:contain;background:var(--raised);border-radius:7px;border:1px solid var(--border);flex:none;display:inline-block}
@@ -206,7 +218,7 @@ svg.chart{display:block;width:100%;overflow:visible}
 
 <div class="stickyhead">
 <div class="topbar">
-  <div class="brand"><span class="dot"></span><span>CALIPOKE STATION<small>Analyzer</small></span></div>
+  <div class="brand"><span class="dot"></span><span>CALIPOKE STATION<small id="whoLbl">Analyzer</small></span></div>
   <div class="spacer"></div>
   <div class="status" id="status"><span class="led" id="led"></span><span id="statusTxt">Starting…</span></div>
   <button class="iconbtn" id="btnMenu" title="Back to the CALIPOKE STATION menu">← Menu</button>
@@ -256,6 +268,17 @@ svg.chart{display:block;width:100%;overflow:visible}
 </div>
 
 <main id="main">
+  <div class="gate hide" id="gate">
+    <form class="gatebox" id="gateForm" autocomplete="off">
+      <div class="dot" style="margin:0 auto 12px"></div>
+      <h2>Analyzer</h2>
+      <p>This mode is password protected.</p>
+      <input type="text" id="gateName" placeholder="Your name" autocomplete="off" spellcheck="false">
+      <input type="password" id="gatePass" placeholder="Password" autocomplete="off">
+      <button type="submit" class="primary" id="gateGo">Open</button>
+      <div class="gateerr" id="gateErr"></div>
+    </form>
+  </div>
   <div class="loadwrap" id="boot">
     <div id="bootMsg">Loading data from Google Sheets…</div>
     <div class="progress"><i id="bootBar"></i></div>
@@ -603,6 +626,70 @@ async function loadInventory(force) {
   return data;
 }
 
+/* ------------------------------- access ----------------------------------- */
+/* The mode opens with a password. Cost (Supabase) is shown only to the names
+   below — for everyone else the screen looks exactly as before and the cost
+   table is never even requested. */
+const ACCESS = {
+  PASS_SHA256: 'e3f3edb3404c7032303f5f190f71db33af3907f643abea045334f60c19463b62',   // sha256('calipoke-analyzer:' + password)
+  COST_USERS : ['admin', 'celina'],
+  KEEP_MS    : 12 * 60 * 60 * 1000,                                                    // stay unlocked on this device for 12 h
+  LS_KEY     : 'cps.analyzer.unlock'
+};
+let USER = '', COST_OK = false;
+async function sha256hex(s) {
+  if (window.crypto && crypto.subtle) {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+  /* fallback for browsers without crypto.subtle (plain http) */
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes = Array.from(new TextEncoder().encode(s)); const l = bytes.length * 8;
+  bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
+  for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (l >>> (i * 8)) & 255);
+  let H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const r = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < bytes.length; o += 64) {
+    const w = []; for (let i = 0; i < 16; i++) w[i] = (bytes[o+4*i] << 24) | (bytes[o+4*i+1] << 16) | (bytes[o+4*i+2] << 8) | bytes[o+4*i+3];
+    for (let i = 16; i < 64; i++) { const s0 = r(w[i-15],7) ^ r(w[i-15],18) ^ (w[i-15] >>> 3), s1 = r(w[i-2],17) ^ r(w[i-2],19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0; }
+    let [a,b,c,d,e,f,g,hh] = H;
+    for (let i = 0; i < 64; i++) { const t1 = (hh + (r(e,6) ^ r(e,11) ^ r(e,25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0, t2 = ((r(a,2) ^ r(a,13) ^ r(a,22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0; }
+    H = H.map((x, i) => (x + [a,b,c,d,e,f,g,hh][i]) | 0);
+  }
+  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+function setUser(name) {
+  USER = String(name || '').trim();
+  COST_OK = ACCESS.COST_USERS.includes(USER.toLowerCase());
+  const w = $('#whoLbl'); if (w) w.textContent = 'Analyzer · ' + USER + (COST_OK ? ' · cost' : '');
+}
+function savedUnlock() {
+  try { const o = JSON.parse(localStorage.getItem(ACCESS.LS_KEY) || 'null');
+    if (o && o.h === ACCESS.PASS_SHA256 && Date.now() - o.at < ACCESS.KEEP_MS && o.name) return o; } catch (e) {}
+  return null;
+}
+function lockAnalyzer() { try { localStorage.removeItem(ACCESS.LS_KEY); } catch (e) {} location.reload(); }
+function askPassword() {
+  return new Promise(resolve => {
+    const g = $('#gate'); g.classList.remove('hide');
+    let nm = ''; try { nm = localStorage.getItem('ps_name') || ''; } catch (e) {}
+    $('#gateName').value = nm;
+    setTimeout(() => (nm ? $('#gatePass') : $('#gateName')).focus(), 50);
+    $('#gateForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = $('#gateName').value.trim(), pass = $('#gatePass').value;
+      if (!name){ $('#gateErr').textContent = 'Enter your name'; $('#gateName').focus(); return; }
+      if (await sha256hex('calipoke-analyzer:' + pass) !== ACCESS.PASS_SHA256) {
+        $('#gateErr').textContent = 'Wrong password'; $('#gatePass').value = ''; $('#gatePass').focus();
+        const b = $('#gateForm'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return;
+      }
+      try { localStorage.setItem(ACCESS.LS_KEY, JSON.stringify({name, at: Date.now(), h: ACCESS.PASS_SHA256})); localStorage.setItem('ps_name', name); } catch (e) {}
+      g.classList.add('hide'); resolve(name);
+    });
+  });
+}
+
 /* ------------------------------- average cost ----------------------------- */
 /* Supabase REST (read-only anon key). Rows: item_key, item_name, baseline_date,
    soh, avg_cost, updated_at. Paged 1000 at a time; cached for offline use. */
@@ -642,7 +729,7 @@ const costOf = key => DATA.cost.has(key) ? DATA.cost.get(key) : null;
 const money = (n, dp) => n == null || !isFinite(n) ? '—' : '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: dp == null ? 2 : dp, maximumFractionDigits: dp == null ? 2 : dp});
 const money0 = n => money(n, Math.abs(n) >= 1000 ? 0 : 2);
 /* table columns shared by every item list */
-const COST_COLS = (unitsKey, cogsLabel) => [
+const COST_COLS = (unitsKey, cogsLabel) => !COST_OK ? [] : [
   {k: 'cost', label: 'Avg cost', type: 'num', hint: 'Average cost per unit (Supabase baseline)', render: r => r.cost == null ? '<span class="zero">—</span>' : money(r.cost), csv: r => r.cost == null ? '' : r.cost.toFixed(2)},
   {k: 'cogs', label: cogsLabel || 'COGS', type: 'num', hint: 'Cost of goods sold = units sold × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}
 ];
@@ -1307,9 +1394,9 @@ function viewItem(root) {
   k.appendChild(kpi('Received', fmt(it.receipts), 'Returns ' + fmt(it.returns)));
   k.appendChild(kpi('Cannot pack', fmt(it.cannotPack), 'Discrepancy ' + fmt(it.disc) + ' · For packs ' + fmt(it.forPacks)));
   const uc = costOf(key);
-  k.appendChild(kpi('Avg cost', uc == null ? '—' : money(uc), uc == null ? (DATA.cost.size ? 'not in the cost table' : costNote(0, 0)) :
+  if (COST_OK) k.appendChild(kpi('Avg cost', uc == null ? '—' : money(uc), uc == null ? (DATA.cost.size ? 'not in the cost table' : costNote(0, 0)) :
     'per unit' + (DATA.costInfo && DATA.costInfo.date ? ' · baseline ' + esc(DATA.costInfo.date) : '')));
-  k.appendChild(kpi('Cost of goods sold', uc == null ? '—' : money0(it.units * uc), uc == null ? '' : fmt(it.units) + ' units × ' + money(uc) +
+  if (COST_OK) k.appendChild(kpi('Cost of goods sold', uc == null ? '—' : money0(it.units * uc), uc == null ? '' : fmt(it.units) + ' units × ' + money(uc) +
     (it.stock != null ? ' · stock value ' + money0(it.stock * uc) : '')));
   root.appendChild(k);
 
@@ -1456,8 +1543,8 @@ function viewCat(root) {
   k.appendChild(kpi('Stock on hand', fmt(stock), 'total units in the group'));
   k.appendChild(kpi('Received', fmt(recv), 'Returns ' + fmt(ret)));
   k.appendChild(kpi('Cannot pack', fmt(cannot), 'Discrepancy ' + fmt(disc)));
-  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(cogs) : '—', costNote(units, noCost)));
-  k.appendChild(kpi('Avg cost / unit sold', DATA.cost.size && units - noCost > 0 ? money(cogs / (units - noCost)) : '—', 'weighted by units sold'));
+  if (COST_OK) k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(cogs) : '—', costNote(units, noCost)));
+  if (COST_OK) k.appendChild(kpi('Avg cost / unit sold', DATA.cost.size && units - noCost > 0 ? money(cogs / (units - noCost)) : '—', 'weighted by units sold'));
   root.appendChild(k);
 
   const g = el('div', {class: 'grid2'});
@@ -1514,7 +1601,7 @@ function viewPlat(root) {
   k.appendChild(kpi('Busiest day', busiest ? fmt(busiest.units) : '—', busiest ? prettyFull(busiest.date) : ''));
   k.appendChild(kpi('Avg per day', fmt(AGG.dayCount ? AGG.total / AGG.dayCount : 0, 0), AGG.dayCount + ' days'));
   const pc = chans.reduce((a, c) => a + c.cogs, 0), pn = chans.reduce((a, c) => a + c.noCost, 0);
-  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(pc) : '—', costNote(AGG.total, pn)));
+  if (COST_OK) k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(pc) : '—', costNote(AGG.total, pn)));
   root.appendChild(k);
 
   const top = chans.slice(0, 8);
@@ -1579,7 +1666,7 @@ function viewPlat(root) {
     const tools = el('div', {style: 'display:flex;gap:8px'});
     tools.appendChild(exportBtn(box, 'platform-items.csv'));
     tools.appendChild(el('button', {class: 'iconbtn', onclick: () => { UI.plat = null; render(); }}, ['✕ Close']));
-    root.appendChild(card('What sells on ' + UI.plat, fmt(c.units) + ' units · ' + c.items.size + ' distinct items' + (DATA.cost.size ? ' · COGS ' + money0(c.cogs) : ''), box, tools));
+    root.appendChild(card('What sells on ' + UI.plat, fmt(c.units) + ' units · ' + c.items.size + ' distinct items' + (COST_OK && DATA.cost.size ? ' · COGS ' + money0(c.cogs) : ''), box, tools));
   }
 }
 
@@ -1595,7 +1682,7 @@ function viewInsight(root) {
   k.appendChild(kpi('Returns', fmt(AGG.totRet), 'customer returns'));
   k.appendChild(kpi('Discrepancies', fmt(AGG.totDisc), 'stock corrections'));
   k.appendChild(kpi('Cannot pack', fmt(AGG.totCannot), 'For packs ' + fmt(AGG.totForPacks)));
-  k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(AGG.cogs) : '—', costNote(AGG.total, AGG.noCost)));
+  if (COST_OK) k.appendChild(kpi('Cost of goods sold', DATA.cost.size ? money0(AGG.cogs) : '—', costNote(AGG.total, AGG.noCost)));
   root.appendChild(k);
 
   const tc = el('div');
@@ -1666,10 +1753,10 @@ function viewInsight(root) {
   renderTable(db, {id: 'dead', sortKey: 'stock', cols: [
     {k: 'name', label: 'Item', wide: true, render: r => nameCell(r)},
     {k: 'type', label: 'Type'}, {k: 'brand', label: 'Brand'}, {k: 'series', label: 'Series'},
-    {k: 'location', label: 'Location'}, {k: 'stock', label: 'Units sitting', type: 'num'},
-    COST_COLS()[0],
-    {k: 'cogs', label: 'Value sitting', type: 'num', hint: 'Units sitting × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}
-  ], rows: withCost(dead, 'stock'), onRow: r => goItem(r.key), limit: 100, maxHeight: 480});
+    {k: 'location', label: 'Location'}, {k: 'stock', label: 'Units sitting', type: 'num'}
+  ].concat(COST_OK ? [COST_COLS()[0],
+    {k: 'cogs', label: 'Value sitting', type: 'num', hint: 'Units sitting × avg cost', render: r => r.cogs == null ? '<span class="zero">—</span>' : money0(r.cogs), csv: r => r.cogs == null ? '' : r.cogs.toFixed(2)}] : []),
+  rows: withCost(dead, 'stock'), onRow: r => goItem(r.key), limit: 100, maxHeight: 480});
   root.appendChild(card('Dead stock', 'In stock but zero sales across every platform in this period — ' + dead.length + ' items', db, exportBtn(db, 'dead-stock.csv')));
 
   /* --- losses & corrections --- */
@@ -1793,7 +1880,7 @@ async function reload(force) {
   } catch (e) {
     $('#bootNote').innerHTML = '<div class="errbox">Inventory sheet: ' + esc(e.message) + '</div>';
   }
-  const costP = loadCosts(force).then(d => { indexCosts(d); DATA.costErr = d.stale || ''; })
+  const costP = !COST_OK ? Promise.resolve() : loadCosts(force).then(d => { indexCosts(d); DATA.costErr = d.stale || ''; })
     .catch(e => { DATA.costErr = e.message; });
   const failed = await ensureWeeks(force);
   await Promise.race([costP, new Promise(r => setTimeout(r, 4000))]);   // do not hold the screen for a slow cost table
@@ -1811,7 +1898,7 @@ async function reload(force) {
   setStatus('Updated ' + new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}) +
             ' · ' + DATA.days.length + ' days · ' + DATA.channels.size + ' platforms', '');
   costP.then(() => {
-    if (DATA.costErr && !DATA.cost.size) {
+    if (COST_OK && DATA.costErr && !DATA.cost.size) {
       const box = el('div', {class: 'errbox', html: 'Average cost (Supabase “' + esc(CFG.SB_TABLE) + '”) could not be loaded: ' + esc(DATA.costErr) +
         '. Cost columns stay empty until it loads — press Refresh data to retry.'});
       $('#views').insertBefore(box, $('#views').firstChild);
@@ -1905,7 +1992,12 @@ function wire() {
   $('#dTo').value = iso(today);
   $('#dFrom').value = iso(addDays(today, -21));
   wire();
-  reload(false).catch(err => {
+  const un = savedUnlock();
+  (un ? Promise.resolve(un.name) : askPassword()).then(name => {
+    setUser(name);
+    const w = $('#whoLbl'); if (w){ w.style.cursor = 'pointer'; w.title = 'Click to lock the Analyzer'; w.addEventListener('click', () => { if (confirm('Lock the Analyzer on this device?')) lockAnalyzer(); }); }
+    return reload(false);
+  }).catch(err => {
     $('#bootMsg').textContent = '';
     $('#bootNote').innerHTML = '<div class="errbox">' + esc(err.message) + '</div>';
     setStatus('Load failed', 'err');
