@@ -972,10 +972,11 @@ const EXTERNAL_MODES = {
   supplier:  'supplier-tracker.html',
   kpi:       'kpi-tracking.html',
   streamer:  'streamer-assist.html',
-  plan:      'warehouse-plan.html'
+  plan:      'warehouse-plan.html',
+  lessons:   'https://r-alib.github.io/calipokehouselessons/'   // staff training — its own site, fully independent
 };
 
-const BUILD = '2026-09-25a · shelf locations from the inventory count';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-13a · Lessons mode in the main menu';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1667,7 +1668,8 @@ const MODES=[
   {icon:'🧾', name:'SUPPLIER TRACKER',  desc:'Supplier orders and shipments — read-only, password protected', ext:'supplier', ready:true},
   {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
   {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
-  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true}
+  {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true},
+  {icon:'🎓', name:'LESSONS',           desc:'Staff training — video lessons and tests', ext:'lessons', ready:true}
 ];
 function openExternal(key){
   const f=EXTERNAL_MODES[key]; if(!f) return;
