@@ -125,6 +125,19 @@ main{max-width:1560px;margin:0 auto;padding:20px 16px 90px}
 .chip.warn{color:var(--warn);border-color:#473a1c;background:#2b2412;font-weight:600}
 .chip.crit{color:var(--err);border-color:#4a2128;background:#311518;font-weight:600}
 
+/* listing tags */
+.chip.lst{color:var(--s2);border-color:#2a3b5c;background:#141d2e;font-weight:600;font-family:var(--mono);letter-spacing:.02em}
+.chip.lst.none{color:var(--warn);border-color:#473a1c;background:#2b2412;font-family:var(--body)}
+.chiplbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;align-self:center;margin-right:2px}
+.platlist{display:flex;flex-wrap:wrap;gap:7px}
+.platlist button{background:var(--panel2);border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:.12s;display:inline-flex;gap:7px;align-items:center}
+.platlist button:hover{border-color:var(--line);color:var(--ink)}
+.platlist button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:#11211a}
+.platlist button b{font-family:var(--mono);font-weight:700;opacity:.8}
+.platlist button.nolist[aria-pressed="true"]{border-color:var(--warn);color:var(--warn);background:#2b2412}
+.chip.off{color:var(--err);border-color:#4a2128;background:#311518;font-weight:600}
+.chip.on{color:var(--ok);border-color:#1d4530;background:#13301f;font-weight:600}
+
 /* password gate */
 .gate{position:fixed;inset:0;z-index:400;background:var(--bg);display:grid;place-items:center;padding:20px}
 .gatebox{width:min(380px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;display:flex;flex-direction:column;gap:10px}
@@ -312,6 +325,23 @@ const CFG = {
   /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
   SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
   SB_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c2hreWNzZGVkYnlubnN3d3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNzc0MDksImV4cCI6MjEwNDg1MzQwOX0.WZ0uaDDNRsRXkKagiPBbNZ7om_3VVqlsPZSQJz1kFi0',
+  /* platform listings workbook — which products are listed where */
+  LST_ID : '1WQQxRWnDicFsuYE_98InYhVFeeEL8FEI5nDircmtmOA',
+  LST_COL: 'SOH/内部库存名称',          // column with the Daily SOH item name(s); bundles are "a, b, c"
+  /* tab → {short tag, Daily SOH platform columns it covers} */
+  LST_TABS: [
+    {tab: 'Temu',          short: 'Temu', plats: ['Temu']},
+    {tab: 'TT_Dolldrop',   short: 'DD',   plats: ['DollDrop']},
+    {tab: 'ebay',          short: 'Ebay', plats: ['Ebay', 'Ebay LS', 'Ebay BUFP']},
+    {tab: 'TT5_SugarPOP',  short: 'SP',   plats: ['SugarPop']},
+    {tab: 'Shopify',       short: 'Shop', plats: ['Shopify']},
+    {tab: 'CaliToys',      short: 'CT',   plats: ['CaliToys', 'CaliToys BUFP']},
+    {tab: 'TT1 listings',  short: 'TT1',  plats: ['Tiktok', 'House LS', 'House BUFP']},
+    {tab: 'TT2 listings',  short: 'TT2',  plats: ['Tiktok 2']},
+    {tab: 'Best Buy',      short: 'BB',   plats: ['Best Buy']},
+    {tab: 'TT3 listings',  short: 'TT3',  plats: ['Koi Slabs', 'Koi Slabs LS', 'KS BUFP']},
+    {tab: 'walmart',       short: 'WM',   plats: ['Walmart']}
+  ],
   SB_TABLE: 'latest_avg_cost',   // table with the current average cost
   SB_NAME : 'item_name',         // column: item name (no variation) — matched to the inventory name
   SB_COST : 'new_avg_cost',      // column: average cost per unit, USD
@@ -629,6 +659,56 @@ async function loadInventory(force) {
   return data;
 }
 
+/* ------------------------------- listings --------------------------------- */
+/* One tab per platform group. The SOH column holds the Daily SOH item name;
+   a bundle lists several names separated by commas — each of them counts as
+   listed on that platform. */
+async function loadListings(force) {
+  const key = 'lst1';
+  if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
+  const tabs = {}, failed = [];
+  await Promise.all(CFG.LST_TABS.map(async t => {
+    try {
+      const rows = parseCSV(await fetchCSV(gvizURL(CFG.LST_ID, {sheet: t.tab})));
+      let hr = -1, ci = -1;
+      for (let r = 0; r < Math.min(rows.length, 6) && ci < 0; r++) {
+        const i = rows[r].findIndex(c => norm(c) === norm(CFG.LST_COL) || /^soh\s*\//i.test(String(c || '')) || norm(c) === 'soh');
+        if (i >= 0) { hr = r; ci = i; }
+      }
+      if (ci < 0) throw new Error('no "' + CFG.LST_COL + '" column');
+      const names = new Set(), bundles = [];
+      for (let r = hr + 1; r < rows.length; r++) {
+        const raw = String(rows[r][ci] || '').trim(); if (!raw) continue;
+        const parts = raw.split(/[,，]/).map(norm).filter(Boolean);
+        parts.forEach(n => names.add(n));
+        if (parts.length > 1) bundles.push(parts);
+      }
+      tabs[t.tab] = {names: Array.from(names), bundles, rows: rows.length - hr - 1};
+    } catch (e) { failed.push(t.tab + ' (' + e.message + ')'); }
+  }));
+  const data = {tabs, failed, at: Date.now()};
+  if (Object.keys(tabs).length) await IDB.set(key, {ts: Date.now(), data});
+  else { const stale = await IDB.get(key); if (stale) { stale.data.stale = failed.join(', '); return stale.data; } }
+  return data;
+}
+function indexListings(d) {
+  DATA.lst = d; DATA.lstByItem.clear(); DATA.lstByTab.clear(); DATA.platToTab.clear();
+  CFG.LST_TABS.forEach(t => {
+    t.plats.forEach(pn => DATA.platToTab.set(norm(pn), t));
+    const tab = d.tabs[t.tab]; if (!tab) return;
+    DATA.lstByTab.set(t.tab, new Set(tab.names));
+    tab.names.forEach(n => { if (!DATA.lstByItem.has(n)) DATA.lstByItem.set(n, []); DATA.lstByItem.get(n).push(t); });
+  });
+}
+/* short tags for one item, in CFG order; [] when it is listed nowhere */
+const listingTags = key => CFG.LST_TABS.filter(t => DATA.lstByTab.has(t.tab) && DATA.lstByTab.get(t.tab).has(key));
+function listingTagsHTML(key) {
+  if (!DATA.lst) return '';
+  const tags = listingTags(key);
+  if (!tags.length) return '<span class="chip lst none" title="Not in any listing tab">No listing</span>';
+  return tags.map(t => '<span class="chip lst" title="Listed on ' + esc(t.plats.join(', ')) + ' (tab ' + esc(t.tab) + ')">' + esc(t.short) + '</span>').join('');
+}
+
 /* ------------------------------- access ----------------------------------- */
 /* The mode opens with a password. Cost (Supabase) is shown only to the names
    below — for everyone else the screen looks exactly as before and the cost
@@ -763,6 +843,10 @@ const DATA = {
   itemNames: [],         // union of inventory + sheet item names
   cost    : new Map(),   // norm(item name) -> avg cost per unit (USD)
   costDate: new Map(),   // norm(item name) -> date the cost is valid from
+  lst     : null,        // listings workbook snapshot
+  lstByItem: new Map(),  // norm(item name) -> [listing tab configs]
+  lstByTab : new Map(),  // tab name -> Set(norm(item name))
+  platToTab: new Map(),  // norm(Daily SOH platform) -> listing tab config
   costInfo: null, costErr: '',
   loadedAt: 0
 };
@@ -774,7 +858,7 @@ const FILTER = {
   bufp : true,
   plats: null            // null = all; otherwise Set of channel names
 };
-const UI = {view: 'item', item: null, cat: {type: '', brand: '', series: ''}, plat: null};
+const UI = {view: 'item', item: null, cat: {type: '', brand: '', series: ''}, plat: null, platTab: 'stats', lstTab: null, lstMode: 'all'};
 let AGG = null, AGG_PREV = null;
 
 /* ---------------------------- status helpers ------------------------------ */
@@ -1379,6 +1463,12 @@ function viewItem(root) {
     chips.appendChild(el('span', {class: 'chip warn', text: 'Not in the inventory sheet'}));
   }
   info.appendChild(chips);
+  if (DATA.lst) {
+    const lc = el('div', {class: 'chips', style: 'margin-top:7px'});
+    lc.appendChild(el('span', {class: 'chiplbl', text: 'Listed on'}));
+    lc.insertAdjacentHTML('beforeend', listingTagsHTML(key));
+    info.appendChild(lc);
+  }
   hb.appendChild(info);
   const back = el('button', {class: 'iconbtn', onclick: () => { UI.item = null; render(); }}, ['← All items']);
   hb.appendChild(back);
@@ -1594,6 +1684,149 @@ function viewCat(root) {
    VIEW — PLATFORMS
    ========================================================================== */
 function viewPlat(root) {
+  const seg = el('div', {class: 'seg', style: 'margin-bottom:14px'});
+  [['stats', 'Statistics'], ['lst', 'Listings']].forEach(([k, l]) => {
+    const b = el('button', {text: l, 'aria-pressed': String(UI.platTab === k)});
+    b.addEventListener('click', () => { UI.platTab = k; render(); });
+    seg.appendChild(b);
+  });
+  root.appendChild(seg);
+  if (UI.platTab === 'lst') return viewPlatListings(root);
+  viewPlatStats(root);
+}
+
+/* --- Listings: what each platform has listed vs what Daily SOH knows ------ */
+function lastSOHKeys() {
+  /* every item on the latest day of the sheet (the sheet writes a row for all items) */
+  const last = DATA.days[DATA.days.length - 1];
+  const s = new Set();
+  if (last) for (const nm in last.day.items) s.add(norm(nm));
+  return {date: last ? last.date : '', keys: s};
+}
+function viewPlatListings(root) {
+  if (!DATA.lst) {
+    root.appendChild(el('div', {class: 'empty', html: 'The listings workbook has not loaded' + (DATA.lstErr ? ': ' + esc(DATA.lstErr) : '') + '. Press <b>Refresh data</b>.'}));
+    return;
+  }
+  const soh = lastSOHKeys();
+  const allListed = new Set(); DATA.lstByTab.forEach(s => s.forEach(k => allListed.add(k)));
+  const noList = Array.from(soh.keys).filter(k => !allListed.has(k));
+
+  /* platform chooser */
+  const bar = el('div', {class: 'platlist', style: 'margin-bottom:14px'});
+  const tabs = CFG.LST_TABS.filter(t => DATA.lstByTab.has(t.tab));
+  if (!UI.lstTab || (UI.lstTab !== '__none' && !DATA.lstByTab.has(UI.lstTab))) UI.lstTab = tabs.length ? tabs[0].tab : '__none';
+  tabs.forEach(t => {
+    const n = DATA.lstByTab.get(t.tab).size;
+    const b = el('button', {'aria-pressed': String(UI.lstTab === t.tab), title: 'Tab “' + t.tab + '” → ' + t.plats.join(', ')},
+      [document.createTextNode(t.short + ' · ' + t.plats[0]), el('b', {text: String(n)})]);
+    b.addEventListener('click', () => { UI.lstTab = t.tab; render(); });
+    bar.appendChild(b);
+  });
+  const nb = el('button', {class: 'nolist', 'aria-pressed': String(UI.lstTab === '__none'), title: 'Items in Daily SOH that are in no listing tab'},
+    [document.createTextNode('NO LISTING'), el('b', {text: String(noList.length)})]);
+  nb.addEventListener('click', () => { UI.lstTab = '__none'; render(); });
+  bar.appendChild(nb);
+  root.appendChild(bar);
+  if (DATA.lst.failed && DATA.lst.failed.length)
+    root.appendChild(el('div', {class: 'note', style: 'margin:-6px 0 12px', text: 'Could not read tab(s): ' + DATA.lst.failed.join(', ')}));
+
+  const none = UI.lstTab === '__none';
+  const cfg = none ? null : CFG.LST_TABS.find(t => t.tab === UI.lstTab);
+  const keys = none ? noList : Array.from(DATA.lstByTab.get(cfg.tab));
+  const platSet = cfg ? new Set(cfg.plats.map(norm)) : null;
+
+  /* one row per listed item — sales on THIS platform's columns, and overall */
+  const rows = keys.map(key => {
+    const it = AGG.byItem.get(key), p = AGG_PREV ? AGG_PREV.byItem.get(key) : null, inv = itemMeta(key);
+    const name = it ? it.name : (inv ? inv.name : ((DATA.itemNames.find(n => n.key === key) || {}).name || key));
+    let here = 0, herePrev = 0;
+    if (it && platSet) it.byChannel.forEach((v, n) => { if (platSet.has(norm(n))) here += v; });
+    if (p && platSet) p.byChannel.forEach((v, n) => { if (platSet.has(norm(n))) herePrev += v; });
+    const units = it ? it.units : 0;
+    const st = it && it.stock != null ? it.stock : (inv ? inv.stock : null);
+    const inSOH = soh.keys.has(key);
+    return {key, name, series: inv ? inv.series : '', type: inv ? inv.type : '',
+      inSOH, here: platSet ? here : units, herePrev: platSet ? herePrev : (p ? p.units : 0),
+      units, prev: p ? p.units : 0, avg: AGG.dayCount ? (platSet ? here : units) / AGG.dayCount : 0,
+      stock: st, days: (units && AGG.dayCount && st != null) ? st / (units / AGG.dayCount) : null,
+      spark: AGG.dates.map(d => {
+        if (!it) return 0;
+        if (!platSet) return it.byDate.get(d) || 0;
+        const rec = DATA.dayIndex.get(d); if (!rec) return 0;
+        const vals = rec.day.byKey.get(key); if (!vals) return 0;
+        let s = 0; rec.week.meta.channels.forEach(c => { if (platSet.has(norm(c.name)) && channelAllowed(c)) s += vals[c.idx] || 0; }); return s;
+      }),
+      tags: listingTags(key).map(t => t.short).join(' ')};
+  });
+  const missing = rows.filter(r => !r.inSOH).length;
+  const sold = rows.filter(r => r.here > 0).length;
+  const hereTotal = rows.reduce((a, r) => a + r.here, 0);
+
+  const k = el('div', {class: 'kpis'});
+  if (cfg) {
+    k.appendChild(kpi('Listed items', fmt(rows.length), 'tab “' + cfg.tab + '”' + (DATA.lst.tabs[cfg.tab].bundles.length ? ' · ' + DATA.lst.tabs[cfg.tab].bundles.length + ' bundle rows' : '')));
+    k.appendChild(kpi('Not in Daily SOH', fmt(missing), missing ? 'listed but not for sale (no row on ' + prettyDate(soh.date) + ')' : 'every listed item is on the sheet', '', false));
+    k.appendChild(kpi('Sold here', fmt(hereTotal), 'units on ' + cfg.plats.join(' + ') + ' · ' + rangeShort()));
+    k.appendChild(kpi('Items with sales', fmt(sold), 'of ' + rows.length + ' listed, on this platform'));
+    k.appendChild(kpi('No sales here', fmt(rows.length - sold - missing), 'listed, in SOH, zero units on this platform'));
+  } else {
+    k.appendChild(kpi('Not listed anywhere', fmt(rows.length), 'in Daily SOH on ' + prettyDate(soh.date) + ', in none of the ' + tabs.length + ' listing tabs'));
+    k.appendChild(kpi('Units sold', fmt(hereTotal), 'across all platforms · ' + rangeShort()));
+    k.appendChild(kpi('In stock', fmt(rows.filter(r => r.stock > 0).length), 'items with stock on hand'));
+  }
+  root.appendChild(k);
+
+  const chips = el('div', {class: 'chipbar', style: 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px'});
+  const modes = cfg ? [['all', 'All', rows.length], ['sold', 'With sales here', sold], ['nosale', 'No sales here', rows.length - sold - missing], ['missing', 'Not in Daily SOH', missing]]
+                    : [['all', 'All', rows.length], ['sold', 'With sales', sold], ['stock', 'In stock', rows.filter(r => r.stock > 0).length]];
+  if (!modes.some(m => m[0] === UI.lstMode)) UI.lstMode = 'all';
+  modes.forEach(([m, l, n]) => {
+    const b = el('button', {class: 'chip' + (UI.lstMode === m ? ' b' : ''), style: 'cursor:pointer', html: esc(l) + ' <b>' + n + '</b>'});
+    b.addEventListener('click', () => { UI.lstMode = m; render(); });
+    chips.appendChild(b);
+  });
+  root.appendChild(chips);
+
+  let list = rows;
+  if (UI.lstMode === 'sold') list = rows.filter(r => r.here > 0);
+  if (UI.lstMode === 'nosale') list = rows.filter(r => r.inSOH && r.here === 0);
+  if (UI.lstMode === 'missing') list = rows.filter(r => !r.inSOH);
+  if (UI.lstMode === 'stock') list = rows.filter(r => r.stock > 0);
+
+  const box = el('div');
+  const cols = [
+    {k: 'name', label: 'Item', wide: true, render: r => nameCell(r) + (r.inSOH ? '' : ' <span class="chip off" title="No row in Daily SOH on ' + esc(soh.date) + '">not for sale</span>')},
+    {k: 'type', label: 'Type'}, {k: 'series', label: 'Series'}
+  ];
+  if (cfg) cols.push(
+    {k: 'here', label: 'Sold here', type: 'num', hint: 'Units on ' + cfg.plats.join(', ')},
+    {k: 'trend', label: 'Trend here', nosort: true, render: r => sparkSVG(r.spark, cssVar('--s1')), csv: () => ''},
+    {k: 'herePrev', label: 'Prev.', type: 'num'},
+    {k: 'chg', label: 'Change', type: 'num', nosort: true, render: r => deltaHTML(r.here, r.herePrev) || '—', csv: r => r.herePrev ? ((r.here - r.herePrev) / r.herePrev * 100).toFixed(1) + '%' : ''},
+    {k: 'avg', label: '/ day', type: 'num', dp: 1},
+    {k: 'units', label: 'All platforms', type: 'num'});
+  else cols.push(
+    {k: 'units', label: 'Sold', type: 'num'},
+    {k: 'trend', label: 'Trend', nosort: true, render: r => sparkSVG(r.spark, cssVar('--s1')), csv: () => ''},
+    {k: 'prev', label: 'Prev.', type: 'num'},
+    {k: 'chg', label: 'Change', type: 'num', nosort: true, render: r => deltaHTML(r.units, r.prev) || '—', csv: r => r.prev ? ((r.units - r.prev) / r.prev * 100).toFixed(1) + '%' : ''},
+    {k: 'avg', label: '/ day', type: 'num', dp: 1});
+  cols.push(
+    {k: 'stock', label: 'Stock', type: 'num'},
+    {k: 'days', label: 'Days left', type: 'num', dp: 0, render: r => r.days == null ? '—' :
+      '<span class="' + (r.days < 7 ? 'chip crit' : r.days < 21 ? 'chip warn' : '') + '">' + fmt(r.days) + '</span>'});
+  if (cfg) cols.push({k: 'tags', label: 'Also listed', render: r => listingTags(r.key).filter(t => t.tab !== cfg.tab).map(t => '<span class="chip lst">' + esc(t.short) + '</span>').join(' ') || '<span class="zero">—</span>'});
+  cols.push.apply(cols, COST_COLS(cfg ? 'here' : 'units'));
+  renderTable(box, {id: 'lst:' + UI.lstTab, sortKey: cfg ? 'here' : 'units', cols, rows: withCost(list, cfg ? 'here' : 'units'),
+    onRow: r => goItem(r.key), maxHeight: 640});
+  const title = cfg ? (cfg.short + ' — ' + cfg.plats.join(' + ')) : 'No listing';
+  root.appendChild(card(title, list.length + ' items · click a row to open it · click a header to sort', box,
+    exportBtn(box, 'listings-' + (cfg ? cfg.short : 'none').toLowerCase() + '.csv')));
+}
+
+/* --- Statistics: the original platform view ------------------------------ */
+function viewPlatStats(root) {
   const chans = Array.from(AGG.byChannel.values()).sort((a, b) => b.units - a.units);
   if (!chans.length) { root.appendChild(el('div', {class: 'empty', text: 'No platform activity in this period.'})); return; }
 
@@ -1890,8 +2123,11 @@ async function reload(force) {
   }
   const costP = !COST_OK ? Promise.resolve() : loadCosts(force).then(d => { indexCosts(d); DATA.costErr = d.stale || ''; })
     .catch(e => { DATA.costErr = e.message; });
+  const lstP = loadListings(force).then(d => { indexListings(d); DATA.lstErr = d.stale || ''; })
+    .catch(e => { DATA.lstErr = e.message; });
   const failed = await ensureWeeks(force);
-  await Promise.race([costP, new Promise(r => setTimeout(r, 4000))]);   // do not hold the screen for a slow cost table
+  await Promise.race([Promise.all([costP, lstP]), new Promise(r => setTimeout(r, 6000))]);
+  lstP.then(() => { if (DATA.lst) refresh(true); });   // do not hold the screen for a slow cost table
   costP.then(() => { if (DATA.cost.size) refresh(true); });
   $('#bootBar').style.width = '100%';
   DATA.loadedAt = Date.now();
