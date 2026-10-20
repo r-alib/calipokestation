@@ -243,6 +243,11 @@ textarea:focus{border-color:var(--accent)}
 .zone:hover{border-color:var(--faint)}
 .zone.on{border-style:solid;border-color:var(--accent);background:#11211a}
 .zone.warnz{color:var(--warn)}
+.zone.errz{color:var(--err);border-color:#5a2a2e}
+.irow.neg{background:#2a1519;border-color:#5a2a2e}
+.irow.neg .q{color:var(--err)}
+.island.needs{border-color:var(--err);box-shadow:0 0 0 2px var(--err),0 0 16px -4px var(--err)}
+.island .cnt.negc{background:var(--err);color:#fff}
 .dropon{outline:2px solid var(--accent)!important;outline-offset:2px;background:#11211a!important}
 .island.dropon{filter:brightness(1.6);box-shadow:0 0 0 3px var(--accent),0 0 24px -4px var(--accent)!important;z-index:8}
 .island .cnt{position:absolute;right:-6px;top:-8px;min-width:16px;height:16px;padding:0 4px;border-radius:99px;
@@ -473,6 +478,8 @@ dialog.wide{max-width:min(900px,95vw)}
         <button data-mode="edit" aria-pressed="false">✎ Edit layout</button>
       </div>
       <button class="zone" data-zone="__PAL" title="Products on pallets (PL-…) — click to open; drop onto a pallet header in the panel">🧺 Pallets <b id="zPAL">0</b></button>
+      <button class="zone" data-zone="__STORE" title="The store — everything on display / in the shop. Not part of the warehouse; never auto-deducted">🏬 Store <b id="zSTORE">0</b></button>
+      <button class="zone errz" data-zone="__NEG" id="zNegBtn" hidden title="Pick shelves that went negative after packing — stock needs to be moved there">⚠ Needs restock <b id="zNEG">0</b></button>
       <button class="zone warnz" data-zone="__UNK" id="zUnkBtn" hidden title="Counted locations that have no island on the plan">⚠ Not on plan <b id="zUNK">0</b></button>
       <div class="tb-sep"></div>
       <span class="tb-label">Zoom</span>
@@ -1501,6 +1508,9 @@ const locKey = s => String(s == null ? "" : s).trim().toUpperCase().replace(/\s+
 const fmtN = n => Number(n || 0).toLocaleString("en-US");
 const hhmm = t => new Date(t).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
 const isPal = L => /^PL-/.test(L);
+const STORE = "STORE";                       // the shop — one location outside the warehouse
+const isStore = L => L === STORE;
+const isPri = L => /^[SR]-/.test(L);         // pick shelves (auto-deduction happens here, may go negative)
 const arr = x => Array.isArray(x) ? x : (x && typeof x === "object" ? Object.keys(x).sort((a, b) => a - b).map(k => x[k]) : []);
 
 /* ---------------------------- location parsing --------------------------- */
@@ -1562,7 +1572,9 @@ function contentsOf(zone){
     for (const [loc, h] of map){
       let hit;
       if (zone === "__PAL") hit = isPal(loc);
-      else if (zone === "__UNK") hit = parseLoc(loc).kind === "unknown";
+      else if (zone === "__STORE") hit = isStore(loc);
+      else if (zone === "__NEG") hit = h.qty < 0;
+      else if (zone === "__UNK") hit = parseLoc(loc).kind === "unknown" && !isStore(loc);
       else hit = loc === zone || islandOfKey(loc) === zone;
       if (hit) out.push({k, loc, qty:h.qty});
     }
@@ -1570,16 +1582,19 @@ function contentsOf(zone){
   return out;
 }
 function zoneTotals(){
-  const t = {PAL:new Set(), UNK:new Set(), isl:new Map()};
+  const t = {PAL:new Set(), UNK:new Set(), STORE:new Set(), isl:new Map(), neg:[]};
   for (const [k, map] of HOLD){
     for (const [loc, h] of map){
+      if (h.qty < 0){ t.neg.push({k, loc, qty:h.qty}); const isl = islandOfKey(loc); if (isl){ const c = t.isl.get(isl) || {keys:new Set(), sku:0, units:0}; c.neg = (c.neg || 0) + 1; t.isl.set(isl, c); } }
       if (h.qty <= 0) continue;
+      if (isStore(loc)){ t.STORE.add(k); continue; }
       if (isPal(loc)) t.PAL.add(k);
       const isl = islandOfKey(loc);
       if (isl){ const c = t.isl.get(isl) || {keys:new Set(), sku:0, units:0}; c.keys.add(k); c.sku = c.keys.size; c.units += h.qty; t.isl.set(isl, c); }
       else if (!isPal(loc)) t.UNK.add(k);
     }
   }
+  t.neg.sort((a, b) => a.qty - b.qty || a.loc.localeCompare(b.loc, undefined, {numeric:true}));
   return t;
 }
 
@@ -1743,8 +1758,11 @@ function makeStockOps(env){
   function withDelta(k, cur, delta){
     const base = cur || {s:0, b:0, c:0, d:0, n:env.name(k), a0:now()};
     const v = sum(base, delta);
-    if (F.some(f => v[f] < 0)) return undefined;
-    if (v.cv && (Object.values(v.cv).some(x => x < 0) || cvSum(v.cv) > (v.c || 0))) return undefined;
+    /* a line may already be below zero (packed orders took more than the shelf had):
+       adding to it is always fine, taking from it is not */
+    if (F.some(f => v[f] < 0 && !((base[f] || 0) < 0 && ((delta && delta[f]) || 0) >= 0))) return undefined;
+    if (v.cv && (Object.values(v.cv).some(x => x < 0) || cvSum(v.cv) > Math.max(0, v.c || 0))) return undefined;
+    if (v.b < 0 && v.s > 0){ const q = env.q(k); while (v.b < 0 && v.s > 0){ v.s--; v.b += q; } }   // cases put on a negative line fill the hole
     if (isZero(v)) return null;
     const o = Object.assign({}, base, v, {n:base.n || env.name(k), by:env.who(), at:now()});
     if (!v.cv) delete o.cv;
@@ -1817,9 +1835,14 @@ function makeStockOps(env){
       return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, r.mv), d:{[L]:clean(d)}, reason, note, all:all || undefined});
     },
     /* open n cases → q × n loose boxes or confirmed units */
-    async openCase(k, L, n, into){
+    async openCase(k, L, n, into, cv){
       n = posInt(n, 'a number of cases'); into = into === 'c' ? 'c' : 'b';
       const q = env.q(k); const d = {s:-n, [into]:n * q};
+      if (into === 'c' && cv){                      // confirmed units go in by variation
+        const m = {}; for (const x in cv) if (+cv[x] > 0) m[x] = Math.floor(+cv[x]);
+        need(cvSum(m) === n * q, 'The variations must add up to ' + (n * q) + ' units');
+        if (Object.keys(m).length) d.cv = m;
+      }
       const r = await applyDelta(L, k, d); need(r, 'There are fewer than ' + n + ' case(s) in ' + L);
       return log({type:'open', k, n:env.name(k), loc:L, qty:n * q, cases:n, into, d:{[L]:d}});
     },
@@ -1843,7 +1866,7 @@ function makeStockOps(env){
   };
 }
 /* labels shared by both history screens */
-const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', count:'✎ Count', status:'✓ Status'};
+const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', pack:'🚚 Packed order', count:'✎ Count', status:'✓ Status'};
 function histChange(rec, q){
   const parts = [];
   const lbl = x => (typeof histVarLabel === 'function' ? histVarLabel(rec.k, x) : x);
@@ -1862,7 +1885,7 @@ function histChange(rec, q){
   return parts.filter(Boolean).join(' ');
 }
 function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' + rec.to) : (rec.loc || Object.keys(rec.d || {}).join(', ')); }
-const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan'};
+const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
 const REASONS_ADD = ['New shipment', 'Return', 'Other'];
 const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
@@ -1924,6 +1947,9 @@ function openActions(k, L, tab, toPre){
     else if (tab === "open"){
       h += `<div class="field-ctl"><label for="acCases">Cases to open — ${v.s || 0} here</label><input type="number" id="acCases" class="qbig" min="1" max="${v.s || 0}" step="1" value="${v.s ? 1 : 0}"></div>
         <div class="field-ctl" style="margin-top:10px"><label for="acInto">Put the units into</label><select id="acInto"><option value="b">Boxes</option><option value="c">Confirmed</option></select></div>
+        <div id="acCv" hidden><p class="hint" style="margin:10px 0 4px">Which variations are in the opened case(s)? They must add up to the opened units.</p>
+          <div class="ce-grid">${wVars(k).map((x, i) => `<div class="ce-row"><span>${esc(x.label)}</span><span class="ce-q"><button type="button" class="btn icon" data-cm="${i}">−</button><input type="number" min="0" id="acv_${i}" data-key="${esc(x.key)}" value="0"><button type="button" class="btn icon" data-cp="${i}">+</button></span></div>`).join("")}</div>
+          <p class="hint" style="margin:6px 0 0">Entered <b id="acCvSum" style="font-family:var(--mono)">0</b></p></div>
         <p class="hint" id="acPrev" style="margin:8px 0 0"></p>`;
     } else h += toField() + editor(true);
     return h;
@@ -1934,8 +1960,16 @@ function openActions(k, L, tab, toPre){
     const B = $("dlgBody");
     B.querySelectorAll("#acTabs button").forEach(b => b.addEventListener("click", () => { tab = b.dataset.t; draw(); }));
     if (tab === "open"){
-      const prev = () => { const n = Math.floor(+$("acCases").value || 0); $("acPrev").textContent = n ? "−" + n + " case → +" + n * q + " " + ($("acInto").value === "c" ? "confirmed" : "boxes") : ""; };
+      const vars = wVars(k);
+      const cvSumNow = () => [...B.querySelectorAll('input[id^="acv_"]')].reduce((a, i) => a + Math.max(0, Math.floor(+i.value || 0)), 0);
+      const prev = () => { const n = Math.floor(+$("acCases").value || 0); const toC = $("acInto").value === "c";
+        $("acPrev").textContent = n ? "−" + n + " case → +" + n * q + " " + (toC ? "confirmed" : "boxes") : "";
+        $("acCv").hidden = !(toC && vars.length);
+        const s = cvSumNow(); $("acCvSum").textContent = s + " / " + (n * q); $("acCvSum").style.color = s === n * q ? "var(--accent)" : "var(--warn)"; };
       ["acCases","acInto"].forEach(id => { $(id).addEventListener("input", prev); $(id).addEventListener("change", prev); });
+      B.querySelectorAll('input[id^="acv_"]').forEach(i => { i.addEventListener("input", prev); i.addEventListener("focus", () => i.select()); });
+      B.querySelectorAll("[data-cp]").forEach(b => b.addEventListener("click", () => { const i = $("acv_" + b.dataset.cp); i.value = (+i.value || 0) + 1; prev(); }));
+      B.querySelectorAll("[data-cm]").forEach(b => b.addEventListener("click", () => { const i = $("acv_" + b.dataset.cm); i.value = Math.max(0, (+i.value || 0) - 1); prev(); }));
       $("acCases").addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); go(); } });
       prev();
     } else {
@@ -1962,7 +1996,9 @@ function openActions(k, L, tab, toPre){
         await OPS.add(k, L, readComp(), rs.r, rs.n); toast("Added to " + L + " · " + rs.r); }
       else if (tab === "remove"){ const rs = reason(); if (!rs){ busy = false; return; }
         await OPS.remove(k, L, readComp(), rs.r, rs.n); toast("Removed from " + L + " · " + rs.r); }
-      else if (tab === "open"){ await OPS.openCase(k, L, Math.floor(+$("acCases").value || 0), $("acInto").value); toast("Case opened on " + L); }
+      else if (tab === "open"){
+        const cv = {}; if ($("acInto").value === "c") $("dlgBody").querySelectorAll('input[id^="acv_"]').forEach(i => { const n = Math.floor(+i.value || 0); if (n > 0) cv[i.dataset.key] = n; });
+        await OPS.openCase(k, L, Math.floor(+$("acCases").value || 0), $("acInto").value, wVars(k).length ? cv : null); toast("Case opened on " + L); }
       else { const to = locKey($("acTo").value); if (!to){ toast("Choose where to move it"); busy = false; return; }
         const c = readComp(); await OPS.transfer(k, L, to, c); toast("Moved " + (c.s * q + c.b + c.d + c.c) + " × " + nameOf(k) + " → " + to); }
       closeDialog();
@@ -1975,7 +2011,7 @@ function openActions(k, L, tab, toPre){
 function allPlaces(){
   const s = new Set();
   arr(BASE && BASE.locs).forEach(l => l && l.id && s.add(locKey(l.id)));
-  Object.keys(COUNTS).forEach(L => s.add(L));
+  Object.keys(COUNTS).forEach(L => s.add(L)); s.add(STORE);
   for (const it of S.islands){ const L = locKey(it.label); if (!L) continue; const n = sectionsOf(L);
     if (n) for (let i = 1; i <= n; i++) s.add(L + "-" + i); else s.add(L); }
   return [...s].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
@@ -2031,7 +2067,7 @@ function openHistory(){
     `<p>Every change of stock — from this plan and from the Inventory mode: moves, stock added or removed (with reason), opened cases, counting edits, shelf status.</p>
      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="hChips">${[["all","All"]].concat(Object.entries(HIST_TYPES)).map(([k, l]) =>
         `<button class="zone${histType === k ? " on" : ""}" data-t="${k}">${l} <b>${cnt[k] || 0}</b></button>`).join("")}</div>
-     <div style="display:flex;gap:8px;margin-bottom:10px"><select id="hMode" style="max-width:190px"><option value="all">Both screens</option><option value="plan">Warehouse plan</option><option value="inventory">Inventory count</option></select>
+     <div style="display:flex;gap:8px;margin-bottom:10px"><select id="hMode" style="max-width:190px"><option value="all">All screens</option><option value="plan">Warehouse plan</option><option value="inventory">Inventory count</option><option value="pack">Pick &amp; Pack</option></select>
        <input type="text" id="hQ" placeholder="Filter by item, location, person, reason…" value="${esc(histQ)}"></div>
      <div class="rep-wrap" id="hWrap" style="max-height:56vh">${histTable()}</div>`,
     [{label:"⬇ Download (.csv)", primary:true, act(){ offerFile("warehouse-history_" + stamp() + ".csv", new Blob([histCSV()], {type:"text/csv;charset=utf-8"})); }},
@@ -2068,11 +2104,15 @@ function paintStock(){
       b.textContent = c.sku; b.title = c.sku + " product(s) · " + fmtN(c.units) + " unit(s)";
       b.style.transform = "rotate(" + (-it.rot) + "deg)";
     } else if (b) b.remove();
+    if (b) b.classList.toggle("negc", !!(c && c.neg));
+    el.classList.toggle("needs", MODE === "stock" && !!(c && c.neg));
     el.classList.toggle("stocked", !!(c && c.sku));
     el.classList.toggle("empty-st", MODE === "stock" && !(c && c.sku));
     el.classList.toggle("sel", S.sel.has(it.id) || (MODE === "stock" && OPEN === locKey(it.label)));
   }
   $("zPAL").textContent = fmtN(t.PAL.size);
+  $("zSTORE").textContent = fmtN(t.STORE.size);
+  $("zNEG").textContent = fmtN(t.neg.length); $("zNegBtn").hidden = !t.neg.length;
   $("zUNK").textContent = fmtN(t.UNK.size); $("zUnkBtn").hidden = !t.UNK.size;
   document.querySelectorAll(".zone[data-zone]").forEach(z => z.classList.toggle("on", OPEN === z.dataset.zone));
   $("trCount").textContent = LOG.length;
@@ -2108,7 +2148,7 @@ function rowHTML(r){
     const ps = Object.keys(v.cv).filter(x => v.cv[x] > 0).map(x => (lbl[x] || x) + " " + v.cv[x]);
     const un = (v.c || 0) - Object.values(v.cv).reduce((a, b) => a + (+b || 0), 0); if (un > 0) ps.push("unspecified " + un);
     cvt = ps.join(" · ") + (v.cvx ? " · recheck" : ""); }
-  return `<div class="irow${r.qty <= 0 ? " zero" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
+  return `<div class="irow${r.qty < 0 ? " neg" : (r.qty <= 0 ? " zero" : "")}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
     <span class="grip" title="Drag to move">⠿</span>
     <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
     <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
@@ -2128,16 +2168,16 @@ function renderPanel(){
   const body = $("spBody");
   const f = nrm($("spSearch").value), hideZero = $("spZero").checked;
   let rows = contentsOf(OPEN).filter(r => {
-    if (hideZero && r.qty <= 0) return false;
+    if (hideZero && r.qty === 0) return false;
     if (!f) return true;
     const it = infoOf(r.k); return nrm(it.name).indexOf(f) >= 0 || it.barcodes.some(b => b.indexOf(f) >= 0) || nrm(r.loc).indexOf(f) >= 0;
   });
   rows.sort((a, b) => infoOf(a.k).name.localeCompare(infoOf(b.k).name, undefined, {numeric:true}));
   const units = rows.reduce((a, r) => a + r.qty, 0);
-  const title = OPEN === "__UNK" ? "Not on the plan" : (OPEN === "__PAL" ? "Pallets" : OPEN);
+  const title = OPEN === "__UNK" ? "Not on the plan" : (OPEN === "__PAL" ? "Pallets" : (OPEN === "__STORE" ? "Store" : (OPEN === "__NEG" ? "Needs restock" : OPEN)));
   $("spTitle").textContent = title;
   $("spSub").textContent = rows.length + " line(s) · " + fmtN(units) + " unit(s)" +
-    (OPEN === "__PAL" ? " · new arrivals & overstock" : (OPEN === "__UNK" ? " · count locations with no island" : ""));
+    (OPEN === "__PAL" ? " · new arrivals & overstock" : (OPEN === "__UNK" ? " · count locations with no island" : (OPEN === "__STORE" ? " · the shop, outside the warehouse" : (OPEN === "__NEG" ? " · packed orders took more than the shelf had — move stock there" : ""))));
   if (!BASE && !Object.keys(COUNTS).length){ body.innerHTML = `<div class="empty">No inventory count yet — start one in the <b>Inventory</b> mode.</div>`; return; }
 
   const nSec = !OPEN.startsWith("__") ? sectionsOf(OPEN) : 0;
@@ -2155,6 +2195,13 @@ function renderPanel(){
         `<div class="empty">${f ? "Nothing matches the filter" : "All pallets are empty."}</div>`;
     if (empty.length && !f) h += `<div class="sec"><div class="sec-h">Empty pallets<span class="n">${empty.length}</span></div>
         <div class="palgrid">${empty.map(P => `<span class="palchip" data-drop="${esc(P)}" title="Drop a product here">${esc(P)}</span>`).join("")}</div></div>`;
+  } else if (OPEN === "__STORE"){
+    h = secHTML(STORE, "Store · shop display", rows, f ? "Nothing matches the filter" : "Nothing in the store yet — drag a product here or add it with ＋.");
+  } else if (OPEN === "__NEG"){
+    const locs = [...new Set(rows.map(r => r.loc))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
+    h = locs.map(l => secHTML(l, l + " · needs restock", rows.filter(r => r.loc === l))).join("") ||
+      `<div class="empty">No shelf is negative. 🎉</div>`;
+    if (locs.length) h += `<p class="hint" style="margin:14px 14px 0;color:var(--err)">These lines went below zero when packed orders were deducted from the pick shelf. Move the goods from a pallet / storage shelf onto this shelf (drag, or click the line → Move) and the number comes back to the real count.</p>`;
   } else if (OPEN === "__UNK"){
     const locs = [...new Set(rows.map(r => r.loc))].sort();
     h = locs.map(l => secHTML(l, l + " · no island with this name", rows.filter(r => r.loc === l))).join("") ||
@@ -2286,12 +2333,12 @@ function runFind(){
   if (!hits.length){ box.innerHTML = `<div class="empty">Nothing found</div>`; return; }
   box.innerHTML = hits.map(k => {
     const map = HOLD.get(k) || new Map();
-    const locs = [...map.entries()].filter(([, h]) => h.qty > 0).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}));
+    const locs = [...map.entries()].filter(([, h]) => h.qty !== 0).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}));
     const tot = locs.reduce((a, [, h]) => a + h.qty, 0);
     return `<div class="fr"><b>${esc(nameOf(k))}</b><span style="color:var(--faint);font-family:var(--mono)"> · ${fmtN(tot)}</span>
       <div class="locs">${locs.length ? locs.map(([l, h]) => {
-        const isl = islandOfKey(l); const zone = isl || (isPal(l) ? "__PAL" : "__UNK");
-        return `<button data-open="${esc(zone)}">${esc(l)} · ${h.qty}</button>`; }).join("") :
+        const isl = islandOfKey(l); const zone = isl || (isPal(l) ? "__PAL" : (isStore(l) ? "__STORE" : "__UNK"));
+        return `<button data-open="${esc(zone)}">${isStore(l) ? "🏬 Store" : esc(l)} · ${h.qty}</button>`; }).join("") :
         `<span style="color:var(--faint)">not counted anywhere</span>`}</div></div>`;
   }).join("");
 }
@@ -2346,7 +2393,7 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-const PLAN_BUILD = "2026-09-29c · shared floor plan";
+const PLAN_BUILD = "2026-10-19a · Store zone · needs-restock highlights · open case by variation";
 let planErr = "";
 function setSyncState(t){
   flagSaved(t);

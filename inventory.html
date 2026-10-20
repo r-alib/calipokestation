@@ -98,6 +98,9 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .chip.on{border-color:var(--accent); color:var(--accent); background:#11211a}
 .chip .cnt{font-family:var(--mono); opacity:.8; margin-left:5px}
 .chipbar{display:flex; gap:6px; flex-wrap:wrap}
+.ctbl td.cdiff{color:var(--err); font-weight:700; background:#2a1519}
+.ctbl td.cok{color:var(--ok)}
+.ctbl tr.cst-onlyeod td, .ctbl tr.cst-noeod td{color:var(--muted)}
 
 /* ---------- gate ---------- */
 .gate{border:1.5px dashed var(--line); border-radius:var(--r); padding:46px 24px; text-align:center; background:var(--panel); max-width:620px; margin:40px auto}
@@ -133,6 +136,8 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .stile.stale{border-left-color:var(--stale)} .stile.stale .sdot{background:var(--stale)}
 .stile.sel{background:#15233a; border-color:var(--info); border-left-color:var(--info)}
 .stile.extra .sid{color:var(--warn)}
+.stile.storet{border-left-color:var(--info)} .stile.storet .sid{color:var(--info)}
+.dot-store{background:var(--info)}
 .st-done{color:var(--ok)} .st-started{color:var(--warn)} .st-stale{color:var(--stale)} .st-todo{color:var(--muted)}
 .dot-done{background:var(--ok)} .dot-started{background:var(--warn)} .dot-stale{background:var(--stale)} .dot-todo{background:var(--faint)} .dot-all{background:var(--info)}
 
@@ -229,6 +234,8 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .lchip b{color:var(--ink)}
 .lchip.pri{color:var(--info); border-color:#23395c}
 .lchip.pal{color:var(--warn); border-color:#473a1c}
+.lchip.sto{color:var(--info); border-color:#23395c}
+.lchip.neg{color:var(--err); border-color:#4a2128}
 .wrow .wt{font-family:var(--mono); font-weight:700; font-size:18px; text-align:right}
 .wrow .wt small{display:block; font-family:var(--body); font-weight:500; font-size:11px; color:var(--faint)}
 .htbl{min-width:1100px}
@@ -318,6 +325,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
     <button data-v="total">📊 Total</button>
     <button data-v="where">📍 Locations</button>
     <button data-v="history">🕘 History</button>
+    <button data-v="compare">⚖ Compare</button>
   </div>
   <div class="spacer"></div>
   <span class="mini" id="baseInfo"></span>
@@ -397,11 +405,29 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
     </div>
     <div class="chipbar" id="histChips"></div>
     <div class="rcrow" style="margin-top:10px">
-      <select id="histMode" class="gsel"><option value="all">Both screens</option><option value="inventory">Inventory count</option><option value="plan">Warehouse plan</option></select>
+      <select id="histMode" class="gsel"><option value="all">All screens</option><option value="inventory">Inventory count</option><option value="plan">Warehouse plan</option><option value="pack">Pick &amp; Pack</option></select>
       <input id="histQ" class="tinput" style="max-width:420px" placeholder="Filter by item, location, person, reason…" autocomplete="off">
     </div>
     <div class="tscroll"><table class="ttbl htbl" id="histTbl"></table></div>
     <p class="mini" style="margin-top:10px">Transfers, stock added or removed (with reason), opened cases, counting edits and shelf status changes — from this screen and from Warehouse Plan. Add / remove / open case / transfer can be undone here.</p>
+  </section>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="view-compare" class="hide">
+    <div class="rcrow" style="margin-bottom:12px">
+      <h1>⚖ Compare with Daily SOH</h1>
+      <div class="spacer"></div>
+      <span class="mini" id="cmpInfo"></span>
+      <button class="btn sm" id="cmpCsv">⬇ CSV</button>
+      <button class="btn sm primary" id="cmpUpd">↻ Update</button>
+    </div>
+    <div class="mini" style="margin-bottom:10px">System = what is counted here (<b>WH</b> = every location except the store · <b>Store</b> = the STORE location). Daily SOH = <b>WH EOD SOH</b> / <b>LS EOD SOH</b> columns of the Daily SOH workbook, latest filled day.</div>
+    <div class="chipbar" id="cmpChips"></div>
+    <div class="rcrow" style="margin-top:10px">
+      <input id="cmpQ" class="tinput" style="max-width:420px" placeholder="Filter by item…" autocomplete="off">
+      <label class="mini" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="cmpHideZero"> hide items that are 0 in both</label>
+    </div>
+    <div class="tscroll"><table class="ttbl ctbl" id="cmpTbl"></table></div>
   </section>
 
   <!-- ============ LOCATIONS (WHERE) ============ -->
@@ -462,7 +488,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-09-29b · inventory v3 · exact lines + variations in add/remove/transfer';
+const BUILD = '2026-10-19a · inventory v3 · Store location · Compare with Daily SOH · open case by variation';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -490,9 +516,11 @@ const int = v => Math.round(num(v));
 const fmt = n => Number(n||0).toLocaleString('en-US');
 const hhmm = t => t ? new Date(t).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
 const locKey = s => String(s==null?'':s).trim().toUpperCase().replace(/\s+/g,'').replace(/[.#$\/\[\]]/g,'_');
+const STORE = 'STORE';                        // the shop — one location, outside the warehouse
+const isStore = L => L === STORE;
 const isPri = L => /^[SR]-/.test(L);          // S-xx / R-xx shelves are the pick locations
 const isPal = L => /^PL-/.test(L);
-function locSort(a,b){ const pa=isPri(a)?0:(isPal(a)?2:1), pb=isPri(b)?0:(isPal(b)?2:1); return pa-pb || a.localeCompare(b,undefined,{numeric:true}); }
+function locSort(a,b){ const r=L=>isPri(L)?0:(isPal(L)?2:(isStore(L)?3:1)); return r(a)-r(b) || a.localeCompare(b,undefined,{numeric:true}); }
 
 /* ---------------- state ---------------- */
 let BASE = null;              // shared sheet snapshot (see header)
@@ -546,7 +574,8 @@ function nameOf(k, cell){ const it=itemOf(k); return it ? it.n : ((cell && cell.
 function units(k, v){ if(!v) return 0; return (v.s||0)*qOf(k) + (v.b||0) + (v.d||0) + (v.c||0); }
 function allLocs(){
   const out=[], seen=new Set();
-  ((BASE&&BASE.locs)||[]).forEach(l=>{ const L=locKey(l.id); if(!L||seen.has(L)) return; seen.add(L); out.push({L, id:l.id, bc:l.bc||'', type:l.type||'Other', extra:false}); });
+  ((BASE&&BASE.locs)||[]).forEach(l=>{ const L=locKey(l.id); if(!L||seen.has(L)||L===STORE) return; seen.add(L); out.push({L, id:l.id, bc:l.bc||'', type:l.type||'Other', extra:false}); });
+  seen.add(STORE); out.push({L:STORE, id:'Store', bc:'', type:'Store · shop display', extra:false, store:true});
   Object.keys(COUNTS).concat(Object.keys(STATUS)).forEach(L=>{ if(seen.has(L)) return; seen.add(L); out.push({L, id:L, bc:'', type:'Not in the Location tab', extra:true}); });
   return out;
 }
@@ -566,7 +595,7 @@ function whereIs(k){
   for(const L in COUNTS){ const v=COUNTS[L][k]; if(v) out.push({L, v, u:units(k,v)}); }
   return out.sort((a,b)=>locSort(a.L,b.L));
 }
-function agg(k){ const a={s:0,b:0,d:0,c:0,u:0,locs:whereIs(k)}; a.locs.forEach(x=>{ a.s+=x.v.s||0; a.b+=x.v.b||0; a.d+=x.v.d||0; a.c+=x.v.c||0; a.u+=x.u; }); return a; }
+function agg(k){ const a={s:0,b:0,d:0,c:0,u:0,wh:0,st:0,locs:whereIs(k)}; a.locs.forEach(x=>{ a.s+=x.v.s||0; a.b+=x.v.b||0; a.d+=x.v.d||0; a.c+=x.v.c||0; a.u+=x.u; if(isStore(x.L)) a.st+=x.u; else a.wh+=x.u; }); return a; }
 function totalUnits(){ let u=0; for(const L in COUNTS) u+=shelfUnits(L); return u; }
 
 /* ---------------- indexes ---------------- */
@@ -886,8 +915,11 @@ function makeStockOps(env){
   function withDelta(k, cur, delta){
     const base = cur || {s:0, b:0, c:0, d:0, n:env.name(k), a0:now()};
     const v = sum(base, delta);
-    if (F.some(f => v[f] < 0)) return undefined;
-    if (v.cv && (Object.values(v.cv).some(x => x < 0) || cvSum(v.cv) > (v.c || 0))) return undefined;
+    /* a line may already be below zero (packed orders took more than the shelf had):
+       adding to it is always fine, taking from it is not */
+    if (F.some(f => v[f] < 0 && !((base[f] || 0) < 0 && ((delta && delta[f]) || 0) >= 0))) return undefined;
+    if (v.cv && (Object.values(v.cv).some(x => x < 0) || cvSum(v.cv) > Math.max(0, v.c || 0))) return undefined;
+    if (v.b < 0 && v.s > 0){ const q = env.q(k); while (v.b < 0 && v.s > 0){ v.s--; v.b += q; } }   // cases put on a negative line fill the hole
     if (isZero(v)) return null;
     const o = Object.assign({}, base, v, {n:base.n || env.name(k), by:env.who(), at:now()});
     if (!v.cv) delete o.cv;
@@ -960,9 +992,14 @@ function makeStockOps(env){
       return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, r.mv), d:{[L]:clean(d)}, reason, note, all:all || undefined});
     },
     /* open n cases → q × n loose boxes or confirmed units */
-    async openCase(k, L, n, into){
+    async openCase(k, L, n, into, cv){
       n = posInt(n, 'a number of cases'); into = into === 'c' ? 'c' : 'b';
       const q = env.q(k); const d = {s:-n, [into]:n * q};
+      if (into === 'c' && cv){                      // confirmed units go in by variation
+        const m = {}; for (const x in cv) if (+cv[x] > 0) m[x] = Math.floor(+cv[x]);
+        need(cvSum(m) === n * q, 'The variations must add up to ' + (n * q) + ' units');
+        if (Object.keys(m).length) d.cv = m;
+      }
       const r = await applyDelta(L, k, d); need(r, 'There are fewer than ' + n + ' case(s) in ' + L);
       return log({type:'open', k, n:env.name(k), loc:L, qty:n * q, cases:n, into, d:{[L]:d}});
     },
@@ -986,7 +1023,7 @@ function makeStockOps(env){
   };
 }
 /* labels shared by both history screens */
-const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', count:'✎ Count', status:'✓ Status'};
+const HIST_TYPES = {transfer:'⇄ Transfer', add:'＋ Added', remove:'− Removed', open:'📦 Case opened', pack:'🚚 Packed order', count:'✎ Count', status:'✓ Status'};
 function histChange(rec, q){
   const parts = [];
   const lbl = x => (typeof histVarLabel === 'function' ? histVarLabel(rec.k, x) : x);
@@ -1005,7 +1042,7 @@ function histChange(rec, q){
   return parts.filter(Boolean).join(' ');
 }
 function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' + rec.to) : (rec.loc || Object.keys(rec.d || {}).join(', ')); }
-const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan'};
+const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
 const REASONS_ADD = ['New shipment', 'Return', 'Other'];
 const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
@@ -1096,6 +1133,8 @@ function openActions(k, L0, tab, toPre){
       const s=v?(v.s||0):0;
       h='<div class="fld"><label>Cases to open — '+s+' here</label><input id="acCases" class="tinput" inputmode="numeric" value="'+(s?1:0)+'"></div>'+
         '<div class="fld"><label>Put the units into</label><select id="acInto" class="gsel"><option value="b">Boxes</option><option value="c">Confirmed</option></select></div>'+
+        '<div id="acCv" class="hide"><div class="mini" style="margin:10px 0 4px">Which variations are in the opened case(s)? They must add up to the opened units.</div><div class="cvgrid" id="acCvGrid"></div>'+
+          '<div class="sumline"><span class="mini">Variations entered</span><b id="acCvSum">0</b></div></div>'+
         '<div class="mini" id="acPrev" style="margin-top:8px"></div>';
       $('#acGo').textContent='Open case';
     } else {
@@ -1104,9 +1143,20 @@ function openActions(k, L0, tab, toPre){
     }
     $('#acBody').innerHTML=h;
     if(tab==='open'){
-      const prev=()=>{ const n=int($('#acCases').value); const into=$('#acInto').value==='c'?'confirmed':'boxes'; $('#acPrev').textContent=n?('−'+n+' case → +'+(n*q)+' '+into+' (1 case = '+q+')'):''; };
+      const vars=varsOf(k);
+      $('#acCvGrid').innerHTML=vars.map((x,i)=>'<label class="cvrow"><span>'+esc(x.label)+'</span><span class="rcq"><button class="step" data-m="'+i+'" tabindex="-1" type="button">−</button>'+
+        '<input class="qi" id="acv_'+i+'" data-key="'+esc(x.key)+'" inputmode="numeric" value="0" autocomplete="off"><button class="step" data-p="'+i+'" tabindex="-1" type="button">+</button></span></label>').join('');
+      const cvSumNow=()=>$$('#acCvGrid input').reduce((a,i)=>a+Math.max(0,int(i.value)),0);
+      const prev=()=>{ const n=int($('#acCases').value); const toC=$('#acInto').value==='c'; const into=toC?'confirmed':'boxes';
+        $('#acPrev').textContent=n?('−'+n+' case → +'+(n*q)+' '+into+' (1 case = '+q+')'):'';
+        $('#acCv').classList.toggle('hide', !(toC && vars.length));
+        const sum=cvSumNow(); const el=$('#acCvSum'); el.textContent=sum+' / '+(n*q); el.style.color = sum===n*q ? 'var(--accent)' : 'var(--warn)'; };
       ['acCases','acInto'].forEach(id=>{ $('#'+id).addEventListener('input',prev); $('#'+id).addEventListener('change',prev); });
       $('#acCases').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); go(); } });
+      $$('#acCvGrid input').forEach((i,idx,all)=>{ i.addEventListener('focus',()=>i.select()); i.addEventListener('input',()=>{ i.value=i.value.replace(/[^0-9]/g,''); prev(); });
+        i.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); if(idx<all.length-1) all[idx+1].focus(); else go(); } }); });
+      $$('#acCvGrid [data-p]').forEach(b=>b.onclick=()=>{ const i=$('#acv_'+b.dataset.p); i.value=int(i.value)+1; prev(); });
+      $$('#acCvGrid [data-m]').forEach(b=>b.onclick=()=>{ const i=$('#acv_'+b.dataset.m); i.value=Math.max(0,int(i.value)-1); prev(); });
       prev();
     } else wireEditor();
     const f = tab==='transfer' && !toPre ? $('#acTo') : $('#acBody input'); if(f) setTimeout(()=>{ f.focus(); if(f.select) f.select(); },40);
@@ -1127,7 +1177,8 @@ function openActions(k, L0, tab, toPre){
         await OPS.remove(k, L, readComp(), rs.r, rs.n);
         toast('Removed from '+L+' · '+rs.r,'ok');
       } else if(tab==='open'){
-        await OPS.openCase(k, L, int($('#acCases').value), $('#acInto').value);
+        const cv={}; if($('#acInto').value==='c' && varsOf(k).length){ $$('#acCvGrid input').forEach(i=>{ const n=int(i.value); if(n>0) cv[i.dataset.key]=n; }); }
+        await OPS.openCase(k, L, int($('#acCases').value), $('#acInto').value, varsOf(k).length ? cv : null);
         toast('Case opened on '+L,'ok');
       } else {
         const to=locKey($('#acTo').value);
@@ -1241,12 +1292,157 @@ async function refresh(){
   b.disabled=false; b.textContent='⟳ Refresh';
 }
 
+/* =====================================================================
+   DAILY SOH — shared reader (identical copy in index / inventory / plan)
+   Reads the latest day of the Daily SOH workbook: per item
+     wh = "WH EOD SOH"  (warehouse, end of day)
+     ls = "LS EOD SOH"  (store / live, end of day)
+   The workbook has one tab per week (named like "10/12"); the newest
+   tab that has a day block is used. Days whose EOD column is entirely
+   empty (today, before the sheet is filled) are skipped.
+   Result: {date:'2026-10-18', tab:'10/12', items:{<norm name>:{n,wh,ls,tot}}, at}
+   ===================================================================== */
+const DSOH_SHEET_ID = '1keeoQrnw2jemRXxLq8iEp4UixyqvUdV4QrBFc7Mp5bE';
+const DSOH_LS_KEY = 'cps.dailysoh.v1';
+function dsohNorm(s){ return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+function dsohCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++){ const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ','){ row.push(cur); cur = ''; }
+    else if (c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c; }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row); } return rows;
+}
+function dsohNum(v){ if (v == null || v === '') return null; const n = parseFloat(String(v).replace(/[,\s]/g, '')); return isFinite(n) ? n : null; }
+function dsohMonday(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function dsohTabNames(monday){ const M = monday.getMonth() + 1, D = monday.getDate(), p = n => String(n).padStart(2, '0');
+  return [p(M) + '/' + p(D), M + '/' + D, p(M) + '/' + D, M + '/' + p(D)]; }
+/* parse one week tab → list of {date, items{}} (only days with an EOD figure) */
+function dsohParse(text){
+  const rows = dsohCSV(text); if (rows.length < 2) return [];
+  const H = rows[0].map(dsohNorm);
+  const col = names => { for (const n of names){ const i = H.indexOf(n); if (i >= 0) return i; } return -1; };
+  const cWh = col(['wh eod soh', 'eod soh']), cLs = col(['ls eod soh']), cTot = col(['total eod soh']);
+  if (cWh < 0) return [];
+  const days = []; let cur = null;
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r]; const c0 = String(row[0] || '').trim(); if (!c0) continue;
+    const m = c0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m){ cur = {date: m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'), items: {}, filled: 0}; days.push(cur); continue; }
+    if (!cur || c0.toUpperCase() === 'ITEM') continue;
+    const wh = dsohNum(row[cWh]), ls = cLs >= 0 ? dsohNum(row[cLs]) : null, tot = cTot >= 0 ? dsohNum(row[cTot]) : null;
+    if (wh != null || ls != null) cur.filled++;
+    const k = dsohNorm(c0), prev = cur.items[k];
+    if (prev){ prev.wh += wh || 0; prev.ls += ls || 0; prev.tot = (prev.tot || 0) + (tot || 0); }
+    else cur.items[k] = {n: c0, wh: wh || 0, ls: ls || 0, tot: tot != null ? tot : (wh || 0) + (ls || 0)};
+  }
+  return days.filter(d => d.filled > 0);
+}
+async function dsohFetchTab(name){
+  const url = 'https://docs.google.com/spreadsheets/d/' + DSOH_SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name) + '&_=' + Date.now();
+  const r = await fetch(url, {credentials: 'omit', cache: 'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text();
+  if (/<!DOCTYPE|<html/i.test(t.slice(0, 300))) throw new Error('Daily SOH sheet is not shared for reading');
+  return t;
+}
+/* latest filled day: this week's tab first, then last week's */
+async function loadDailySOH(opts){
+  opts = opts || {};
+  if (!opts.force){ try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items && Date.now() - c.at < (opts.maxAge || 20 * 60 * 1000)) return c; }catch(e){} }
+  let lastErr = null;
+  for (let back = 0; back < 3; back++){
+    const mon = dsohMonday(new Date()); mon.setDate(mon.getDate() - 7 * back);
+    for (const nm of dsohTabNames(mon)){
+      let days = null;
+      try{ days = dsohParse(await dsohFetchTab(nm)); }catch(e){ lastErr = e; continue; }
+      if (!days.length) break;                        // tab exists but nothing filled yet → previous week
+      const d = days[days.length - 1];
+      const out = {date: d.date, tab: nm, items: d.items, n: Object.keys(d.items).length, at: Date.now()};
+      try{ localStorage.setItem(DSOH_LS_KEY, JSON.stringify(out)); }catch(e){}
+      return out;
+    }
+  }
+  try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items){ c.stale = (lastErr && lastErr.message) || 'no recent tab'; return c; } }catch(e){}
+  throw lastErr || new Error('Daily SOH: no week tab found');
+}
+/* ===================== end of DAILY SOH ===================== */
+
+/* ============================================================
+   COMPARE — system (counts) vs Daily SOH
+   ============================================================ */
+let DSOH=null, DSOH_ERR='', DSOH_BUSY=false, cmpMode='all', cmpQ='';
+async function refreshDSOH(force){
+  if(DSOH_BUSY) return; DSOH_BUSY=true; DSOH_ERR='';
+  if(VIEW==='compare') $('#cmpInfo').textContent='Reading Daily SOH…';
+  try{ DSOH=await loadDailySOH({force:!!force}); }catch(e){ DSOH_ERR=e.message||String(e); }
+  DSOH_BUSY=false; if(VIEW==='compare') renderCompare();
+}
+function cmpRows(){
+  const rows=[]; const used=new Set(); const D=(DSOH&&DSOH.items)||{};
+  const byClean={}; Object.keys(D).forEach(k=>{ byClean[clean(D[k].n)]=k; });
+  Object.keys(BASE.items||{}).forEach(k=>{
+    const n=nameOf(k), a=agg(k);
+    let dk=norm(n); if(!D[dk]) dk=byClean[clean(n)]||null;
+    const d=dk?D[dk]:null; if(dk) used.add(dk);
+    rows.push({k, n, sysWh:a.wh, sysSt:a.st, eodWh:d?d.wh:null, eodLs:d?d.ls:null, inEod:!!d});
+  });
+  Object.keys(D).forEach(dk=>{ if(used.has(dk)) return; const d=D[dk]; rows.push({k:null, n:d.n, sysWh:0, sysSt:0, eodWh:d.wh, eodLs:d.ls, inEod:true, onlyEod:true}); });
+  rows.forEach(r=>{ r.dWh=r.inEod?r.sysWh-(r.eodWh||0):null; r.dSt=r.inEod?r.sysSt-(r.eodLs||0):null;
+    r.sysTot=r.sysWh+r.sysSt; r.eodTot=r.inEod?(r.eodWh||0)+(r.eodLs||0):null; r.dTot=r.inEod?r.sysTot-r.eodTot:null;
+    r.state = r.onlyEod?'onlyeod' : !r.inEod?'noeod' : (r.dWh||r.dSt)?'diff':'ok'; });
+  rows.sort((a,b)=>Math.abs((b.dWh||0))+Math.abs((b.dSt||0)) - Math.abs((a.dWh||0))-Math.abs((a.dSt||0)) || a.n.localeCompare(b.n));
+  return rows;
+}
+function cmpFiltered(all){
+  let list=all;
+  if(cmpMode==='diff') list=list.filter(r=>r.state==='diff');
+  else if(cmpMode==='wh') list=list.filter(r=>r.inEod && r.dWh);
+  else if(cmpMode==='store') list=list.filter(r=>r.inEod && r.dSt);
+  else if(cmpMode!=='all') list=list.filter(r=>r.state===cmpMode);
+  if($('#cmpHideZero').checked) list=list.filter(r=>r.sysTot||r.eodTot);
+  const q=norm(cmpQ); if(q) list=list.filter(r=>norm(r.n).includes(q));
+  return list;
+}
+function sgn(v){ return v==null?'':(v>0?'+':'')+fmt(v); }
+function renderCompare(){
+  if(!DSOH && !DSOH_ERR && !DSOH_BUSY){ refreshDSOH(false); return; }
+  if(!DSOH){ $('#cmpTbl').innerHTML=''; $('#cmpChips').innerHTML=''; $('#cmpInfo').textContent=DSOH_BUSY?'Reading Daily SOH…':('Daily SOH not available: '+DSOH_ERR); return; }
+  const all=cmpRows();
+  const cnt={all:all.length}; all.forEach(r=>cnt[r.state]=(cnt[r.state]||0)+1);
+  cnt.wh=all.filter(r=>r.inEod&&r.dWh).length; cnt.store=all.filter(r=>r.inEod&&r.dSt).length;
+  const C=[['all','All'],['diff','Mismatch'],['wh','WH differs'],['store','Store differs'],['ok','Match'],['noeod','Not in Daily SOH'],['onlyeod','Only in Daily SOH']];
+  $('#cmpChips').innerHTML=C.map(([k,l])=>'<button class="chip'+(cmpMode===k?' on':'')+'" data-c="'+k+'">'+l+'<span class="cnt">'+(cnt[k]||0)+'</span></button>').join('');
+  $$('#cmpChips [data-c]').forEach(b=>b.onclick=()=>{ cmpMode=b.dataset.c; renderCompare(); });
+  const list=cmpFiltered(all);
+  let h='<thead><tr><th style="text-align:left">Item</th><th>WH · system</th><th>WH EOD SOH</th><th>Δ WH</th><th>Store · system</th><th>LS EOD SOH</th><th>Δ Store</th><th>Total · system</th><th>Total EOD</th><th>Δ Total</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
+  list.forEach(r=>{
+    const cls=v=>v==null?'':(v?' class="cdiff"':' class="cok"');
+    h+='<tr class="cst-'+r.state+'"><td style="text-align:left" class="hname">'+esc(r.n)+(r.onlyEod?' <span class="mini">· not in the counting workbook</span>':'')+(!r.inEod?' <span class="mini">· no row in Daily SOH</span>':'')+'</td>'+
+      '<td>'+fmt(r.sysWh)+'</td><td>'+(r.inEod?fmt(r.eodWh):'—')+'</td><td'+cls(r.dWh)+'>'+sgn(r.dWh)+'</td>'+
+      '<td>'+fmt(r.sysSt)+'</td><td>'+(r.inEod?fmt(r.eodLs):'—')+'</td><td'+cls(r.dSt)+'>'+sgn(r.dSt)+'</td>'+
+      '<td><b>'+fmt(r.sysTot)+'</b></td><td>'+(r.inEod?fmt(r.eodTot):'—')+'</td><td'+cls(r.dTot)+'>'+sgn(r.dTot)+'</td></tr>';
+  });
+  $('#cmpTbl').innerHTML=h+'</tbody>';
+  const d=new Date(DSOH.date+'T12:00:00');
+  $('#cmpInfo').textContent='Daily SOH for '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (tab '+DSOH.tab+') · '+fmt(DSOH.n)+' items · read '+hhmm(DSOH.at)+(DSOH.stale?' · ⚠ could not refresh: '+DSOH.stale:'')+' · '+(cnt.diff||0)+' mismatch';
+}
+function exportCompare(){
+  if(!DSOH) return;
+  const rows=[['Item','WH system','WH EOD SOH','Diff WH','Store system','LS EOD SOH','Diff Store','Total system','Total EOD','Diff Total','Status']];
+  cmpFiltered(cmpRows()).forEach(r=>rows.push([r.n,r.sysWh,r.eodWh==null?'':r.eodWh,r.dWh==null?'':r.dWh,r.sysSt,r.eodLs==null?'':r.eodLs,r.dSt==null?'':r.dSt,r.sysTot,r.eodTot==null?'':r.eodTot,r.dTot==null?'':r.dTot,r.state]));
+  const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?'':c); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='compare daily soh '+DSOH.date+' '+fileStamp()+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+
 /* ============================================================
    RENDER — frame
    ============================================================ */
 function showOnly(which){
   ['gate','load'].forEach(s=>$('#screen-'+s).classList.toggle('hide', s!==which));
-  ['count','total','where','history'].forEach(v=>$('#view-'+v).classList.toggle('hide', which!=='app' || v!==VIEW));
+  ['count','total','where','history','compare'].forEach(v=>$('#view-'+v).classList.toggle('hide', which!=='app' || v!==VIEW));
   $('#toolbar').classList.toggle('hide', which!=='app');
 }
 function setView(v){
@@ -1270,6 +1466,7 @@ function renderAll(){
   else if(VIEW==='total') renderTotals();
   else if(VIEW==='where') renderWhere();
   else if(VIEW==='history') renderHistory();
+  else if(VIEW==='compare') renderCompare();
 }
 
 /* ============================================================
@@ -1280,13 +1477,14 @@ function renderAside(){
   locs.forEach(l=>cnt[shelfState(l.L)]++);
   const F=[['all','All'],['done','Counted'],['started','In progress'],['todo','Not started']];
   if(cnt.stale || FILTER==='stale') F.push(['stale','Awaiting update']);
+  F.push(['store','🏬 Store']);
   $('#fgrid').innerHTML=F.map(([k,l])=>'<button class="fbtn'+(FILTER===k?' on':'')+'" data-f="'+k+'"><i class="dot-'+k+'"></i><span>'+l+'</span><b>'+cnt[k]+'</b></button>').join('');
   $$('#fgrid [data-f]').forEach(b=>b.onclick=()=>{ FILTER=b.dataset.f; renderAside(); });
   const q=clean(shelfQ);
   const groups=[]; const gi={};
   locs.forEach(l=>{
     const st=shelfState(l.L);
-    if(FILTER!=='all' && st!==FILTER) return;
+    if(FILTER==='store' ? !l.store : (FILTER!=='all' && st!==FILTER)) return;
     if(q && !(clean(l.id).includes(q) || clean(l.bc)===q)) return;
     if(gi[l.type]==null){ gi[l.type]=groups.length; groups.push({t:l.type, list:[]}); }
     groups[gi[l.type]].list.push({l,st});
@@ -1294,8 +1492,8 @@ function renderAside(){
   if(!groups.length){ $('#slist').innerHTML='<div class="empty" style="padding:20px">No shelves match.</div>'; return; }
   $('#slist').innerHTML=groups.map(g=>'<div class="sgroup">'+esc(g.t)+' · '+g.list.length+'</div>'+g.list.map(({l,st})=>{
     const n=shelfItems(l.L).length, u=shelfUnits(l.L);
-    return '<button class="stile '+st+(CUR===l.L?' sel':'')+(l.extra?' extra':'')+'" data-l="'+esc(l.L)+'" title="'+esc(STATE_LABEL[st])+'">'+
-      '<span class="sdot"></span><span class="sid">'+esc(l.id)+'</span>'+
+    return '<button class="stile '+st+(CUR===l.L?' sel':'')+(l.extra?' extra':'')+(l.store?' storet':'')+'" data-l="'+esc(l.L)+'" title="'+esc(l.store?'The shop — everything on display / in the store':STATE_LABEL[st])+'">'+
+      '<span class="sdot"></span><span class="sid">'+(l.store?'🏬 ':'')+esc(l.id)+'</span>'+
       '<span class="sm">'+(n?(n+' item'+(n>1?'s':'')+'<br>'+fmt(u)+' u'):(st==='done'?'empty':'—'))+'</span></button>';
   }).join('')).join('');
   $$('#slist [data-l]').forEach(b=>b.onclick=()=>openShelf(b.dataset.l));
@@ -1612,12 +1810,13 @@ function renderTotals(){
   if(totMode==='none') list=list.filter(r=>!r.touched);
   if(totMode==='ok') list=list.filter(r=>r.diff===0);
   if(q) list=list.filter(r=>clean(r.it.n).includes(q));
-  let h='<thead><tr><th>Item</th><th>Qty / case</th><th>Case</th><th>Boxes</th><th>Damaged</th><th>Confirmed</th><th>Total</th><th>Expected</th><th>Diff</th><th style="text-align:left">Locations</th></tr></thead><tbody>';
-  if(!list.length) h+='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
+  let h='<thead><tr><th>Item</th><th>Qty / case</th><th>Case</th><th>Boxes</th><th>Damaged</th><th>Confirmed</th><th>WH</th><th>Store</th><th>Total</th><th>Expected</th><th>Diff</th><th style="text-align:left">Locations</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
   list.slice(0,1500).forEach(r=>{
     const cls=r.diff===0?'good':(r.touched?'bad':'miss');
     h+='<tr class="'+cls+(r.touched?'':' none')+'" data-k="'+esc(r.k)+'"><td>'+esc(r.it.n)+'</td><td>'+r.it.q+'</td>'+
       '<td>'+(r.a.s||'')+'</td><td>'+(r.a.b||'')+'</td><td>'+(r.a.d||'')+'</td><td>'+(r.a.c||'')+'</td>'+
+      '<td>'+fmt(r.a.wh)+'</td><td>'+(r.a.st?fmt(r.a.st):'')+'</td>'+
       '<td><b>'+fmt(r.total)+'</b></td><td>'+fmt(r.e)+'</td><td class="disc">'+(r.diff>0?'+':'')+r.diff+'</td>'+
       '<td class="locs">'+r.a.locs.map(x=>esc(x.L)+':'+x.u).join(' · ')+'</td></tr>';
   });
@@ -1626,7 +1825,7 @@ function renderTotals(){
     const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); return; }
     const k=tr.dataset.k, a=agg(k);
     const row=document.createElement('tr'); row.className='brkrow';
-    row.innerHTML='<td colspan="10"><div class="brk">'+(a.locs.length?a.locs.map(x=>'<span>'+esc(x.L)+': '+x.u+' ('+
+    row.innerHTML='<td colspan="12"><div class="brk">'+(a.locs.length?a.locs.map(x=>'<span>'+esc(x.L)+': '+x.u+' ('+
       [x.v.s?x.v.s+' case':'',x.v.b?x.v.b+' box':'',x.v.d?x.v.d+' dmg':'',x.v.c?x.v.c+' conf':''].filter(Boolean).join(' · ')+')'+(x.v.by?' · '+esc(x.v.by):'')+'</span>').join(''):'<span>not found on any shelf — counted as 0</span>')+'</div></td>';
     tr.after(row);
   });
@@ -1665,14 +1864,15 @@ function renderWhere(){
   (BASE.rows||[]).forEach(k=>{ if(!k||k[0]==='#'||seen.has(k)) return; seen.add(k); all.push(k); });
   for(const L in COUNTS) for(const k in COUNTS[L]) if(!seen.has(k)){ seen.add(k); all.push(k); }
   const rows=all.map(k=>{ const p=whereIs(k).filter(x=>x.u>0); return {k, p, u:p.reduce((a,x)=>a+x.u,0)}; });
-  const cnt={all:rows.length, placed:rows.filter(r=>r.p.length).length, pal:rows.filter(r=>r.p.some(x=>isPal(x.L))).length, multi:rows.filter(r=>r.p.length>1).length, none:rows.filter(r=>!r.p.length).length};
-  const C=[['all','All'],['placed','On shelves'],['pal','On pallets'],['multi','Several places'],['none','Not found']];
+  const cnt={all:rows.length, placed:rows.filter(r=>r.p.some(x=>!isStore(x.L))).length, pal:rows.filter(r=>r.p.some(x=>isPal(x.L))).length, store:rows.filter(r=>r.p.some(x=>isStore(x.L))).length, multi:rows.filter(r=>r.p.length>1).length, none:rows.filter(r=>!r.p.length).length};
+  const C=[['all','All'],['placed','On shelves'],['pal','On pallets'],['store','In the store'],['multi','Several places'],['none','Not found']];
   $('#whereChips').innerHTML=C.map(([k,l])=>'<button class="chip'+(whereMode===k?' on':'')+'" data-m="'+k+'">'+l+'<span class="cnt">'+cnt[k]+'</span></button>').join('');
   $$('#whereChips [data-m]').forEach(b=>b.onclick=()=>{ whereMode=b.dataset.m; renderWhere(); });
   const q=clean(whereQ), qL=locKey(whereQ);
   let list=rows;
-  if(whereMode==='placed') list=list.filter(r=>r.p.length);
+  if(whereMode==='placed') list=list.filter(r=>r.p.some(x=>!isStore(x.L)));
   if(whereMode==='pal') list=list.filter(r=>r.p.some(x=>isPal(x.L)));
+  if(whereMode==='store') list=list.filter(r=>r.p.some(x=>isStore(x.L)));
   if(whereMode==='multi') list=list.filter(r=>r.p.length>1);
   if(whereMode==='none') list=list.filter(r=>!r.p.length);
   if(q) list=list.filter(r=>clean(nameOf(r.k)).includes(q) || r.p.some(x=>x.L.startsWith(qL)));
@@ -1680,7 +1880,7 @@ function renderWhere(){
   $('#wlist').innerHTML = shown.length ? shown.map(r=>
     '<div class="wrow"><img src="'+esc(imgOf(r.k))+'" onerror="this.src=\''+IMG_PH+'\'" loading="lazy">'+
       '<div style="min-width:0"><div class="nm">'+esc(nameOf(r.k))+'</div><div class="lc">'+
-        (r.p.length? r.p.map(x=>'<span class="lchip'+(isPri(x.L)?' pri':(isPal(x.L)?' pal':''))+'">'+esc(x.L)+' · <b>'+x.u+'</b></span>').join('') : '<span class="mini">not on any shelf</span>')+
+        (r.p.length? r.p.map(x=>'<span class="lchip'+(isPri(x.L)?' pri':(isPal(x.L)?' pal':(isStore(x.L)?' sto':'')))+'">'+(isStore(x.L)?'🏬 Store':esc(x.L))+' · <b>'+x.u+'</b></span>').join('') : '<span class="mini">not on any shelf</span>')+
       '</div></div>'+
       '<div class="wt">'+fmt(r.u)+'<small>units</small></div>'+
       '<div class="wbtn rcrow" style="gap:6px"><button class="btn sm" data-tr="'+esc(r.k)+'"'+(r.p.length?'':' disabled')+'>⇄ Transfer</button>'+
@@ -1725,6 +1925,10 @@ $('#newCountBtn').onclick=openNewCount;
 $$('#viewSeg button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
 $('#expXlsx').onclick=exportXlsx;
 $('#histCsv').onclick=exportHistory;
+$('#cmpCsv').onclick=exportCompare;
+$('#cmpUpd').onclick=()=>refreshDSOH(true);
+$('#cmpQ').addEventListener('input',e=>{ cmpQ=e.target.value; renderCompare(); });
+$('#cmpHideZero').onchange=()=>renderCompare();
 $('#histQ').addEventListener('input',e=>{ histQ=e.target.value; renderHistory(); });
 $('#histMode').onchange=e=>{ histMode=e.target.value; renderHistory(); };
 $('#totFilter').addEventListener('input',e=>{ totQ=e.target.value; renderTotals(); });

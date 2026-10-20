@@ -368,6 +368,8 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .chip.stock.dmg{color:var(--err); border-color:#4a2128}
 .chip.stock.dmg.low{color:var(--warn); border-color:#473a1c}
 .pkstock.dmg{color:var(--err); border-color:#4a2128}
+.pkstock.split{color:var(--ink)} .pkstock.split small{color:var(--muted); font-size:12px; margin-left:4px}
+.shiftchip.todo{border-color:var(--warn); color:var(--warn)}
 .pkstock.dmg.low{color:var(--warn); border-color:#473a1c}
 
 /* ---------- product guidebook ---------- */
@@ -976,7 +978,7 @@ const EXTERNAL_MODES = {
   lessons:   'https://r-alib.github.io/calipokehouselessons/'   // staff training — its own site, fully independent
 };
 
-const BUILD = '2026-10-13a · Lessons mode in the main menu';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-19a · packed orders deducted from the pick shelves · Store/WH split in Guidebook';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1119,22 +1121,54 @@ function parseInventorySheet(arrayBuf){
    for products the count has not found anywhere (e.g. store display).
    ============================================================ */
 const STOCK_PATH = 'packstation/stockCount';
-let SHELF = new Map();          // clean(item name) -> [{L, u}]
+const STORE_LOC = 'STORE';                                   // the shop — one location, never auto-deducted
+const isStoreLoc = L => String(L||'').toUpperCase()===STORE_LOC;
+const isPickLoc  = L => /^[SR]-/i.test(L);                   // S-xx / R-xx = pick shelves
+let SHELF = new Map();          // clean(item name) -> [{L, k, u}]   (warehouse cells with stock > 0)
+let CELLS = new Map();          // count key k -> {L: cell}          (every cell, incl. 0 / negative, incl. STORE)
+let NAMEK = new Map();          // clean(item name) -> k
+let STOCK_BASE = null;          // packstation/stockCount/base — {items:{k:{n,q}}}
 let shelfT = null;
 function buildShelfIdx(counts){
-  const m = new Map();
+  const m = new Map(), cells = new Map(), nk = new Map();
   for(const L in counts){ const c=counts[L]||{};
     for(const k in c){ const v=c[k]; if(!v||typeof v!=='object') continue;
-      const u=(v.s||0)+(v.b||0)+(v.d||0)+(v.c||0); if(u<=0) continue;       // case count only needs to be > 0 here
+      (cells.get(k)||cells.set(k,{}).get(k))[L]=v;
       const key=clean(v.n||k); if(!key) continue;
-      (m.get(key)||m.set(key,[]).get(key)).push({L, u:v, raw:u});
+      if(!nk.has(key)) nk.set(key,k);
+      const u=cellUnits(k,v); if(u<=0 || isStoreLoc(L)) continue;   // the location text shows warehouse shelves with stock
+      (m.get(key)||m.set(key,[]).get(key)).push({L, k, u:v, raw:u});
     } }
   const pri = L => /^[SR]-/i.test(L) ? 0 : (/^PL-/i.test(L) ? 2 : 1);
   for(const list of m.values()) list.sort((a,b)=>pri(a.L)-pri(b.L) || a.L.localeCompare(b.L,undefined,{numeric:true}));
-  SHELF = m;
+  SHELF = m; CELLS = cells; NAMEK = nk;
   clearTimeout(shelfT);
   shelfT=setTimeout(()=>{ if(['pack','picking','guide'].includes(curScreen)) renderCurrent(); }, 1200);
 }
+/* units per case for a count key (from the counting workbook base), 1 when unknown */
+function qPerCase(k){ const it=STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[k]; return (it && it.q>0) ? +it.q : 1; }
+function cellUnits(k, v){ return ((v&&v.s)||0)*qPerCase(k) + ((v&&v.b)||0) + ((v&&v.c)||0) + ((v&&v.d)||0); }
+/* count key for a product of the inventory table: by name, then name+variation */
+function stockKeyFor(iv){
+  if(!iv) return null;
+  const n=iv.name||'', va=(iv.variation&&norm(iv.variation)!=='default')?iv.variation:'';
+  const tries=[clean(n)]; if(va){ tries.push(clean(n+va)); tries.push(clean(n+' '+va)); }
+  for(const t of tries){ if(!t) continue; if(STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[t]) return t; if(NAMEK.has(t)) return NAMEK.get(t); }
+  return null;
+}
+/* total on hand from the count: {wh, st, tot} — or from Daily SOH when the count has never seen the product */
+function qtySplit(iv){
+  const k=stockKeyFor(iv); const cells=k && CELLS.get(k);
+  if(cells){ let wh=0, st=0; for(const L in cells){ const u=cellUnits(k,cells[L]); if(isStoreLoc(L)) st+=u; else wh+=u; } return {wh, st, tot:wh+st, src:'count'}; }
+  if(DSOH && DSOH.items){ const d=DSOH.items[dsohNorm(iv.name)]; if(d) return {wh:d.wh||0, st:d.ls||0, tot:(d.wh||0)+(d.ls||0), src:'soh'}; }
+  return null;
+}
+function splitChip(iv){
+  const q=qtySplit(iv); if(!q) return '';
+  const cls=q.tot<=0?'zero':''; const t=q.src==='soh'?'From the Daily SOH sheet ('+(DSOH&&DSOH.date||'')+') — not counted in Inventory yet':'From the inventory count (live)';
+  return '<span class="pkstock split '+cls+'" title="'+esc(t)+'">'+(q.src==='soh'?'📄':'📦')+' '+fmtN(q.tot)+' <small>WH '+fmtN(q.wh)+' · Store '+fmtN(q.st)+'</small></span>';
+}
+function fmtN(n){ return (+n||0).toLocaleString('en-US'); }
 function shelfList(iv){
   if(!iv) return null;
   const n=iv.name||'', va=(iv.variation&&norm(iv.variation)!=='default')?iv.variation:'';
@@ -1147,7 +1181,214 @@ function locOf(iv){
     const shown=list.slice(0,3).map(x=>x.L).join(' · ');
     return shown + (list.length>3 ? ' +'+(list.length-3) : '');
   }
+  const k=stockKeyFor(iv), cells=k && CELLS.get(k);
+  if(cells && cells[STORE_LOC] && cellUnits(k, cells[STORE_LOC])>0) return 'Store';
   return (iv && iv.location) || '—';
+}
+
+/* =====================================================================
+   DAILY SOH — shared reader (identical copy in index / inventory / plan)
+   Reads the latest day of the Daily SOH workbook: per item
+     wh = "WH EOD SOH"  (warehouse, end of day)
+     ls = "LS EOD SOH"  (store / live, end of day)
+   The workbook has one tab per week (named like "10/12"); the newest
+   tab that has a day block is used. Days whose EOD column is entirely
+   empty (today, before the sheet is filled) are skipped.
+   Result: {date:'2026-10-18', tab:'10/12', items:{<norm name>:{n,wh,ls,tot}}, at}
+   ===================================================================== */
+const DSOH_SHEET_ID = '1keeoQrnw2jemRXxLq8iEp4UixyqvUdV4QrBFc7Mp5bE';
+const DSOH_LS_KEY = 'cps.dailysoh.v1';
+function dsohNorm(s){ return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+function dsohCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++){ const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ','){ row.push(cur); cur = ''; }
+    else if (c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c; }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row); } return rows;
+}
+function dsohNum(v){ if (v == null || v === '') return null; const n = parseFloat(String(v).replace(/[,\s]/g, '')); return isFinite(n) ? n : null; }
+function dsohMonday(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function dsohTabNames(monday){ const M = monday.getMonth() + 1, D = monday.getDate(), p = n => String(n).padStart(2, '0');
+  return [p(M) + '/' + p(D), M + '/' + D, p(M) + '/' + D, M + '/' + p(D)]; }
+/* parse one week tab → list of {date, items{}} (only days with an EOD figure) */
+function dsohParse(text){
+  const rows = dsohCSV(text); if (rows.length < 2) return [];
+  const H = rows[0].map(dsohNorm);
+  const col = names => { for (const n of names){ const i = H.indexOf(n); if (i >= 0) return i; } return -1; };
+  const cWh = col(['wh eod soh', 'eod soh']), cLs = col(['ls eod soh']), cTot = col(['total eod soh']);
+  if (cWh < 0) return [];
+  const days = []; let cur = null;
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r]; const c0 = String(row[0] || '').trim(); if (!c0) continue;
+    const m = c0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m){ cur = {date: m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'), items: {}, filled: 0}; days.push(cur); continue; }
+    if (!cur || c0.toUpperCase() === 'ITEM') continue;
+    const wh = dsohNum(row[cWh]), ls = cLs >= 0 ? dsohNum(row[cLs]) : null, tot = cTot >= 0 ? dsohNum(row[cTot]) : null;
+    if (wh != null || ls != null) cur.filled++;
+    const k = dsohNorm(c0), prev = cur.items[k];
+    if (prev){ prev.wh += wh || 0; prev.ls += ls || 0; prev.tot = (prev.tot || 0) + (tot || 0); }
+    else cur.items[k] = {n: c0, wh: wh || 0, ls: ls || 0, tot: tot != null ? tot : (wh || 0) + (ls || 0)};
+  }
+  return days.filter(d => d.filled > 0);
+}
+async function dsohFetchTab(name){
+  const url = 'https://docs.google.com/spreadsheets/d/' + DSOH_SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name) + '&_=' + Date.now();
+  const r = await fetch(url, {credentials: 'omit', cache: 'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text();
+  if (/<!DOCTYPE|<html/i.test(t.slice(0, 300))) throw new Error('Daily SOH sheet is not shared for reading');
+  return t;
+}
+/* latest filled day: this week's tab first, then last week's */
+async function loadDailySOH(opts){
+  opts = opts || {};
+  if (!opts.force){ try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items && Date.now() - c.at < (opts.maxAge || 20 * 60 * 1000)) return c; }catch(e){} }
+  let lastErr = null;
+  for (let back = 0; back < 3; back++){
+    const mon = dsohMonday(new Date()); mon.setDate(mon.getDate() - 7 * back);
+    for (const nm of dsohTabNames(mon)){
+      let days = null;
+      try{ days = dsohParse(await dsohFetchTab(nm)); }catch(e){ lastErr = e; continue; }
+      if (!days.length) break;                        // tab exists but nothing filled yet → previous week
+      const d = days[days.length - 1];
+      const out = {date: d.date, tab: nm, items: d.items, n: Object.keys(d.items).length, at: Date.now()};
+      try{ localStorage.setItem(DSOH_LS_KEY, JSON.stringify(out)); }catch(e){}
+      return out;
+    }
+  }
+  try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items){ c.stale = (lastErr && lastErr.message) || 'no recent tab'; return c; } }catch(e){}
+  throw lastErr || new Error('Daily SOH: no week tab found');
+}
+/* ===================== end of DAILY SOH ===================== */
+let DSOH=null;
+
+/* ============================================================
+   STOCK DEDUCTION — packed units leave the pick shelves
+   · runs once per order (orders/<key>/deducted is claimed in a transaction first)
+   · only items that were actually packed (partial orders: the packed lines)
+   · takes from S-/R- shelves that have the product (most stock first); whatever is
+     still missing is taken from the S-/R- shelf that last had it — even below zero —
+     and Warehouse plan shows it as “needs restock”. A product that was never on
+     a pick shelf is deducted from its home shelf (inventory table, Location column).
+   · never touches the STORE location; pallets / storage shelves are not touched either
+   ============================================================ */
+let DEDUCT_BUSY=false;
+function cellRef(L, k){ return db.ref(STOCK_PATH+'/counts/'+L+'/'+k); }
+function takeFromCell(cur, qty, q){      // like Inventory's planTake, but may go negative on `b`
+  const src={s:cur.s||0, b:cur.b||0, c:cur.c||0, d:cur.d||0}, mv={s:0,b:0,c:0,d:0}; let left=qty;
+  let x=Math.min(Math.max(0,src.b), left); src.b-=x; mv.b+=x; left-=x;
+  x=Math.min(src.c, left); src.c-=x; mv.c+=x; left-=x;
+  if(left>0 && src.s>0){ const take=Math.min(src.s, Math.floor(left/q)); src.s-=take; mv.s+=take; left-=take*q;
+    if(left>0 && src.s>0){ src.s-=1; src.b+=q-left; mv.b+=left; left=0; } }
+  if(left>0){ x=Math.min(src.d, left); src.d-=x; mv.d+=x; left-=x; }
+  return {src, mv, left};
+}
+function trimCv(cell, tookC, varKey){    // confirmed-by-variation split shrinks with what left
+  if(!cell.cv || !tookC) return cell;
+  const cv=Object.assign({}, cell.cv); let over=tookC;
+  if(varKey && cv[varKey]){ const t=Math.min(cv[varKey], over); cv[varKey]-=t; over-=t; if(!cv[varKey]) delete cv[varKey]; }
+  if(over>0){ Object.keys(cv).sort((a,b)=>cv[b]-cv[a]).forEach(x=>{ if(over<=0) return; const t=Math.min(cv[x],over); cv[x]-=t; over-=t; if(!cv[x]) delete cv[x]; }); cell.cvx=true; }
+  if(Object.keys(cv).length) cell.cv=cv; else delete cell.cv;
+  return cell;
+}
+/* one shelf, one transaction: take up to `want` units (allowNeg: take all of it, even below zero) */
+async function takeAt(L, k, want, allowNeg, varKey){
+  const q=qPerCase(k); let taken=0, delta=null;
+  const res=await cellRef(L,k).transaction(cur=>{
+    cur=cur||{}; const avail=cellUnits(k,cur);
+    const n=allowNeg ? want : Math.min(want, Math.max(0,avail)); taken=0; delta=null;
+    if(n<=0) return;                                    // nothing to take here → abort, no write
+    const r=takeFromCell(cur, n, q);
+    if(r.left>0){ if(!allowNeg) return; r.src.b-=r.left; r.mv.b+=r.left; r.left=0; }
+    taken=n; delta={s:-r.mv.s||0, b:-r.mv.b||0, c:-r.mv.c||0, d:-r.mv.d||0};
+    const next=trimCv(Object.assign({}, cur, r.src, {n:cur.n||nameOfKey(k), by:'pack', at:Date.now()}), r.mv.c, varKey);
+    ['s','b','c','d'].forEach(f=>{ if(!next[f]) delete next[f]; });   // the cell stays (even at 0) so the shelf is remembered
+    return next;
+  });
+  if(!res.committed) return {taken:0};
+  return {taken, delta};
+}
+function nameOfKey(k){ const it=STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[k]; return (it && it.n) || k; }
+/* where to take a product from, in order */
+function pickShelvesFor(k){
+  const cells=CELLS.get(k)||{};
+  return Object.keys(cells).filter(L=>isPickLoc(L) && !isStoreLoc(L)).map(L=>({L, u:cellUnits(k,cells[L])})).sort((a,b)=>b.u-a.u || a.L.localeCompare(b.L,undefined,{numeric:true}));
+}
+function homeShelfFor(iv){
+  const raw=String((iv&&iv.location)||'').split(/[,;\/·]/)[0].trim();
+  if(!raw) return null; const L=raw.toUpperCase().replace(/\s+/g,'').replace(/[.#$\/\[\]]/g,'_');
+  return (L && !isStoreLoc(L)) ? L : null;
+}
+async function stockLog(rec){
+  const r=Object.assign({mode:'pack', by:MY_NAME||'', at:Date.now()}, rec);
+  Object.keys(r).forEach(x=>{ if(r[x]===undefined||r[x]===''||r[x]===null) delete r[x]; });
+  try{ await db.ref(STOCK_PATH+'/log').push(r); }catch(e){}
+}
+/* deduct one order. order = {items, trackingId, platform}. Returns the marker written, or null when already done */
+async function deductOrder(shiftId, orderKey, order){
+  if(!db || !shiftId || !orderKey) return null;
+  const mref=root.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  const claim=await mref.transaction(cur=>{ if(cur) return; return {at:Date.now(), by:MY_NAME||'', pending:true}; });
+  if(!claim.committed) return null;                     // someone (or an earlier run) already did it
+  const lines=[], skipped=[]; let units=0;
+  const tag=(order.platform?order.platform+' ':'')+(order.trackingId||'');
+  for(const it of (order.items||[])){
+    if(it.packed===false || (it.status && it.status!=='ok')) continue;      // not packed → nothing left the shelf
+    const qty=Math.max(0, +it.qty||1); if(!qty) continue;
+    const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
+    const k=stockKeyFor(iv);
+    if(!k){ skipped.push({name:it.name, variation:it.variation||'', qty, why:'not in the counting workbook'}); continue; }
+    const varKey=(it.variation && norm(it.variation)!=='default') ? clean(it.variation) : '';
+    let left=qty;
+    for(const sh of pickShelvesFor(k)){ if(left<=0) break; if(sh.u<=0) continue;
+      const r=await takeAt(sh.L, k, left, false, varKey);
+      if(r.taken){ lines.push({k, L:sh.L, qty:r.taken, d:r.delta}); left-=r.taken; } }
+    if(left>0){
+      const known=pickShelvesFor(k);                     // last known pick shelf (largest first), else home shelf
+      const L=(known[0]&&known[0].L) || homeShelfFor(iv);
+      if(!L){ skipped.push({name:it.name, variation:it.variation||'', qty:left, why:'no pick shelf and no home shelf known'}); continue; }
+      const r=await takeAt(L, k, left, true, varKey);
+      if(r.taken){ lines.push({k, L, qty:r.taken, d:r.delta, neg:true}); left-=r.taken; }
+      else skipped.push({name:it.name, variation:it.variation||'', qty:left, why:'could not write '+L});
+    }
+    units+=qty-left;
+  }
+  for(const ln of lines) await stockLog({type:'pack', k:ln.k, n:nameOfKey(ln.k), loc:ln.L, qty:ln.qty, d:{[ln.L]:ln.d}, reason:'Packed order', note:tag+(ln.neg?' · below zero — needs restock':''), order:orderKey, shift:shiftId});
+  const marker={at:Date.now(), by:MY_NAME||'', units, lines:lines.length?lines:null, skipped:skipped.length?skipped:null};
+  await mref.set(marker);
+  if(skipped.length) toast(skipped.length+' line(s) of '+tag+' could not be deducted: '+skipped.map(x=>x.name+' — '+x.why).join('; '),'warn',6000);
+  return marker;
+}
+/* an order is reopened: what was taken goes back to the same shelves */
+async function undeductOrder(shiftId, orderKey, order){
+  const m=order.deducted; if(!m) return;
+  const mref=root.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  const lines=m.lines ? (Array.isArray(m.lines)?m.lines:Object.values(m.lines)) : [];
+  for(const ln of lines){ if(!ln||!ln.d) continue;
+    await cellRef(ln.L, ln.k).transaction(cur=>{ cur=cur||{}; const o=Object.assign({}, cur, {n:cur.n||nameOfKey(ln.k), by:'pack', at:Date.now()});
+      ['s','b','c','d'].forEach(f=>{ const v=(o[f]||0)-(ln.d[f]||0); if(v) o[f]=v; else delete o[f]; }); return o; });
+    const back={}; ['s','b','c','d'].forEach(f=>{ if(ln.d[f]) back[f]=-ln.d[f]; });
+    await stockLog({type:'pack', k:ln.k, n:nameOfKey(ln.k), loc:ln.L, qty:ln.qty, d:{[ln.L]:back}, reason:'Order reopened', note:(order.platform?order.platform+' ':'')+(order.trackingId||'')+' · put back', order:orderKey, shift:shiftId, undo:true});
+  }
+  await mref.set(null);
+}
+function deductStats(){
+  let total=0, done=0;
+  for(const pk in S.platforms) for(const o of S.platforms[pk].orders){ if(o.status!=='packed'&&o.status!=='partial') continue; total++; if(o.deducted) done++; }
+  return {total, done, todo:total-done};
+}
+async function deductAllPacked(){
+  if(DEDUCT_BUSY || !IS_ADMIN || !CUR_SHIFT) return;
+  const st=deductStats(); if(!st.todo){ toast('Every packed order of this shift is already deducted','info'); return; }
+  if(!confirm('Deduct the packed units of '+st.todo+' order(s) from the pick shelves?\n\nOrders already deducted are skipped. Store stock is never touched.')) return;
+  DEDUCT_BUSY=true; renderShiftBar(); let n=0, u=0;
+  try{
+    const list=[]; for(const pk in S.platforms) for(const o of S.platforms[pk].orders){ if((o.status==='packed'||o.status==='partial') && !o.deducted) list.push(o); }
+    for(const o of list){ const m=await deductOrder(CUR_SHIFT, o._key, {items:o.items, trackingId:o.trackingId, platform:o.platform}); if(m){ n++; u+=m.units||0; } }
+    toast('Deducted '+n+' order(s) · '+u+' unit(s) off the shelves','ok',4000);
+  }catch(e){ toast('Stopped: '+(e.message||e),'err',5000); }
+  DEDUCT_BUSY=false; renderShiftBar();
 }
 
 /* ============================================================
@@ -1175,7 +1416,11 @@ function connect(){
   });
   // shared staff scan-only flag (admin-controlled). Default ON when unset.
   /* shelf locations — live from the inventory count (Inventory mode) */
+  db.ref(STOCK_PATH+'/base').on('value', snap=>{ STOCK_BASE=snap.val()||null; if(STOCK_BASE && STOCK_BASE.items && Array.isArray(STOCK_BASE.items)){ const o={}; STOCK_BASE.items.forEach((x,i)=>{ if(x) o[i]=x; }); STOCK_BASE.items=o; } });
   db.ref(STOCK_PATH+'/counts').on('value', snap=>{ buildShelfIdx(snap.val()||{}); });
+  /* Daily SOH — fallback quantities for products the count has not seen; refreshed every 30 min */
+  const dsohTick=()=>loadDailySOH({maxAge:30*60*1000}).then(d=>{ DSOH=d; if(['guide','pack','picking'].includes(curScreen)) renderCurrent(); }).catch(()=>{});
+  dsohTick(); setInterval(dsohTick, 30*60*1000);
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
   // the list of shifts is a small index node — the heavy order data is only fetched
@@ -1252,7 +1497,7 @@ async function hydrateMatch(x){
       order:{_key:x.order._key, platform:v.platform||x.platform, trackingId:v.trackingId, items:v.items||[],
              status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'',
              packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null,
-             packing:v.packing||null, syncNote:v.syncNote||null}};
+             packing:v.packing||null, syncNote:v.syncNote||null, deducted:v.deducted||null}};
   }catch(e){ return null; }
 }
 function matchShiftLabel(x){ return (x && x.shiftId && x.shiftId!==CUR_SHIFT) ? shiftName(x.shiftId) : ''; }
@@ -1321,7 +1566,7 @@ function setShift(id){
   const cb=oref.on('value', snap=>{
     const platforms={};
     snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
-      platforms[pk].orders.push({_key:c.key, platform:pk, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null, syncNote:v.syncNote||null}); });
+      platforms[pk].orders.push({_key:c.key, platform:pk, trackingId:v.trackingId, items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null, syncNote:v.syncNote||null, deducted:v.deducted||null}); });
     S.platforms=platforms;
     healTrackIndex(CUR_SHIFT, platforms);      // the open shift keeps its index honest
     renderCurrent();
@@ -1894,7 +2139,7 @@ async function repackOrder(key, wasDone){
   const o=findByKey(key); if(!o){ toast('Order unavailable','err'); return; }
   if(wasDone && !confirm('Reopen this order and pack it again? Its previous result (including packed time) will be cleared.')) return;
   try{
-    // Stock is authoritative from the table (no recount) — reopening does not touch stock.
+    if(o.deducted) await undeductOrder(CUR_SHIFT, key, o);      // what was taken off the shelves goes back
     await shiftRef.child('orders/'+key).update({status:'pending', packedBy:'', blockReason:null, packedAt:null, claim:null, syncNote:null});
   }catch(e){ toast('Could not reopen the order','err'); return; }
   const local=findByKey(key); if(local) local.status='pending';   // optimistic so claim proceeds
@@ -2078,7 +2323,9 @@ function renderOrderArea(){
   order.items.forEach((it,idx)=>{
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv); const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
-    let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
+    let stockChip=''; const qs=qtySplit(iv);
+    if(qs) stockChip='<span class="chip stock '+(qs.tot<=0?'zero':(qs.wh<q?'low':''))+'" title="'+(qs.src==='soh'?'Daily SOH sheet':'Inventory count (live)')+'">'+(qs.src==='soh'?'📄':'📦')+' <b>'+fmtN(qs.tot)+'</b> · WH '+fmtN(qs.wh)+' · Store '+fmtN(qs.st)+'</span>';
+    else if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
     const dmg=(iv.damaged==null)?null:iv.damaged;
     if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="chip stock dmg '+dcls+'">✖ dmg <b>'+dmg+'</b></span>'; }
     const so=effScanOnly();
@@ -2244,6 +2491,8 @@ async function confirmOrder(order){
     /* keep when the picker actually opened this order — the claim is about to be dropped */
     const pickStartedAt = (order.claim && order.claim.at) || order.pickStartedAt || null;
     await shiftRef.child('orders/'+order._key).update({items, status, blockReason:blockReason||null, packedAt:Date.now(), packedBy:MY_NAME, pickStartedAt, claim:null, syncNote:null});
+    /* packed units leave the pick shelves right away (once per order — see deductOrder) */
+    if(status!=='unpacked') deductOrder(CUR_SHIFT, order._key, {items, trackingId:order.trackingId, platform:curPlatformKey}).catch(e=>console.warn('deduct', e));
   }catch(e){ toast('Save failed, try again','err'); if(conf){conf.disabled=false; conf.textContent='✓ Confirm pick';} return; }
   /* KPI trail: one row per confirmed order, kept with the shift and cleared with it */
   try{
@@ -2412,7 +2661,7 @@ function renderPicking(){
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv);
     const q=it.qty||1; const stock=(iv.stock==null)?null:iv.stock;
     const isTaken=pkChecked && pkChecked.has(idx); if(isTaken) taken++;
-    let stockChip=''; if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="pkstock '+cls+'">stock '+stock+'</span>'; }
+    let stockChip=splitChip(iv); if(!stockChip && stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="pkstock '+cls+'">stock '+stock+'</span>'; }
     const dmg=(iv.damaged==null)?null:iv.damaged;
     if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="pkstock dmg '+dcls+'">✖ damaged '+dmg+'</span>'; }
     h+='<div class="pkitem'+(isTaken?' taken':'')+'">'+
@@ -2491,7 +2740,7 @@ function renderGuide(){
   for(const v of list){
     const img=v.image||PLACEHOLDER; const loc=locOf(v);
     const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
-    let chips=''; if(stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
+    let chips=splitChip(v); if(!chips && stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
     if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';
     const bcs=barcodesOf(v.barcode); if(bcs.length) chips+='<span class="pkstock">⌗ '+esc(bcs.join(' · '))+'</span>';
     let tags='';
@@ -2649,7 +2898,10 @@ function renderShiftBar(){
       (IS_ADMIN?'<span class="x" data-del="'+esc(id)+'" title="Clear this shift">✕</span>':'')+'</button>';
   }).join('');
   if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
+  if(IS_ADMIN && CUR_SHIFT){ const c=deductStats();
+    h+='<button class="shiftchip'+(c.todo?' todo':'')+'" id="deductChip" title="Take the packed units of this shift off the pick shelves (S-/R-). Orders confirmed in this build are deducted automatically; this catches the ones that were not."'+(DEDUCT_BUSY||!c.todo?' disabled':'')+'>📦→ Deduct packed orders <span class="n">'+c.done+' / '+c.total+'</span>'+(c.todo?' · '+c.todo+' to do':'')+'</button>'; }
   bar.innerHTML=h;
+  const dc=$('#deductChip'); if(dc) dc.onclick=deductAllPacked;
   $$('#shiftBar [data-sh]').forEach(b=>b.onclick=e=>{
     if(e.target.closest('[data-del]')){ e.stopPropagation(); clearShift(e.target.getAttribute('data-del')); return; }
     switchShift(b.dataset.sh);
