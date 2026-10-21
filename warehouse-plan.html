@@ -265,6 +265,15 @@ textarea:focus{border-color:var(--accent)}
 .sp-head .sub{font-size:11.5px;color:var(--muted)}
 .sp-tools{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .sp-tools input[type=text]{flex:1 1 150px}
+.selbar{border-top:1px solid var(--border);background:var(--panel2);padding:10px 14px;display:flex;flex-direction:column;gap:8px;position:sticky;bottom:0}
+.selrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.selrow select{flex:1 1 160px} .selrow input[type=text]{flex:2 1 160px}
+.btn.danger{border-color:#5a2a2e;color:var(--err)} .btn.danger:hover{background:#2a1519}
+.btn.sm{padding:5px 9px;font-size:12px}
+.sp.selmode .irow .grip{display:none}
+.irow .selbox{width:18px;height:18px;accent-color:var(--err);cursor:pointer;display:none;margin:0}
+#sp.selmode .irow .selbox{display:block} #sp.selmode .irow .grip{display:none}
+#sp.selmode .irow.selected{outline:2px solid var(--err);outline-offset:-2px}
 .sp-body{overflow-y:auto;flex:1 1 auto;min-height:0;padding:6px 0 30px;overscroll-behavior:contain}
 .sec{margin:8px 10px 4px;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;background:var(--bg)}
 .sec-h{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--raised);font-family:var(--mono);
@@ -534,8 +543,14 @@ dialog.wide{max-width:min(900px,95vw)}
     <div class="sp-tools">
       <input type="text" id="spSearch" placeholder="Filter products…">
       <label class="toggle" style="padding:0"><input type="checkbox" id="spZero" checked> Hide 0 qty</label>
+      <button class="btn sm" id="spSel" title="Tick several lines and delete them at once — e.g. minuses or leftovers that are verified elsewhere">☑ Select lines</button>
     </div>
     <div class="sp-body" id="spBody"></div>
+    <div class="selbar" id="selBar" hidden>
+      <div class="selrow"><b id="selN">0</b> line(s) selected <span class="spacer"></span><button class="btn sm" id="selAll">All shown</button><button class="btn sm" id="selNeg">Only minuses</button><button class="btn sm" id="selNone">None</button></div>
+      <div class="selrow"><select id="selR"></select><input type="text" id="selNote" placeholder="Details — required for “Other”"></div>
+      <div class="selrow"><button class="btn danger" id="selDel">🗑 Delete selected lines</button><button class="btn" id="selCancel">Cancel</button></div>
+    </div>
   </aside>
 </div>
 
@@ -1834,6 +1849,15 @@ function makeStockOps(env){
       const d = neg(r.mv);
       return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, r.mv), d:{[L]:clean(d)}, reason, note, all:all || undefined});
     },
+    /* drop a whole line from a place, whatever it says (also a negative one):
+       the count there was wrong — the real stock is elsewhere or already verified */
+    async deleteLine(k, L, reason, note){
+      need(reason, 'Choose a reason');
+      const r = await tx(L, k, cur => cur ? {next:null, cell:clean(cur)} : null);
+      need(r, 'Nothing of it in ' + L);
+      const cell = r.cell;
+      return log({type:'remove', del:true, k, n:env.name(k), loc:L, qty:Math.abs(unitsD(k, cell)), d:{[L]:neg(cell)}, cell, reason, note});
+    },
     /* open n cases → q × n loose boxes or confirmed units */
     async openCase(k, L, n, into, cv){
       n = posInt(n, 'a number of cases'); into = into === 'c' ? 'c' : 'b';
@@ -1849,6 +1873,14 @@ function makeStockOps(env){
     /* move every change of a record backwards */
     async undo(rec){
       need(rec && rec.d && ['transfer','add','remove','open'].includes(rec.type) && !rec.undone && !rec.undoOf, 'This change cannot be undone');
+      if (rec.del && rec.cell){                       // a deleted line comes back exactly as it was
+        const put = await tx(rec.loc, rec.k, cur => ({next:Object.assign({}, cur || {}, sum(cur || {}, rec.cell), {n:(cur && cur.n) || rec.n || env.name(rec.k), by:env.who(), at:now()})}));
+        need(put, 'Could not restore the line');
+        const R0 = env.ref();
+        if (R0 && rec.id) await R0.child('log/' + rec.id + '/undone').set(true);
+        else if (env.local && env.local.markUndone) env.local.markUndone(rec.id);
+        return log({type:'remove', k:rec.k, n:rec.n, loc:rec.loc, qty:rec.qty, d:{[rec.loc]:clean(rec.cell)}, undoOf:rec.id, reason:'undo'});
+      }
       const steps = Object.keys(rec.d).map(L => ({L, d:neg(rec.d[L])}));
       steps.sort((a, b) => F.reduce((s, f) => s + Math.min(0, a.d[f] || 0), 0) - F.reduce((s, f) => s + Math.min(0, b.d[f] || 0), 0));   // take away first
       const done = [];
@@ -1881,6 +1913,7 @@ function histChange(rec, q){
   if (rec.type === 'transfer') parts.push(rec.qty + ' u' + (rec.d && rec.d[rec.to] ? ' (' + fmtD(rec.d[rec.to], true) + ')' : '') + ' · ' + rec.from + ' → ' + rec.to);
   else if (rec.type === 'count'){ if (rec.f) parts.push(({s:'Case', b:'Boxes', c:'Confirmed', d:'Damaged'}[rec.f] || rec.f) + ' ' + (rec.old || 0) + ' → ' + (rec.val || 0)); if (rec.note) parts.push(rec.note); }
   else if (rec.type === 'status') parts.push(rec.note || '');
+  else if (rec.del && rec.cell) parts.push('line deleted · was ' + (fmtD(rec.cell) || '0') + (rec.undone ? '' : ''));
   else if (rec.d){ for (const L in rec.d) parts.push(fmtD(rec.d[L])); if (rec.qty) parts.push('(' + (rec.undoOf ? 'undo ' : (rec.type === 'remove' ? '−' : (rec.type === 'add' ? '+' : ''))) + rec.qty + ' u)'); }
   return parts.filter(Boolean).join(' ');
 }
@@ -1888,13 +1921,14 @@ function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' +
 const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
 const REASONS_ADD = ['New shipment', 'Return', 'Other'];
 const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
+const REASONS_DELETE = ['Verified — not here', 'Missed transfer (already moved)', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
 
 const OPS = makeStockOps({ref:() => R, q:k => qOf(k), name:k => nameOf(k), who:() => who(), mode:"plan"});
 
 /* ------------------------------ product actions -------------------------- */
 /* click a product row (without dragging) → add / remove / open case / move */
-const WP_TABS = [["add","＋ Add"],["remove","− Remove"],["open","📦 Open case"],["transfer","⇄ Move"]];
+const WP_TABS = [["add","＋ Add"],["remove","− Remove"],["open","📦 Open case"],["transfer","⇄ Move"],["delete","🗑 Delete line"]];
 function wVars(k){ const m = VARL.get(cln(nameOf(k))) || {}; return Object.keys(m).map(x => ({key:x, label:m[x]})); }
 function histVarLabel(k, x){ const m = VARL.get(cln(nameOf(k))) || {}; return m[x] || x; }
 function openActions(k, L, tab, toPre){
@@ -1951,10 +1985,13 @@ function openActions(k, L, tab, toPre){
           <div class="ce-grid">${wVars(k).map((x, i) => `<div class="ce-row"><span>${esc(x.label)}</span><span class="ce-q"><button type="button" class="btn icon" data-cm="${i}">−</button><input type="number" min="0" id="acv_${i}" data-key="${esc(x.key)}" value="0"><button type="button" class="btn icon" data-cp="${i}">+</button></span></div>`).join("")}</div>
           <p class="hint" style="margin:6px 0 0">Entered <b id="acCvSum" style="font-family:var(--mono)">0</b></p></div>
         <p class="hint" id="acPrev" style="margin:8px 0 0"></p>`;
+    } else if (tab === "delete"){
+      h += `<p class="hint" style="margin:0 0 6px">Removes this whole line from <b>${esc(L)}</b> — ${fmtN(u)} unit(s) as counted here${u < 0 ? ", a minus that is not real" : ""}.
+        Use it when the product is verified elsewhere (a move that was never logged) or the count here was simply wrong. Nothing is added anywhere else; History keeps the line and can undo it.</p>` + reasonSel(REASONS_DELETE);
     } else h += toField() + editor(true);
     return h;
   }
-  const labels = {add:"Add", remove:"Remove", open:"Open case", transfer:"Move"};
+  const labels = {add:"Add", remove:"Remove", open:"Open case", transfer:"Move", delete:"Delete line"};
   function draw(){
     openDialog("Stock · " + L, body(), [{label:labels[tab], primary:true, act:go}, {label:"Cancel", act:closeDialog}]);
     const B = $("dlgBody");
@@ -1984,7 +2021,7 @@ function openActions(k, L, tab, toPre){
       const all = $("ceAll"); if (all) all.addEventListener("click", () => { ins.forEach(i => { if (i.dataset.max !== "") i.value = i.dataset.max; }); upd(); });
       upd();
     }
-    const f = (tab === "transfer" && !toPre) ? $("acTo") : B.querySelector('input[id^="ce_"], #acCases');
+    const f = (tab === "transfer" && !toPre) ? $("acTo") : (tab === "delete" ? $("acR") : B.querySelector('input[id^="ce_"], #acCases'));
     if (f) setTimeout(() => { f.focus(); if (f.select) f.select(); }, 40);
   }
   async function go(){
@@ -1996,6 +2033,8 @@ function openActions(k, L, tab, toPre){
         await OPS.add(k, L, readComp(), rs.r, rs.n); toast("Added to " + L + " · " + rs.r); }
       else if (tab === "remove"){ const rs = reason(); if (!rs){ busy = false; return; }
         await OPS.remove(k, L, readComp(), rs.r, rs.n); toast("Removed from " + L + " · " + rs.r); }
+      else if (tab === "delete"){ const rs = reason(); if (!rs){ busy = false; return; }
+        await OPS.deleteLine(k, L, rs.r, rs.n); toast("Line deleted from " + L + " · " + rs.r); }
       else if (tab === "open"){
         const cv = {}; if ($("acInto").value === "c") $("dlgBody").querySelectorAll('input[id^="acv_"]').forEach(i => { const n = Math.floor(+i.value || 0); if (n > 0) cv[i.dataset.key] = n; });
         await OPS.openCase(k, L, Math.floor(+$("acCases").value || 0), $("acInto").value, wVars(k).length ? cv : null); toast("Case opened on " + L); }
@@ -2133,7 +2172,7 @@ function openZone(zone){
   renderPanel(); paintStock();
 }
 function closePanel(){
-  OPEN = null; $("sp").hidden = true;
+  OPEN = null; $("sp").hidden = true; if (SELMODE) setSelMode(false);
   document.querySelector(".app").classList.remove("withpanel");
   paintStock();
 }
@@ -2148,8 +2187,9 @@ function rowHTML(r){
     const ps = Object.keys(v.cv).filter(x => v.cv[x] > 0).map(x => (lbl[x] || x) + " " + v.cv[x]);
     const un = (v.c || 0) - Object.values(v.cv).reduce((a, b) => a + (+b || 0), 0); if (un > 0) ps.push("unspecified " + un);
     cvt = ps.join(" · ") + (v.cvx ? " · recheck" : ""); }
-  return `<div class="irow${r.qty < 0 ? " neg" : (r.qty <= 0 ? " zero" : "")}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
-    <span class="grip" title="Drag to move">⠿</span>
+  const sid = r.loc + "|" + r.k;
+  return `<div class="irow${r.qty < 0 ? " neg" : (r.qty <= 0 ? " zero" : "")}${SEL.has(sid) ? " selected" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
+    <span class="grip" title="Drag to move">⠿</span><input type="checkbox" class="selbox" data-sel="${esc(sid)}"${SEL.has(sid) ? " checked" : ""}>
     <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
     <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
       <div class="vr">${esc(parts)}${net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div>${
@@ -2228,6 +2268,7 @@ function clearDropHi(){ document.querySelectorAll(".dropon").forEach(e => e.clas
 $("spBody").addEventListener("pointerdown", e => {
   if (e.button !== 0) return;
   const row = e.target.closest(".irow"); if (!row) return;
+  if (SELMODE) return;                                                      // select mode: no dragging
   if (e.pointerType === "touch" && !e.target.closest(".grip")) return;     // let a finger scroll the list
   e.preventDefault();
   dnd = {k:row.dataset.k, from:row.dataset.loc, x0:e.clientX, y0:e.clientY, on:false, ghost:null, target:null, id:e.pointerId};
@@ -2273,7 +2314,40 @@ $("spBody").addEventListener("click", e => {
   if (justDragged) return;
   const add = e.target.closest("[data-add]"); if (add){ e.stopPropagation(); pickProductFor(add.dataset.add); return; }
   const pal = e.target.closest(".palchip[data-drop]"); if (pal){ pickProductFor(pal.dataset.drop); return; }
-  const row = e.target.closest(".irow"); if (row) openActions(row.dataset.k, row.dataset.loc);
+  const row = e.target.closest(".irow"); if (!row) return;
+  if (SELMODE){ toggleSel(row.dataset.loc + "|" + row.dataset.k); return; }
+  openActions(row.dataset.k, row.dataset.loc);
+});
+/* ------------------------------ select & delete lines -------------------- */
+let SELMODE = false; const SEL = new Set();
+function setSelMode(on){
+  SELMODE = !!on; if (!SELMODE) SEL.clear();
+  $("sp").classList.toggle("selmode", SELMODE); $("selBar").hidden = !SELMODE; $("spSel").setAttribute("aria-pressed", SELMODE ? "true" : "false");
+  if (SELMODE && !$("selR").options.length) $("selR").innerHTML = REASONS_DELETE.map(r => `<option>${esc(r)}</option>`).join("");
+  renderPanel();
+}
+function toggleSel(id, force){ const on = force === undefined ? !SEL.has(id) : force; if (on) SEL.add(id); else SEL.delete(id); renderSel(); }
+function renderSel(){
+  $("selN").textContent = SEL.size; $("selDel").disabled = !SEL.size;
+  document.querySelectorAll("#spBody .irow").forEach(r => { const id = r.dataset.loc + "|" + r.dataset.k; const on = SEL.has(id); r.classList.toggle("selected", on); const c = r.querySelector(".selbox"); if (c) c.checked = on; });
+}
+$("spSel").addEventListener("click", () => setSelMode(!SELMODE));
+$("selCancel").addEventListener("click", () => setSelMode(false));
+$("selAll").addEventListener("click", () => { document.querySelectorAll("#spBody .irow").forEach(r => SEL.add(r.dataset.loc + "|" + r.dataset.k)); renderSel(); });
+$("selNeg").addEventListener("click", () => { SEL.clear(); document.querySelectorAll("#spBody .irow.neg").forEach(r => SEL.add(r.dataset.loc + "|" + r.dataset.k)); renderSel(); });
+$("selNone").addEventListener("click", () => { SEL.clear(); renderSel(); });
+$("selDel").addEventListener("click", async () => {
+  if (!SEL.size || busy) return;
+  const r = $("selR").value, n = $("selNote").value.trim();
+  if (r === "Other" && !n){ toast("Describe the reason for “Other”"); $("selNote").focus(); return; }
+  const list = [...SEL].map(id => { const i = id.indexOf("|"); return {L:id.slice(0, i), k:id.slice(i + 1)}; });
+  const units = list.reduce((a, x) => a + ((HOLD.get(x.k) && HOLD.get(x.k).get(x.L)) || {qty:0}).qty, 0);
+  if (!confirm("Delete " + list.length + " line(s) from " + [...new Set(list.map(x => x.L))].join(", ") + "?\n\nCounted there: " + fmtN(units) + " unit(s). Nothing is added anywhere else. Each line is logged in History and can be undone.\nReason: " + r)) return;
+  busy = true; $("selDel").disabled = true; let ok = 0, fail = 0;
+  for (const x of list){ try{ await OPS.deleteLine(x.k, x.L, r, n); ok++; }catch(e){ fail++; } }
+  busy = false; SEL.clear(); renderSel();
+  toast("Deleted " + ok + " line(s)" + (fail ? " · " + fail + " failed" : ""));
+  if (!fail) setSelMode(false);
 });
 document.addEventListener("pointercancel", () => { if (dnd){ dnd.target = null; endDnd(); } });
 
@@ -2393,7 +2467,7 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-const PLAN_BUILD = "2026-10-19a · Store zone · needs-restock highlights · open case by variation";
+const PLAN_BUILD = "2026-10-21a · delete lines (single + bulk) · Store zone · needs-restock";
 let planErr = "";
 function setSyncState(t){
   flagSaved(t);

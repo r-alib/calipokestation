@@ -488,7 +488,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-19a · inventory v3 · Store location · Compare with Daily SOH · open case by variation';
+const BUILD = '2026-10-21a · inventory v3 · Store · Compare · deleted-line history';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -991,6 +991,15 @@ function makeStockOps(env){
       const d = neg(r.mv);
       return log({type:'remove', k, n:env.name(k), loc:L, qty:unitsD(k, r.mv), d:{[L]:clean(d)}, reason, note, all:all || undefined});
     },
+    /* drop a whole line from a place, whatever it says (also a negative one):
+       the count there was wrong — the real stock is elsewhere or already verified */
+    async deleteLine(k, L, reason, note){
+      need(reason, 'Choose a reason');
+      const r = await tx(L, k, cur => cur ? {next:null, cell:clean(cur)} : null);
+      need(r, 'Nothing of it in ' + L);
+      const cell = r.cell;
+      return log({type:'remove', del:true, k, n:env.name(k), loc:L, qty:Math.abs(unitsD(k, cell)), d:{[L]:neg(cell)}, cell, reason, note});
+    },
     /* open n cases → q × n loose boxes or confirmed units */
     async openCase(k, L, n, into, cv){
       n = posInt(n, 'a number of cases'); into = into === 'c' ? 'c' : 'b';
@@ -1006,6 +1015,14 @@ function makeStockOps(env){
     /* move every change of a record backwards */
     async undo(rec){
       need(rec && rec.d && ['transfer','add','remove','open'].includes(rec.type) && !rec.undone && !rec.undoOf, 'This change cannot be undone');
+      if (rec.del && rec.cell){                       // a deleted line comes back exactly as it was
+        const put = await tx(rec.loc, rec.k, cur => ({next:Object.assign({}, cur || {}, sum(cur || {}, rec.cell), {n:(cur && cur.n) || rec.n || env.name(rec.k), by:env.who(), at:now()})}));
+        need(put, 'Could not restore the line');
+        const R0 = env.ref();
+        if (R0 && rec.id) await R0.child('log/' + rec.id + '/undone').set(true);
+        else if (env.local && env.local.markUndone) env.local.markUndone(rec.id);
+        return log({type:'remove', k:rec.k, n:rec.n, loc:rec.loc, qty:rec.qty, d:{[rec.loc]:clean(rec.cell)}, undoOf:rec.id, reason:'undo'});
+      }
       const steps = Object.keys(rec.d).map(L => ({L, d:neg(rec.d[L])}));
       steps.sort((a, b) => F.reduce((s, f) => s + Math.min(0, a.d[f] || 0), 0) - F.reduce((s, f) => s + Math.min(0, b.d[f] || 0), 0));   // take away first
       const done = [];
@@ -1038,6 +1055,7 @@ function histChange(rec, q){
   if (rec.type === 'transfer') parts.push(rec.qty + ' u' + (rec.d && rec.d[rec.to] ? ' (' + fmtD(rec.d[rec.to], true) + ')' : '') + ' · ' + rec.from + ' → ' + rec.to);
   else if (rec.type === 'count'){ if (rec.f) parts.push(({s:'Case', b:'Boxes', c:'Confirmed', d:'Damaged'}[rec.f] || rec.f) + ' ' + (rec.old || 0) + ' → ' + (rec.val || 0)); if (rec.note) parts.push(rec.note); }
   else if (rec.type === 'status') parts.push(rec.note || '');
+  else if (rec.del && rec.cell) parts.push('line deleted · was ' + (fmtD(rec.cell) || '0') + (rec.undone ? '' : ''));
   else if (rec.d){ for (const L in rec.d) parts.push(fmtD(rec.d[L])); if (rec.qty) parts.push('(' + (rec.undoOf ? 'undo ' : (rec.type === 'remove' ? '−' : (rec.type === 'add' ? '+' : ''))) + rec.qty + ' u)'); }
   return parts.filter(Boolean).join(' ');
 }
@@ -1045,6 +1063,7 @@ function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' +
 const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
 const REASONS_ADD = ['New shipment', 'Return', 'Other'];
 const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
+const REASONS_DELETE = ['Verified — not here', 'Missed transfer (already moved)', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
 
 const OPS = makeStockOps({
