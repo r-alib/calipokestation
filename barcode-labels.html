@@ -446,7 +446,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 /* 6x4: big auto-fitted name, and the pallet layout (same as NEW SHIPMENT) */
 .fitbox{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .fittxt{font-family:'Inter',system-ui,sans-serif;font-weight:900;line-height:1.05;width:100%;
-  text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none}
+  text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:pre-wrap}
 .fittxt.brk{overflow-wrap:break-word;word-break:break-word}
 .fitbox.al-left{justify-content:flex-start} .fitbox.al-left .fittxt{text-align:left}
 .fitbox.al-right{justify-content:flex-end}  .fitbox.al-right .fittxt{text-align:right}
@@ -559,7 +559,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
         <div class="card">
           <p class="eyebrow"><span>Label text</span></p>
           <div class="field">
-            <label for="nmText">Printed on the box <span class="hint">— edit freely</span></label>
+            <label for="nmText">Printed on the box <span class="hint">— edit freely · Enter starts a new line</span></label>
             <textarea id="nmText" spellcheck="false" style="min-height:76px;white-space:pre-wrap;font-family:var(--body);font-size:14px"
                       placeholder="Pick an item above, or just type a name"></textarea>
           </div>
@@ -1913,7 +1913,7 @@ function fitText(t, box, brkAt){
   }
   t.classList.remove("brk");
   var size = search();
-  if (size < brkAt && t.textContent.trim().indexOf(" ") < 0){ t.classList.add("brk"); size = search(); }
+  if (size < brkAt && !/\s/.test(t.textContent.trim())){ t.classList.add("brk"); size = search(); }
   return size;
 }
 
@@ -1982,8 +1982,9 @@ function nmQty(){
   if (n > MAX_PAGES) n = MAX_PAGES;
   return n;
 }
+function nmTextValue(){ return ($("nmText").value || "").replace(/\r\n?/g, "\n").trim(); }
 function renderNamePreview(){
-  var t = ($("nmText").value || "").trim();
+  var t = nmTextValue();
   var lbl = $("nmLabel"), fit = $("nmFit");
   lbl.className = t ? "biglabel" : "biglabel empty";
   fit.textContent = t || "PICK AN ITEM";
@@ -1998,7 +1999,7 @@ function renderNamePreview(){
     chips[i].setAttribute("aria-pressed", (+chips[i].dataset.q === nmQty()) ? "true" : "false");
 }
 function buildNamePages(){
-  var t = ($("nmText").value || "").trim();
+  var t = nmTextValue();
   if (!t) return false;
   var n = nmQty(), out = "";
   for (var i = 0; i < n; i++)
