@@ -115,6 +115,8 @@ body{
   display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;
 }
 .bigwrap .biglabel.empty .fittxt{color:#8A94A3;font-weight:600}
+.bigwrap.sm{width:calc(2.25in * 2);height:calc(1.25in * 2)}
+.bigwrap.sm .biglabel{width:2.25in;height:1.25in;padding:.09in;transform:scale(2)}
 
 /* ---------- company catalog picker ---------- */
 .catrow{
@@ -517,6 +519,14 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
           <span class="jds">Big name labels for storage boxes. Find the item by name or barcode.</span>
         </span>
       </button>
+      <button class="jobcard" type="button" data-job="4">
+        <span class="jic">🔖</span>
+        <span>
+          <span class="jnm">ITEM NAMES · SMALL</span>
+          <span class="jsz">2.25 × 1.25 in</span>
+          <span class="jds">The same name labels on the small thermal label. Find the item by name or barcode.</span>
+        </span>
+      </button>
       <button class="jobcard" type="button" data-job="3">
         <span class="jic">🟫</span>
         <span>
@@ -577,13 +587,13 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
           <p class="eyebrow"><span>Preview</span></p>
           <div class="stage">
             <div class="bigwrap"><div class="biglabel empty" id="nmLabel"><div class="fitbox"><div class="fittxt" id="nmFit">PICK AN ITEM</div></div></div></div>
-            <p class="scale-note">6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label</p>
+            <p class="scale-note" id="nmScaleNote">6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label</p>
           </div>
         </div>
         <div class="card">
           <p class="eyebrow"><span>Printer settings</span></p>
           <ul class="tips">
-            <li>Paper size <strong>6 × 4 in</strong> (landscape), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.</li>
+            <li id="nmPaperTip">Paper size <strong>6 × 4 in</strong> (landscape), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.</li>
             <li>Words are never broken in half — a very long single word is the only exception.</li>
           </ul>
         </div>
@@ -1825,6 +1835,7 @@ function doPrint(){
    1  item barcodes   2.25 x 1.25 in  (the original tool)
    2  item names      6 x 4 in        (box labels, as in NEW SHIPMENT)
    3  pallet barcodes 6 x 4 in        (new code, or reprint one already in use)
+   4  item names      2.25 x 1.25 in  (same as 2, on the small label)
    ============================================================ */
 var JOB = 0;                                  // 0 = the chooser
 var JOB_META = {
@@ -1833,8 +1844,11 @@ var JOB_META = {
   2: { title: "Item names",      sub: "Storage-box labels · the name is sized to fill the label",
        size: "6 × 4 in",         page: "6in 4in" },
   3: { title: "Pallet barcodes", sub: "Code 128 · unique per pallet · print all four sides",
-       size: "6 × 4 in",         page: "6in 4in" }
+       size: "6 × 4 in",         page: "6in 4in" },
+  4: { title: "Item names · small", sub: "Small name labels · the name is sized to fill the label",
+       size: "2.25 × 1.25 in",   page: "2.25in 1.25in" }
 };
+var nmSmall = false;                          // job 4 = the item-names tool on the small label
 var LS_PALLETS = "lp_pallets_v1";
 
 function setPageSize(p){
@@ -1844,23 +1858,32 @@ function setJob(j){
   JOB = j;
   $("jobChooser").hidden = j !== 0;
   $("job1").hidden = j !== 1;
-  $("job2").hidden = j !== 2;
+  $("job2").hidden = !(j === 2 || j === 4);
   $("job3").hidden = j !== 3;
   var m = JOB_META[j];
   $("jobTitle").textContent = m ? m.title : "Label Print";
   $("jobSub").textContent   = m ? m.sub : "Names and barcodes · thermal label printer · one label per page";
   $("jobSize").hidden = !m;
   if (m){ $("jobSizeTxt").textContent = m.size; setPageSize(m.page); }
-  $("barSizeTxt").textContent = m ? m.size : "3 label jobs";
+  $("barSizeTxt").textContent = m ? m.size : "4 label jobs";
   if (j === 1){ setMode(mode); codeEl.focus(); codeEl.select(); }
-  if (j === 2){ refreshProducts(); renderNmSearch(); renderNamePreview(); $("nmSearch").focus(); }
+  if (j === 2 || j === 4){
+    nmSmall = (j === 4);
+    $("nmLabel").parentNode.classList.toggle("sm", nmSmall);
+    $("nmScaleNote").textContent = nmSmall ? "2.25 × 1.25 in · shown at 200 % · the text is sized to fill the label"
+                                           : "6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label";
+    $("nmPaperTip").innerHTML = nmSmall ? 'Paper size <strong>2.25 × 1.25 in</strong> (or "Label"), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.'
+                                        : 'Paper size <strong>6 × 4 in</strong> (landscape), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.';
+    refreshProducts(); renderNmSearch(); renderNamePreview(); $("nmSearch").focus();
+  }
   if (j === 3){ renderPalletRecent(); renderPalletPreview(); $("plCode").focus(); }
   window.scrollTo({ top: 0 });
 }
 
 /* ---- text that grows to fill a 6x4 label; words are not broken unless a
        single word cannot fit at all (same rule as NEW SHIPMENT) ---- */
-function fitText(t, box){
+function fitText(t, box, brkAt){
+  if (brkAt == null) brkAt = 40;
   function search(){
     var lo = 6, hi = 300, i, mid;
     for (i = 0; i < 26; i++){
@@ -1873,7 +1896,7 @@ function fitText(t, box){
   }
   t.classList.remove("brk");
   var size = search();
-  if (size < 40 && t.textContent.trim().indexOf(" ") < 0){ t.classList.add("brk"); size = search(); }
+  if (size < brkAt && t.textContent.trim().indexOf(" ") < 0){ t.classList.add("brk"); size = search(); }
   return size;
 }
 
@@ -1947,7 +1970,7 @@ function renderNamePreview(){
   var lbl = $("nmLabel"), fit = $("nmFit");
   lbl.className = t ? "biglabel" : "biglabel empty";
   fit.textContent = t || "PICK AN ITEM";
-  fitText(fit, fit.parentNode);
+  fitText(fit, fit.parentNode, nmSmall ? 14 : 40);
   var n = t ? nmQty() : 0;
   $("nmBtnN").textContent = n + (n === 1 ? " label" : " labels");
   $("nmPrint").disabled = !t;
@@ -1960,12 +1983,12 @@ function buildNamePages(){
   if (!t) return false;
   var n = nmQty(), out = "";
   for (var i = 0; i < n; i++)
-    out += '<div class="plabel lg"><div class="fitbox"><div class="fittxt">' + esc(t) + "</div></div></div>";
+    out += '<div class="plabel ' + (nmSmall ? "sm" : "lg") + '"><div class="fitbox"><div class="fittxt">' + esc(t) + "</div></div></div>";
   $("printArea").innerHTML = out;
   var boxes = $("printArea").querySelectorAll(".fitbox");
   for (var k = 0; k < boxes.length; k++){
     var el = boxes[k].querySelector(".fittxt");
-    if (el) fitText(el, boxes[k]);
+    if (el) fitText(el, boxes[k], nmSmall ? 14 : 40);
   }
   return true;
 }
@@ -2116,7 +2139,7 @@ function buildPalletPages(){
 
 /* the print sheet is built for whichever job is open (also on Ctrl+P) */
 function buildPrintArea(){
-  if (JOB === 2) return buildNamePages();
+  if (JOB === 2 || JOB === 4) return buildNamePages();
   if (JOB === 3) return buildPalletPages();
   return buildJob1Pages();
 }
@@ -2267,10 +2290,10 @@ Array.prototype.forEach.call($("barh").children, function(x){
 });
 renderSingle();
 renderSaved();
-setJob(0);                       // always start on the three-way chooser
+setJob(0);                       // always start on the chooser
 /* web fonts change how wide the text is — refit once they are ready */
 if (document.fonts && document.fonts.ready){
-  document.fonts.ready.then(function(){ if (JOB === 2) renderNamePreview(); });
+  document.fonts.ready.then(function(){ if (JOB === 2 || JOB === 4) renderNamePreview(); });
 }
 </script>
 
