@@ -448,6 +448,8 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 .fittxt{font-family:'Inter',system-ui,sans-serif;font-weight:900;line-height:1.05;width:100%;
   text-align:center;overflow-wrap:normal;word-break:normal;hyphens:none}
 .fittxt.brk{overflow-wrap:break-word;word-break:break-word}
+.fitbox.al-left{justify-content:flex-start} .fitbox.al-left .fittxt{text-align:left}
+.fitbox.al-right{justify-content:flex-end}  .fitbox.al-right .fittxt{text-align:right}
 .plabel.pallet{align-items:center;justify-content:center;text-align:center}
 .pallet .ptop{font-family:'Inter',system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:.02em}
 .pallet .pbc{width:100%;height:1.5in;margin:.10in 0 .04in}
@@ -560,6 +562,14 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
             <label for="nmText">Printed on the box <span class="hint">— edit freely</span></label>
             <textarea id="nmText" spellcheck="false" style="min-height:76px;white-space:pre-wrap;font-family:var(--body);font-size:14px"
                       placeholder="Pick an item above, or just type a name"></textarea>
+          </div>
+          <div class="field" style="margin-bottom:0">
+            <label>Alignment</label>
+            <div class="chips" id="nmAlign" style="padding-bottom:1px">
+              <button class="chip" type="button" data-a="left" title="Left">⇤ Left</button>
+              <button class="chip" type="button" data-a="center" title="Center" aria-pressed="true">↔ Center</button>
+              <button class="chip" type="button" data-a="right" title="Right">⇥ Right</button>
+            </div>
           </div>
         </div>
 
@@ -1849,6 +1859,13 @@ var JOB_META = {
        size: "2.25 × 1.25 in",   page: "2.25in 1.25in" }
 };
 var nmSmall = false;                          // job 4 = the item-names tool on the small label
+var LS_NMALIGN = "lp_nm_align_v1";
+var nmAlign = (function(){ try { return localStorage.getItem(LS_NMALIGN) || "center"; } catch (e) { return "center"; } })();
+function alignClass(){ return nmAlign === "center" ? "" : " al-" + nmAlign; }
+function renderAlignChips(){
+  var c = $("nmAlign").children;
+  for (var i = 0; i < c.length; i++) c[i].setAttribute("aria-pressed", c[i].dataset.a === nmAlign ? "true" : "false");
+}
 var LS_PALLETS = "lp_pallets_v1";
 
 function setPageSize(p){
@@ -1970,6 +1987,8 @@ function renderNamePreview(){
   var lbl = $("nmLabel"), fit = $("nmFit");
   lbl.className = t ? "biglabel" : "biglabel empty";
   fit.textContent = t || "PICK AN ITEM";
+  fit.parentNode.className = "fitbox" + alignClass();
+  renderAlignChips();
   fitText(fit, fit.parentNode, nmSmall ? 14 : 40);
   var n = t ? nmQty() : 0;
   $("nmBtnN").textContent = n + (n === 1 ? " label" : " labels");
@@ -1983,7 +2002,7 @@ function buildNamePages(){
   if (!t) return false;
   var n = nmQty(), out = "";
   for (var i = 0; i < n; i++)
-    out += '<div class="plabel ' + (nmSmall ? "sm" : "lg") + '"><div class="fitbox"><div class="fittxt">' + esc(t) + "</div></div></div>";
+    out += '<div class="plabel ' + (nmSmall ? "sm" : "lg") + '"><div class="fitbox' + alignClass() + '"><div class="fittxt">' + esc(t) + "</div></div></div>";
   $("printArea").innerHTML = out;
   var boxes = $("printArea").querySelectorAll(".fitbox");
   for (var k = 0; k < boxes.length; k++){
@@ -2224,6 +2243,12 @@ $("nmQty").addEventListener("input", renderNamePreview);
 $("nmChips").addEventListener("click", function(e){
   var b = e.target.closest(".chip"); if (!b) return;
   $("nmQty").value = b.dataset.q; renderNamePreview();
+});
+$("nmAlign").addEventListener("click", function(e){
+  var b = e.target.closest(".chip"); if (!b) return;
+  nmAlign = b.dataset.a;
+  try { localStorage.setItem(LS_NMALIGN, nmAlign); } catch (err) {}
+  renderNamePreview();
 });
 $("nmPrint").addEventListener("click", doPrint);
 
