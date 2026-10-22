@@ -986,7 +986,7 @@ const EXTERNAL_MODES = {
   lessons:   'https://r-alib.github.io/calipokehouselessons/'   // staff training — its own site, fully independent
 };
 
-const BUILD = '2026-10-22b · Put away after receiving · deduction by location priority · Store from Daily SOH';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-22c · Receiving bot: Finish & post to Slack · Put away · deduction by priority';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -4203,6 +4203,10 @@ const RC_SLACK_PALLET_PREFIX = true;
 const RC_LS_STATE = 'rc_state_v1';
 const RC_LS_CAT   = 'rc_catalog_v1';
 const RC_ARCHIVE_MAX = 30;
+/* Receiving bot — Google Apps Script web app that posts the report to Slack (text + Excel)
+   and checks the products against the listings / Daily SOH (see receiving-bot.gs) */
+const RC_SLACK_URL = 'https://script.google.com/macros/s/AKfycbxFbfpn7ZtQwfF8I4p-WXr-A7uNcGl_ENyJSDZ1dh4TRpY_XOSkg-rA4KGQkRGUWNk1/exec';
+const RC_SLACK_SECRET = 'POKE';
 
 let RC = { sessions:[], learned:{} };   // every receiving, open and finished, newest first
 let RCCAT = { main:[], pending:[], at:0, sharedAt:0, source:'' };
@@ -4280,6 +4284,7 @@ function rcNormalizeSession(raw){
   });
   s.palletize = pz;
   s.putaway = (raw.putaway && typeof raw.putaway==='object') ? raw.putaway : {};   // where the goods went after receiving
+  s.slack = (raw.slack && typeof raw.slack==='object') ? raw.slack : null;         // {ts, at, by, flagged, error}
   return s;
 }
 
@@ -4289,7 +4294,7 @@ let _rcDirty={};                // id -> this device has unsent or unconfirmed c
 let _rcSent={};                 // id -> JSON of the last state this device put on the wire
 let _rcSuppressRender=false;
 
-const RC_TOP_FIELDS=['id','startedAt','dateStr','supplier','method','carrier','stage','palletize','finished','finishedAt','finishedBy'];
+const RC_TOP_FIELDS=['id','startedAt','dateStr','supplier','method','carrier','stage','palletize','finished','finishedAt','finishedBy','slack'];
 const _j = v => JSON.stringify(v===undefined?null:v);
 
 function rcSaveLocal(){
@@ -4984,7 +4989,7 @@ function rcSessionRow(s){
   return '<div class="rcarow'+(fin?'':' live')+'">'+
     '<div><div class="an">'+esc(s.supplier||'—')+' · '+esc(s.dateStr)+'</div>'+
     '<div class="am">'+esc(how)+' · '+
-      (fin ? (s.units.length+' '+W+'s · '+units+' units')
+      (fin ? (s.units.length+' '+W+'s · '+units+' units'+(s.slack&&s.slack.ts?' · 📣 posted':' · <span style="color:var(--warn)">not posted to Slack</span>'))
            : (counted+'/'+s.units.length+' '+W+'s counted · '+units+' units so far'))+
     '</div></div><div class="spacer" style="flex:1"></div>'+
     (fin ? '<button class="btn ghost" data-report="'+esc(s.id)+'">Report</button>'+
@@ -5501,7 +5506,7 @@ function rcViewReport(){
     stat(s.method==='pallet'?'Pallets':esc(s.carrier||'Packages'),'Arrived as')+
     stat(s.units.length, s.method==='pallet'?'Pallets':'Packages')+
     stat(units,'Units total','ok')+'</div>';
-  h+='<div class="card"><div class="srchead"><span class="mode label">Slack</span><span class="sub" style="font-size:13px">copy and post, then attach the Excel file</span></div>'+
+  h+='<div class="card"><div class="srchead"><span class="mode label">Slack</span><span class="sub" style="font-size:13px">the bot posts this text with the Excel file when you finish — copy / download only as a fallback</span></div>'+
     '<div class="rcreport" id="rcSlackTxt">'+esc(txt)+'</div>'+
     '<div class="rcrow" style="margin-top:12px"><button class="btn primary" id="rcCopy">📋 Copy the text</button>'+
     '<button class="btn" id="rcXlsx">⬇ Excel (.xlsx)</button><button class="btn ghost" id="rcCsv">⬇ CSV</button></div></div>';
@@ -5519,10 +5524,20 @@ function rcViewReport(){
   h+='<div class="card" style="margin-top:14px"><div class="eyebrow">Totals</div><table><thead><tr><th>Item</th><th class="num">Qty</th></tr></thead><tbody>'+
     tot.map(t=>'<tr><td>'+esc(t.name)+(t.variation?' <span class="sub">· '+esc(t.variation)+'</span>':'')+'</td><td class="num">'+t.qty+'</td></tr>').join('')+
     '</tbody></table></div>';
+  if(s.finished || s.slack){
+    const sl=s.slack||{};
+    h+='<div class="card" style="margin-top:14px"><div class="srchead"><span class="mode label">Slack bot</span><span class="sub" style="font-size:13px">'+
+      (sl.ts ? 'posted '+esc(fmtTime(sl.at))+(sl.by?' by '+esc(sl.by):'') : (sl.error ? '<span style="color:var(--err)">not posted — '+esc(sl.error)+'</span>' : 'not posted yet'))+'</span></div>'+
+      (sl.ts && sl.flagged ? (rcArr(sl.flagged).length
+        ? '<p class="sub" style="margin:8px 0 0">Flagged in the thread for Celina:</p><ul style="margin:6px 0 0 18px">'+rcArr(sl.flagged).map(f=>'<li>'+esc(f.name)+' — '+(f.status==='new'?'<b>new product</b>, no listing':(f.status==='nolisting'?'no listing':esc(f.status)))+'</li>').join('')+'</ul>'
+        : '<p class="sub" style="margin:8px 0 0">Every product is already listed on at least one platform — nothing flagged.</p>') : '')+
+      (sl.ts ? '' : '<div class="rcrow" style="margin-top:12px"><button class="btn primary" id="rcSlackRetry">📣 Post to Slack now</button><span class="sub" style="font-size:12.5px">the bot posts the text above with the Excel file and checks the listings</span></div>')+
+      '</div>';
+  }
   h+='<div class="rcrow" style="margin-top:18px">';
   if(!s.finished){
     h+='<button class="btn ghost" id="rcRepBack">← Back to counting</button><div class="spacer" style="flex:1"></div>'+
-      '<button class="btn primary lg" id="rcFinish">✔ Finish the receiving</button>';
+      '<button class="btn primary lg" id="rcFinish">✔ Finish & post to Slack</button>';
   }else{
     h+='<button class="btn ghost" id="rcRepHome">← Receiving home</button>';
   }
@@ -5547,10 +5562,13 @@ function rcWireReport(){
     if(s.method==='package' && s.palletize.use){ s.stage='palletize'; rcSave(); rcGo('pallets'); }
     else { s.stage='units'; rcSave(); rcGo('units'); } };
   const hm=$('#rcRepHome'); if(hm) hm.onclick=()=>{ rcActiveId=null; rcGo('home'); };
-  const fn=$('#rcFinish'); if(fn) fn.onclick=()=>{
-    if(!confirm('Finish this receiving? It moves to the finished list and can no longer be counted into.\nExport the Excel file first if you have not.')) return;
+  const rt=$('#rcSlackRetry'); if(rt) rt.onclick=async()=>{ rt.disabled=true; rt.textContent='Posting…'; await rcPostSlack(s); rcRender(); };
+  const fn=$('#rcFinish'); if(fn) fn.onclick=async()=>{
+    if(!confirm('Finish this receiving and post it to Slack?\nThe bot posts the report with the Excel file and flags products that have no listing. The receiving can no longer be counted into.')) return;
+    fn.disabled=true; fn.textContent='Posting to Slack…';
     s.finished=true; s.finishedAt=Date.now(); s.finishedBy=MY_NAME||'';
     rcPushSession(s.id);
+    await rcPostSlack(s);
     const fin=RC.sessions.filter(x=>x.finished);
     if(fin.length>RC_ARCHIVE_MAX){                       // keep only the newest finished ones
       const drop=fin.slice(RC_ARCHIVE_MAX).map(x=>x.id);
@@ -5558,8 +5576,29 @@ function rcWireReport(){
       drop.forEach(id=>{ clearTimeout(_rcPush[id]); delete _rcPush[id]; delete _rcDirty[id];
         if(rcRef) rcRef.child('sessions/'+safeKey(id)).remove().catch(()=>{}); });
     }
-    rcActiveId=null; rcSaveLocal(); toast('Receiving finished','ok',3000); rcGo('home');
+    rcSaveLocal(); toast('Receiving finished','ok',3000); rcRender();
   };
+}
+/* send the finished receiving to the bot: report text + Excel + product names */
+async function rcPostSlack(s){
+  if(!RC_SLACK_URL){ s.slack={error:'bot not configured', at:Date.now()}; rcPushSession(s.id); return false; }
+  let xlsx='';
+  try{ const ws=XLSX.utils.aoa_to_sheet(rcReportRows(s)); ws['!cols']=[{wch:46},{wch:20},{wch:14},{wch:11},{wch:6},{wch:7}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Receiving'); xlsx=XLSX.write(wb,{bookType:'xlsx',type:'base64'}); }catch(e){ xlsx=''; }
+  const body={secret:RC_SLACK_SECRET, sessionId:s.id, supplier:s.supplier||'', date:s.dateStr||'', by:MY_NAME||'',
+    text:rcSlackReport(s), filename:rcFileBase(s)+'.xlsx', xlsxBase64:xlsx, items:rcTotals(s).map(t=>t.name)};
+  try{
+    const r=await fetch(RC_SLACK_URL,{method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'text/plain;charset=utf-8'}, redirect:'follow'});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'bot error');
+    s.slack={ts:j.ts||'', at:Date.now(), by:MY_NAME||'', flagged:j.flagged||[], thread:j.thread?j.thread.ts:null};
+    toast('Posted to Slack'+(j.flagged&&j.flagged.length?' · '+j.flagged.length+' product(s) flagged for Celina':''),'ok',4000);
+    rcPushSession(s.id); rcSaveLocal(); return true;
+  }catch(e){
+    s.slack={error:(e&&e.message)||String(e), at:Date.now(), by:MY_NAME||''};
+    toast('Slack post failed: '+s.slack.error+' — use “Post to Slack now” to retry','err',6000);
+    rcPushSession(s.id); rcSaveLocal(); return false;
+  }
 }
 
 /* ---------- wiring ---------- */
