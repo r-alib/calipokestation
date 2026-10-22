@@ -488,7 +488,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-21a · inventory v3 · Store · Compare · deleted-line history';
+const BUILD = '2026-10-22a · inventory v3 · pick priority from the Location tab · Daily SOH twice a day';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -574,7 +574,7 @@ function nameOf(k, cell){ const it=itemOf(k); return it ? it.n : ((cell && cell.
 function units(k, v){ if(!v) return 0; return (v.s||0)*qOf(k) + (v.b||0) + (v.d||0) + (v.c||0); }
 function allLocs(){
   const out=[], seen=new Set();
-  ((BASE&&BASE.locs)||[]).forEach(l=>{ const L=locKey(l.id); if(!L||seen.has(L)||L===STORE) return; seen.add(L); out.push({L, id:l.id, bc:l.bc||'', type:l.type||'Other', extra:false}); });
+  ((BASE&&BASE.locs)||[]).forEach(l=>{ const L=locKey(l.id); if(!L||seen.has(L)||L===STORE) return; seen.add(L); out.push({L, id:l.id, bc:l.bc||'', type:l.type||'Other', pri:l.pri==null?null:l.pri, extra:false}); });
   seen.add(STORE); out.push({L:STORE, id:'Store', bc:'', type:'Store · shop display', extra:false, store:true});
   Object.keys(COUNTS).concat(Object.keys(STATUS)).forEach(L=>{ if(seen.has(L)) return; seen.add(L); out.push({L, id:L, bc:'', type:'Not in the Location tab', extra:true}); });
   return out;
@@ -677,7 +677,7 @@ function normBase(b){
 }
 function publishBase(){ if(!BASE) return;
   const out=Object.assign({},BASE,{ rows:BASE.rows.map(r=>r||'-'), rowsN:BASE.rows.length,
-    locs:BASE.locs.map(l=>{ const o={id:l.id, type:l.type||'Other'}; if(l.bc) o.bc=l.bc; return o; }) });
+    locs:BASE.locs.map(l=>{ const o={id:l.id, type:l.type||'Other'}; if(l.bc) o.bc=l.bc; if(l.pri!=null) o.pri=l.pri; return o; }) });
   dbSet('base', out); }
 
 /* ============================================================
@@ -704,7 +704,8 @@ function parseLocationsTab(wb){
     const id=String(r[0]==null?'':r[0]).trim(); if(!id) return;
     if(i===0 && /location|id/i.test(id)) return;          // header
     const L=locKey(id); if(seen.has(L)) return; seen.add(L);
-    out.push({id, bc:String(r[1]==null?'':r[1]).trim(), type:String(r[2]==null?'':r[2]).trim()||'Other'});
+    const pri=parseInt(r[3],10);                            // column D = pick priority (1 = first place to take from)
+    out.push({id, bc:String(r[1]==null?'':r[1]).trim(), type:String(r[2]==null?'':r[2]).trim()||'Other', pri:isFinite(pri)?pri:null});
   });
   return out;
 }
@@ -1365,10 +1366,17 @@ async function dsohFetchTab(name){
   if (/<!DOCTYPE|<html/i.test(t.slice(0, 300))) throw new Error('Daily SOH sheet is not shared for reading');
   return t;
 }
+/* refresh schedule: twice a day, 7:00 and 16:00 local — a cached copy read before
+   the most recent of those two times is stale (a manual Update button forces a re-read) */
+const DSOH_SLOTS = [7, 16];
+function dsohLastSlot(now){ now = now || new Date(); let best = null;
+  for (let back = 0; back < 2 && best == null; back++) for (const h of DSOH_SLOTS.slice().reverse()){ const t = new Date(now); t.setDate(t.getDate() - back); t.setHours(h, 0, 0, 0); if (t <= now){ best = t.getTime(); break; } }
+  return best || 0; }
+function dsohIsFresh(c){ return !!(c && c.items && c.at >= dsohLastSlot()); }
 /* latest filled day: this week's tab first, then last week's */
 async function loadDailySOH(opts){
   opts = opts || {};
-  if (!opts.force){ try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items && Date.now() - c.at < (opts.maxAge || 20 * 60 * 1000)) return c; }catch(e){} }
+  if (!opts.force){ try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (dsohIsFresh(c)) return c; }catch(e){} }
   let lastErr = null;
   for (let back = 0; back < 3; back++){
     const mon = dsohMonday(new Date()); mon.setDate(mon.getDate() - 7 * back);

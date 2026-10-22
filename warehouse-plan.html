@@ -246,6 +246,9 @@ textarea:focus{border-color:var(--accent)}
 .zone.errz{color:var(--err);border-color:#5a2a2e}
 .irow.neg{background:#2a1519;border-color:#5a2a2e}
 .irow.neg .q{color:var(--err)}
+.irow .fix{color:var(--err);margin-top:2px}
+.irow .fix .lnk{background:none;border:0;padding:0;color:var(--warn);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted}
+.irow .fix small{color:var(--muted)}
 .island.needs{border-color:var(--err);box-shadow:0 0 0 2px var(--err),0 0 16px -4px var(--err)}
 .island .cnt.negc{background:var(--err);color:#fff}
 .dropon{outline:2px solid var(--accent)!important;outline-offset:2px;background:#11211a!important}
@@ -1574,6 +1577,15 @@ function buildHoldings(){
     }
   }
 }
+/* pick priority of a place (column D of the Location tab in the counting workbook; 1 = first) */
+function locPri(L){ const l = arr(BASE && BASE.locs).find(x => x && locKey(x.id) === L); return (l && l.pri != null) ? +l.pri : 9999; }
+/* where to restock a negative line from: other warehouse places that have the product, best priority first */
+function restockFrom(k, L){
+  const map = HOLD.get(k); if (!map) return [];
+  return [...map.entries()].filter(([l, h]) => l !== L && !isStore(l) && h.qty > 0)
+    .map(([l, h]) => ({L:l, qty:h.qty, pri:locPri(l) < 9999 ? locPri(l) : (isPal(l) ? 99999 : 9999)}))
+    .sort((a, b) => a.pri - b.pri || b.qty - a.qty);
+}
 function palletKeys(){
   const s = new Set();
   arr(BASE && BASE.locs).forEach(l => { const L = locKey(l && l.id); if (isPal(L)) s.add(L); });
@@ -2187,13 +2199,17 @@ function rowHTML(r){
     const ps = Object.keys(v.cv).filter(x => v.cv[x] > 0).map(x => (lbl[x] || x) + " " + v.cv[x]);
     const un = (v.c || 0) - Object.values(v.cv).reduce((a, b) => a + (+b || 0), 0); if (un > 0) ps.push("unspecified " + un);
     cvt = ps.join(" · ") + (v.cvx ? " · recheck" : ""); }
+  let fix = "";
+  if (r.qty < 0){ const src = restockFrom(r.k, r.loc);
+    fix = src.length ? `<div class="vr fix">⚠ needs ${fmtN(-r.qty)} · <button class="lnk" data-fix="${esc(src[0].L)}" title="Open the move dialog: ${esc(src[0].L)} → ${esc(r.loc)}">⇄ transfer from ${esc(src[0].L)} (${fmtN(src[0].qty)} u)</button>${src.length > 1 ? `<small> · also ${src.slice(1, 3).map(x => esc(x.L) + " " + fmtN(x.qty)).join(", ")}</small>` : ""}</div>`
+      : `<div class="vr fix">⚠ needs ${fmtN(-r.qty)} · nowhere else in the warehouse — receive it or delete the line</div>`; }
   const sid = r.loc + "|" + r.k;
   return `<div class="irow${r.qty < 0 ? " neg" : (r.qty <= 0 ? " zero" : "")}${SEL.has(sid) ? " selected" : ""}" data-k="${esc(r.k)}" data-loc="${esc(r.loc)}">
     <span class="grip" title="Drag to move">⠿</span><input type="checkbox" class="selbox" data-sel="${esc(sid)}"${SEL.has(sid) ? " checked" : ""}>
     <img loading="lazy" src="${esc(it.image || IMG_PH)}" alt="" onerror="this.src='${IMG_PH}'">
     <div style="min-width:0"><div class="nm">${esc(it.name)}</div>
       <div class="vr">${esc(parts)}${net ? ` <span class="moved">${net > 0 ? "+" : ""}${net} moved</span>` : ""}</div>${
-      cvt ? `<div class="vr" style="color:var(--info)">✓ ${esc(cvt)}</div>` : ""}</div>
+      cvt ? `<div class="vr" style="color:var(--info)">✓ ${esc(cvt)}</div>` : ""}${fix}</div>
     <div class="q" title="Units here (case × ${qOf(r.k)} + boxes + damaged + confirmed)">${fmtN(r.qty)}<small>units</small></div>
   </div>`;
 }
@@ -2241,7 +2257,7 @@ function renderPanel(){
     const locs = [...new Set(rows.map(r => r.loc))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
     h = locs.map(l => secHTML(l, l + " · needs restock", rows.filter(r => r.loc === l))).join("") ||
       `<div class="empty">No shelf is negative. 🎉</div>`;
-    if (locs.length) h += `<p class="hint" style="margin:14px 14px 0;color:var(--err)">These lines went below zero when packed orders were deducted from the pick shelf. Move the goods from a pallet / storage shelf onto this shelf (drag, or click the line → Move) and the number comes back to the real count.</p>`;
+    if (locs.length) h += `<p class="hint" style="margin:14px 14px 0;color:var(--err)">These lines went below zero when packed orders were deducted. Each line says where else the product is (best pick priority first) — click “transfer from …” to move it here, and the number comes back to the real count. A line under <b>UNKNOWN</b> means no shelf had the product at all.</p>`;
   } else if (OPEN === "__UNK"){
     const locs = [...new Set(rows.map(r => r.loc))].sort();
     h = locs.map(l => secHTML(l, l + " · no island with this name", rows.filter(r => r.loc === l))).join("") ||
@@ -2316,6 +2332,7 @@ $("spBody").addEventListener("click", e => {
   const pal = e.target.closest(".palchip[data-drop]"); if (pal){ pickProductFor(pal.dataset.drop); return; }
   const row = e.target.closest(".irow"); if (!row) return;
   if (SELMODE){ toggleSel(row.dataset.loc + "|" + row.dataset.k); return; }
+  const fix = e.target.closest("[data-fix]"); if (fix){ e.stopPropagation(); openActions(row.dataset.k, fix.dataset.fix, "transfer", row.dataset.loc); return; }
   openActions(row.dataset.k, row.dataset.loc);
 });
 /* ------------------------------ select & delete lines -------------------- */
@@ -2467,7 +2484,7 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-const PLAN_BUILD = "2026-10-21a · delete lines (single + bulk) · Store zone · needs-restock";
+const PLAN_BUILD = "2026-10-22a · restock hints by pick priority · delete lines · Store zone";
 let planErr = "";
 function setSyncState(t){
   flagSaved(t);
