@@ -344,9 +344,9 @@ const CFG = {
     {tab: 'walmart',       short: 'WM',   plats: ['Walmart']}
   ],
   /* Walmart Marketplace snapshot — tab written by walmart-sync.gs (Apps Script, every 2 h) */
-  WM_ID  : '1dfh9eBHWXgXiu-PABO33Fv6s2tF1Ek8581WLh-pzeKs',   // workbook that holds the tab (default: the listings workbook)
+  WM_ID  : '1WQQxRWnDicFsuYE_98InYhVFeeEL8FEI5nDircmtmOA',   // workbook that holds the tab (default: the listings workbook)
   WM_TAB : 'Walmart API',
-  WM_SYNC_URL: 'https://script.google.com/macros/s/AKfycbzFALXbpmrFU2nStuXP73cb1SHqJxwfnUcnwBFUV9nAv1UPXQ6BlNeNT1oNiKOAxZYabw/exec',             // Apps Script web app URL + '?key=…' — powers the "Sync Walmart now" button; '' = read the tab only
+  WM_SYNC_URL: '',             // Apps Script web app URL + '?key=…' — powers the "Sync Walmart now" button; '' = read the tab only
   WM_CHANNEL : 'Walmart',      // Daily SOH column with Walmart sales
   WM_LST_TAB : 'walmart',      // listings tab that maps Walmart SKUs to Daily SOH names (needs a "SKU" column)
   WM_DEAD_MIN: 10,             // "not selling": at least this many on Walmart and zero Walmart sales in the period
@@ -870,7 +870,7 @@ const FILTER = {
   bufp : true,
   plats: null            // null = all; otherwise Set of channel names
 };
-const UI = {view: 'item', item: null, cat: {type: '', brand: '', series: ''}, plat: null, platTab: 'stats', lstTab: null, lstMode: 'all', wmMode: 'all'};
+const UI = {view: 'item', item: null, cat: {type: '', brand: '', series: ''}, plat: null, platTab: 'stats', lstTab: null, lstMode: 'all', wmMode: 'all', wmCat: {type: '', brand: '', series: ''}, wmUncat: true};
 let AGG = null, AGG_PREV = null;
 
 /* ---------------------------- status helpers ------------------------------ */
@@ -2164,7 +2164,7 @@ function wmAnalyze() {
       why: matched.map(w => w.why).filter(Boolean).join('; '),
       price: matched.length ? matched[0].price : null,
       sold, avg, daysLeft, listed, flags, flagTxt: flags.map(f => WM_FLAGS[f].label).join(', '),
-      series: inv ? inv.series : '', type: inv ? inv.type : ''});
+      series: inv ? inv.series : '', brand: inv ? inv.brand : '', type: inv ? inv.type : ''});
   });
   const unknown = wm.filter(w => !used.has(w.key));
   let warn = '';
@@ -2195,13 +2195,46 @@ function viewWM(root) {
     return;
   }
   if (DATA.wmErr) root.appendChild(el('div', {class: 'errbox', text: 'Walmart tab: ' + DATA.wmErr + ' — showing the last cached copy.'}));
-  const A = wmAnalyze();
+  const A0 = wmAnalyze();
+  /* category filters — same type › brand › series chain as the Categories tab */
+  const sel = UI.wmCat;
+  const fbar = el('div', {class: 'toolbar'});
+  const mk = (field, label, values, allLabel) => {
+    const sl = el('select');
+    sl.appendChild(el('option', {value: '', text: allLabel}));
+    values.forEach(v => sl.appendChild(el('option', {value: v, text: v, selected: sel[field] === v ? 'selected' : null})));
+    sl.addEventListener('change', () => {
+      sel[field] = sl.value;
+      if (field === 'type') { sel.brand = ''; sel.series = ''; }
+      if (field === 'brand') sel.series = '';
+      render();
+    });
+    return el('div', {class: 'fgroup'}, [el('span', {class: 'flabel', text: label}), sl]);
+  };
+  fbar.appendChild(mk('type', 'Type', catValues('type'), 'All types'));
+  fbar.appendChild(mk('brand', 'Brand', catValues('brand', {type: sel.type}), 'All brands'));
+  fbar.appendChild(mk('series', 'Series', catValues('series', {type: sel.type, brand: sel.brand}), 'All series'));
+  fbar.appendChild(el('label', {class: 'chk'}, [el('input', {type: 'checkbox', checked: UI.wmUncat ? 'checked' : null,
+    onchange: e => { UI.wmUncat = e.target.checked; render(); }}), 'Include items missing from the inventory sheet']));
+  fbar.appendChild(el('div', {class: 'spacer'}));
+  fbar.appendChild(el('button', {class: 'iconbtn', onclick: () => { UI.wmCat = {type: '', brand: '', series: ''}; render(); }}, ['Clear']));
+  root.appendChild(fbar);
+  const catOn = !!(sel.type || sel.brand || sel.series);
+  const A = Object.assign({}, A0, {rows: A0.rows.filter(r => {
+    const inv = DATA.invByKey.get(r.key);
+    if (!inv) return !catOn && UI.wmUncat;                     // not catalogued → only when no category is chosen
+    if (sel.type   && inv.type   !== sel.type)   return false;
+    if (sel.brand  && inv.brand  !== sel.brand)  return false;
+    if (sel.series && inv.series !== sel.series) return false;
+    return true;
+  })});
+  const catLabel = [sel.type, sel.brand, sel.series].filter(Boolean).join(' › ');
   if (A.warn) root.appendChild(el('div', {class: 'errbox', style: 'background:#2b2412;border-color:#473a1c;color:var(--warn)', text: A.warn}));
 
   const count = f => A.rows.filter(r => r.flags.indexOf(f) >= 0).length;
   const matchedN = A.rows.filter(r => r.wmQty != null).length;
   const k = el('div', {class: 'kpis'});
-  k.appendChild(kpi('On Walmart', fmt(matchedN), 'of ' + fmt(A.rows.length) + ' Daily SOH items · ' + fmt(A.unknown.length) + ' Walmart SKUs unmatched'));
+  k.appendChild(kpi('On Walmart', fmt(matchedN), 'of ' + fmt(A.rows.length) + (catLabel ? ' items in ' + esc(catLabel) : ' Daily SOH items') + ' · ' + fmt(A.unknown.length) + ' Walmart SKUs unmatched'));
   k.appendChild(kpi('Qty mismatch', fmt(count('mismatch')), count('mismatch') ? '<span class="chip crit">fix on Walmart</span>' : '<span class="chip good">all match</span>'));
   k.appendChild(kpi('Set to 0', fmt(count('zero')), 'nothing sellable left'));
   k.appendChild(kpi('Not on Walmart', fmt(count('nowm')), 'in Daily SOH, nowhere on Walmart'));
@@ -2223,9 +2256,10 @@ function viewWM(root) {
 
   const list = UI.wmMode === 'all' ? A.rows : A.rows.filter(r => r.flags.indexOf(UI.wmMode) >= 0);
   const box = el('div');
-  renderTable(box, {id: 'wm:' + UI.wmMode, sortKey: 'name', sortDir: 1, cols: [
+  renderTable(box, {id: 'wm:' + UI.wmMode + ':' + catLabel, sortKey: 'name', sortDir: 1, cols: [
     {k: 'name', label: 'Item', wide: true, render: r => nameCell(r) + ' ' + wmFlagChips(r.flags), csv: r => r.name},
     {k: 'flagTxt', label: 'Status', csv: r => r.flagTxt, render: r => '<span style="font-size:12.5px;color:var(--muted)">' + esc(r.flagTxt) + '</span>'},
+    {k: 'type', label: 'Type'}, {k: 'brand', label: 'Brand'}, {k: 'series', label: 'Series'},
     {k: 'sku', label: 'Walmart SKU', render: r => r.sku ? '<span class="num" style="font-size:12px">' + esc(r.sku) + '</span>' : '<span class="zero">—</span>'},
     {k: 'eod', label: 'EOD SOH', type: 'num', hint: 'Total EOD SOH, latest filled day'},
     {k: 'dmg', label: 'Damaged', type: 'num', hint: 'Inventory sheet, column H', render: r => r.dmg ? '<span class="chip crit">' + fmt(r.dmg) + '</span>' : '<span class="zero">0</span>'},
@@ -2242,7 +2276,7 @@ function viewWM(root) {
       '<span class="' + (r.daysLeft < 7 ? 'chip crit' : r.daysLeft < CFG.WM_LOW_DAYS ? 'chip warn' : '') + '">' + fmt(r.daysLeft) + '</span>'},
     {k: 'price', label: 'Price', type: 'num', render: r => r.price ? money(r.price) : '<span class="zero">—</span>', csv: r => r.price || ''}
   ], rows: list, onRow: r => goItem(r.key), maxHeight: 640});
-  root.appendChild(card('Walmart vs Daily SOH', list.length + ' items · click a row to open it · click a header to sort', box, exportBtn(box, 'walmart-check.csv')));
+  root.appendChild(card('Walmart vs Daily SOH' + (catLabel ? ' — ' + catLabel : ''), list.length + ' items · click a row to open it · click a header to sort', box, exportBtn(box, 'walmart-check.csv')));
 
   if (A.unknown.length) {
     const ub = el('div');
