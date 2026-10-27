@@ -82,8 +82,11 @@ table.t th.num,table.t td.num{text-align:right}
 table.t th .sd{color:var(--accent); margin-left:4px}
 table.t td{padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle}
 table.t tbody tr:hover td{background:rgba(255,255,255,.025)}
-table.t td.ed{cursor:text}
-table.t td.ed:hover{outline:1px dashed var(--line); outline-offset:-3px; border-radius:6px}
+table.t td[data-r]{cursor:cell; user-select:none}
+table.t td.sel{background:rgba(33,192,99,.18) !important; box-shadow:inset 0 0 0 1px rgba(33,192,99,.55)}
+table.t td.rn,table.t th.rn{width:34px; color:var(--faint); font-family:var(--mono); font-size:11px; text-align:center; background:var(--panel2); cursor:pointer; user-select:none; border-right:1px solid var(--line)}
+table.t td.rn.on{color:var(--accent); background:#11211a}
+table.t th .cl{display:inline-block; min-width:14px; color:var(--faint); margin-right:6px; font-weight:400}
 table.t td input,table.t td select{width:100%; min-width:70px; background:var(--bg); border:1.5px solid var(--accent); border-radius:7px; color:var(--ink); font-family:var(--mono); font-size:13px; padding:5px 7px; outline:none}
 .tag{display:inline-block; font-family:var(--mono); font-size:11.5px; border:1px solid var(--border); border-radius:7px; padding:2px 7px; color:var(--muted)}
 .tag.ex{color:var(--info); border-color:#23395c} .tag.rf{color:var(--warn); border-color:#473a1c} .tag.rr{color:var(--stale); border-color:#3b2f5c}
@@ -109,15 +112,27 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
 .vtab button{background:none; border:0; border-radius:9px; padding:8px 14px; font-weight:600; color:var(--muted)}
 .vtab button.on{background:var(--raised); color:var(--ink)}
 .copybox{position:absolute; left:-9999px; top:0}
+.ptabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px}
+.ptabs button{background:var(--panel2); border:1px solid var(--border); color:var(--muted); border-radius:11px; padding:9px 14px; font-weight:600; font-size:13.5px}
+.ptabs button.on{border-color:var(--accent); color:var(--accent); background:#11211a}
+.ptabs button .cnt{font-family:var(--mono); opacity:.75; margin-left:6px; font-size:12px}
+.items{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid var(--border)}
+.items .lab{color:var(--muted); font-size:12.5px}
+.ichip{display:inline-flex; align-items:center; gap:8px; background:var(--raised); border:1px solid var(--line); border-radius:10px; padding:6px 8px 6px 10px; font-size:13px}
+.ichip b{font-family:var(--mono); color:var(--accent)}
+.ichip button{background:none; border:0; color:var(--muted); font-size:14px; padding:0 2px}
+.ichip button:hover{color:var(--err)}
 </style>
 </head>
 <body>
 <section id="gate" class="gate">
   <div class="gbox">
     <div class="eyebrow">CaliPoke Station · Return Tracker</div>
-    <h1 style="margin-bottom:6px">Your name</h1>
-    <p class="sub">Every return you enter is signed with it.</p>
+    <h1 style="margin-bottom:6px">Admin only</h1>
+    <p class="sub">Returns are entered by the admin. Sign in with the admin name and the PIN.</p>
     <input id="nameInput" class="tin" style="margin-top:12px" placeholder="Name" autocomplete="off">
+    <input id="pinInput" class="tin" style="margin-top:8px" placeholder="PIN" inputmode="numeric" type="password" autocomplete="off">
+    <p class="sub" id="gateErr" style="color:var(--err); margin-top:8px"></p>
     <button class="btn primary" id="nameGo" style="margin-top:12px; width:100%">Continue</button>
   </div>
 </section>
@@ -131,9 +146,10 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
 </header>
 
 <main id="app" class="hide">
+  <div class="ptabs" id="ptabs"></div>
   <div class="card">
-    <div class="row" style="margin-bottom:12px"><h1>↩️ New return</h1><div class="spacer"></div>
-      <span class="mini">A hardware scanner types into the focused field — <b>Enter</b> moves to the next one, the last field adds the row. Camera: 📷 next to the item.</span></div>
+    <div class="row" style="margin-bottom:12px"><h1 id="formTitle">↩️ New return</h1><div class="spacer"></div>
+      <span class="mini"><b>Enter</b> moves to the next field (a scanner types into the focused one). Item → Qty → <b>Enter</b> puts the item on the list and waits for the next item; <b>Enter</b> on an empty item field goes on to tracking, and tracking adds one row per item.</span></div>
     <div class="form">
       <div class="fld"><label><span class="k">A</span> Date</label><input id="fDate" class="tin" type="date"></div>
       <div class="fld"><label><span class="k">B</span> Buyer name</label><input id="fBuyer" class="tin" autocomplete="off" placeholder="Buyer"></div>
@@ -141,9 +157,11 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
       <div class="fld"><label><span class="k">D</span> Return / Exchange</label><select id="fType" class="tsel"><option>return</option><option>exchange</option><option>return for refund</option><option>refund</option></select></div>
       <div class="fld itemwrap"><label><span class="k">E</span> Return item</label><input id="fItem" class="tin" autocomplete="off" placeholder="name or barcode…"><button class="cambtn" id="camBtn" title="Scan with the camera" type="button">📷</button><div class="sugg hide" id="sugg"></div><div class="picked hide" id="picked"></div></div>
       <div class="fld"><label><span class="k">F</span> Qty</label><input id="fQty" class="tin" inputmode="numeric" value="1"></div>
+      <div class="fld"><label>&nbsp;</label><button class="btn" id="moreBtn" style="height:43px" title="Put this item on the list and pick the next one — every item becomes its own row with the same date, buyer, order and tracking">＋ Next item</button></div>
       <div class="fld"><label><span class="k">G</span> Return tracking</label><input id="fTrack" class="tin" autocomplete="off" placeholder="type or scan"></div>
-      <div class="fld"><button class="btn primary" id="addBtn" style="height:43px">＋ Add row</button></div>
+      <div class="fld"><button class="btn primary" id="addBtn" style="height:43px">＋ Add row(s)</button></div>
     </div>
+    <div class="items hide" id="items"></div>
   </div>
 
   <div class="card">
@@ -152,7 +170,7 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
       <div class="spacer"></div>
       <input id="q" class="tin" style="max-width:260px" placeholder="Filter…" autocomplete="off">
       <select id="range" class="tsel" style="width:auto"><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all" selected>All</option></select>
-      <button class="btn" id="copyBtn" title="Copies the table as it is shown — paste into Google Sheets or Excel and the columns stay in place">📋 Copy for Sheets / Excel</button>
+      <button class="btn" id="copyBtn" title="Copies the selected cells (or all rows shown) without the header — paste into Google Sheets or Excel and the columns stay in place. Ctrl+C does the same.">📋 Copy all rows</button>
       <button class="btn ghost" id="xlsxBtn">⬇ Excel</button>
     </div>
     <div class="kv" id="kv"></div>
@@ -177,12 +195,28 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
    Products for the item search come from packstation/inventory (what the
    station loaded) with the company inventory sheet as fallback.
    ============================================================ */
-const BUILD='2026-10-27a · return tracker';
+const BUILD='2026-10-27c · admin + PIN · sheet-like selection, copy without header';
 const STATION_FILE='index.html';
 const DB_PATH='packstation/returns';
 const INV_PATH='packstation/inventory';
 const INVENTORY_SHEET_ID='13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw';
 const TYPES=['return','exchange','return for refund','refund'];
+/* one tab per platform — each with its own column set; rows carry tab:<id> */
+const LBL={date:'Date', buyer:'Buyer Name', order:'Order ID', type:'Return/Exchange', item:'Return Item', qty:'QTY', tracking:'Return Tracking'};
+const FULL=['date','buyer','order','type','item','qty','tracking'];
+const TABS=[
+  {id:'tt_rts',  name:'TikTok Return to Sender', cols:['date','buyer','order','item','qty','tracking'], labels:{item:'Item', tracking:'Tracking'}},
+  {id:'tt',      name:'TikTok Returns',  cols:FULL},
+  {id:'ebay',    name:'Ebay Returns',    cols:FULL},
+  {id:'walmart', name:'Walmart Returns', cols:FULL},
+  {id:'shopify', name:'Shopify Returns', cols:FULL},
+  {id:'wfs',     name:'WFS Returns',     cols:['date','item','qty','tracking']},
+  {id:'temu',    name:'Temu Returns',    cols:FULL}
+];
+let TAB=TABS[1];
+const tabOf=id=>TABS.find(t=>t.id===id)||TABS[1];
+const colLabel=(t,c)=>(t.labels&&t.labels[c])||LBL[c];
+const FIELD_OF={date:'#fDate',buyer:'#fBuyer',order:'#fOrder',type:'#fType',item:'#fItem',qty:'#fQty',tracking:'#fTrack'};
 const firebaseConfig={
   apiKey:"AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc", authDomain:"calipoke-packstation.firebaseapp.com",
   databaseURL:"https://calipoke-packstation-default-rtdb.firebaseio.com", projectId:"calipoke-packstation",
@@ -200,7 +234,7 @@ const isoToUS=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||''); return m
 const usToISO=us=>{ const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(us||''); return m ? m[3]+'-'+pad(m[1])+'-'+pad(m[2]) : ''; };
 const hhmm=t=>t?new Date(t).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
 function toast(msg,kind,ms){ const el=document.createElement('div'); el.className='toast '+(kind||''); el.textContent=msg; $('#toasts').appendChild(el); setTimeout(()=>el.remove(), ms||2400); }
-let WHO='', db=null, R=null, ROWS=[], CAT=[], CATIDX={byBc:{}}, VIEW='rows', SORT={k:'at',d:-1}, SSORT={k:'qty',d:-1}, PICK=null;
+let WHO='', db=null, R=null, ROWS=[], CAT=[], CATIDX={byBc:{}}, VIEW='rows', SORT={k:'at',d:-1}, SSORT={k:'qty',d:-1}, PICK=null, ITEMS=[];
 const PLACEHOLDER='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="#1C2129"/><path d="M12 26l6-8 5 6 3-3 4 5H12z" fill="#2C3543"/></svg>');
 
 /* ---------------- products for the item search ---------------- */
@@ -245,15 +279,43 @@ function connect(){
     if(list.length) setCatalog(list, true); else if(!CAT.length) loadCatalogFromSheet(); });
 }
 
+/* ---------------- platform tabs ---------------- */
+function renderTabs(){
+  const cnt={}; ROWS.forEach(r=>{ const t=r.tab||'tt'; cnt[t]=(cnt[t]||0)+1; });
+  $('#ptabs').innerHTML=TABS.map(t=>'<button data-tab="'+t.id+'"'+(t.id===TAB.id?' class="on"':'')+'>'+esc(t.name)+'<span class="cnt">'+(cnt[t.id]||0)+'</span></button>').join('');
+  $$('#ptabs [data-tab]').forEach(b=>b.onclick=()=>{ TAB=tabOf(b.dataset.tab); try{ localStorage.setItem('rt.tab',TAB.id); }catch(e){} ITEMS=[]; renderItems(); applyTab(); render(); const f=activeOrder()[0]; if(f) $(f).focus(); });
+}
+function applyTab(){
+  $('#formTitle').textContent='↩️ '+TAB.name;
+  for(const c in FIELD_OF){ const el=$(FIELD_OF[c]).closest('.fld'); if(el) el.classList.toggle('hide', !TAB.cols.includes(c)); }
+  TAB.cols.forEach((c,i)=>{ const el=$(FIELD_OF[c]).closest('.fld').querySelector('label'); if(el) el.innerHTML='<span class="k">'+String.fromCharCode(65+i)+'</span> '+esc(colLabel(TAB,c)); });
+  SORT={k:'at',d:-1};
+}
 /* ---------------- entry form ---------------- */
-const F={date:'#fDate',buyer:'#fBuyer',order:'#fOrder',type:'#fType',item:'#fItem',qty:'#fQty',track:'#fTrack'};
 const ORDER=['#fBuyer','#fOrder','#fType','#fItem','#fQty','#fTrack'];
+const activeOrder=()=>ORDER.filter(s=>!$(s).closest('.fld').classList.contains('hide'));
+function nextField(from){ const o=activeOrder(); const i=o.indexOf(from); return i<0||i>=o.length-1 ? null : $(o[i+1]); }
 function resetForm(keepDate){
   if(!keepDate) $('#fDate').value=todayISO();
   ['#fBuyer','#fOrder','#fItem','#fTrack'].forEach(s=>$(s).value=''); $('#fType').value='return'; $('#fQty').value='1';
-  PICK=null; $('#picked').classList.add('hide'); $('#sugg').classList.add('hide');
-  $('#fBuyer').focus();
+  PICK=null; ITEMS=[]; renderItems(); $('#picked').classList.add('hide'); $('#sugg').classList.add('hide');
+  const first=activeOrder()[0]; if(first) $(first).focus();
 }
+/* several items for one return: each goes to the list, every one becomes its own row */
+function renderItems(){
+  const box=$('#items'); box.classList.toggle('hide', !ITEMS.length);
+  box.innerHTML='<span class="lab">Items on this return ('+ITEMS.length+'):</span>'+ITEMS.map((x,i)=>'<span class="ichip">'+esc(x.item)+' <b>× '+x.qty+'</b><button type="button" data-rm="'+i+'" title="Remove">✕</button></span>').join('');
+  $$('#items [data-rm]').forEach(b=>b.onclick=()=>{ ITEMS.splice(+b.dataset.rm,1); renderItems(); });
+}
+function stageItem(){
+  if(!PICK){ const hits=suggest($('#fItem').value); if(hits.length===1) pickItem(hits[0]); else if($('#fItem').value.trim() && !hits.length) PICK={name:$('#fItem').value.trim(), free:true, bcs:[]}; }
+  if(!PICK){ $('#fItem').classList.add('bad'); setTimeout(()=>$('#fItem').classList.remove('bad'),1200); $('#fItem').focus(); toast('Pick the item first','warn'); return false; }
+  const qty=Math.max(1,int($('#fQty').value));
+  const same=ITEMS.find(x=>x.item===itemLabel(PICK)); if(same) same.qty+=qty; else ITEMS.push({item:itemLabel(PICK), ikey:PICK.key||'', qty});
+  renderItems(); PICK=null; $('#fItem').value=''; $('#fQty').value='1'; $('#picked').classList.add('hide'); $('#fItem').focus();
+  return true;
+}
+$('#moreBtn').onclick=stageItem;
 function pickItem(x){ PICK=x; $('#fItem').value=itemLabel(x); $('#sugg').classList.add('hide');
   $('#picked').classList.remove('hide'); $('#picked').innerHTML='<img src="'+esc(x.image||PLACEHOLDER)+'" onerror="this.src=\''+PLACEHOLDER+'\'"><span><b>✓</b> '+esc(itemLabel(x))+(x.bcs&&x.bcs.length?' <span class="mono">⌗ '+esc(x.bcs[0])+'</span>':'')+'</span>'; }
 let sgIdx=-1;
@@ -275,27 +337,33 @@ $('#fItem').addEventListener('keydown',e=>{
   if(e.key==='ArrowUp' && btns.length){ e.preventDefault(); sgIdx=Math.max(0,sgIdx-1); btns.forEach((b,i)=>b.classList.toggle('on',i===sgIdx)); return; }
   if(e.key==='Escape'){ box.classList.add('hide'); return; }
   if(e.key==='Enter'){ e.preventDefault();
+    if(!$('#fItem').value.trim()){ if(!ITEMS.length) return; const n=nextField('#fQty'); if(n){ n.focus(); if(n.select) n.select(); } else addRow(); return; }   // empty + items listed → on to tracking / add
     if(PICK){ $('#fQty').focus(); $('#fQty').select(); return; }
     const hits=suggest($('#fItem').value);
-    if(hits.length && (sgIdx>=0 || hits.length===1 || CATIDX.byBc[clean($('#fItem').value)])){ pickItem(hits[Math.max(0,sgIdx)]); $('#fQty').focus(); $('#fQty').select(); }
-    else if(!hits.length && $('#fItem').value.trim()){ const f=$('#sugg [data-free]'); if(f) f.click(); }
-    else if(hits.length){ sgIdx=0; renderSugg(); }
+    if(hits.length){ pickItem(hits[Math.max(0,sgIdx)]); $('#fQty').focus(); $('#fQty').select(); }   // first (or highlighted) match
+    else if($('#fItem').value.trim()){ const f=$('#sugg [data-free]'); if(f) f.click(); else { PICK={name:$('#fItem').value.trim(), free:true, bcs:[]}; $('#fQty').focus(); } }
   }
 });
 document.addEventListener('click',e=>{ if(!e.target.closest('.itemwrap')) $('#sugg').classList.add('hide'); });
-/* Enter walks the fields; on the last one it adds the row */
-ORDER.forEach((s,i)=>{ if(s==='#fItem') return; $(s).addEventListener('keydown',e=>{ if(e.key!=='Enter') return; e.preventDefault();
-  if(i===ORDER.length-1) addRow(); else { const n=$(ORDER[i+1]); n.focus(); if(n.select) n.select(); } }); });
+/* Enter walks the visible fields; Qty → the item goes on the list and the cursor returns to the item
+   field for the next one; the last field (tracking) adds the rows */
+ORDER.forEach(s=>{ if(s==='#fItem') return; $(s).addEventListener('keydown',e=>{ if(e.key!=='Enter') return; e.preventDefault();
+  if(s==='#fQty'){ if(stageItem() && (e.ctrlKey||e.metaKey)) addRow(); return; }
+  const n=nextField(s); if(!n) addRow(); else { n.focus(); if(n.select) n.select(); } }); });
 $('#fQty').addEventListener('focus',e=>e.target.select());
 async function addRow(){
-  const date=isoToUS($('#fDate').value||todayISO()); const buyer=$('#fBuyer').value.trim(), order=$('#fOrder').value.trim(), type=$('#fType').value;
-  const qty=Math.max(1,int($('#fQty').value)); const track=$('#fTrack').value.trim();
-  if(!PICK){ const hits=suggest($('#fItem').value); if(hits.length===1) pickItem(hits[0]); else if($('#fItem').value.trim() && !hits.length) PICK={name:$('#fItem').value.trim(), free:true, bcs:[]}; }
-  if(!PICK){ $('#fItem').classList.add('bad'); setTimeout(()=>$('#fItem').classList.remove('bad'),1200); $('#fItem').focus(); toast('Pick the returned item','warn'); return; }
-  const rec={date, buyer, order, type, item:itemLabel(PICK), ikey:PICK.key||'', qty, tracking:track, by:WHO, at:Date.now()};
-  if(R){ try{ await R.push(rec); }catch(e){ toast('Not saved: '+e.message,'err',4000); return; } }
-  else { rec.id='local'+Date.now(); ROWS.push(rec); render(); }
-  toast('Added · '+rec.item+' × '+qty,'ok');
+  if(PICK || $('#fItem').value.trim()){ if(!stageItem()) return; }     // whatever is still in the item field counts too
+  if(!ITEMS.length){ $('#fItem').focus(); toast('Add at least one item','warn'); return; }
+  const date=isoToUS($('#fDate').value||todayISO());
+  const base={tab:TAB.id, date, by:WHO, at:Date.now()};
+  if(TAB.cols.includes('buyer')) base.buyer=$('#fBuyer').value.trim();
+  if(TAB.cols.includes('order')) base.order=$('#fOrder').value.trim();
+  if(TAB.cols.includes('type')) base.type=$('#fType').value;
+  if(TAB.cols.includes('tracking')) base.tracking=$('#fTrack').value.trim();
+  const recs=ITEMS.map((x,i)=>Object.assign({}, base, {item:x.item, ikey:x.ikey, qty:x.qty, at:base.at+i}));
+  if(R){ try{ for(const rec of recs) await R.push(rec); }catch(e){ toast('Not saved: '+e.message,'err',4000); return; } }
+  else { recs.forEach(rec=>{ rec.id='local'+rec.at; ROWS.push(rec); }); render(); }
+  toast('Added '+recs.length+' row(s) · '+recs.reduce((a,r)=>a+r.qty,0)+' unit(s)','ok');
   resetForm(true);
 }
 $('#addBtn').onclick=addRow;
@@ -325,9 +393,9 @@ function inRange(r){
 }
 function filtered(){
   const q=norm($('#q').value);
-  return ROWS.filter(r=>inRange(r) && (!q || [r.date,r.buyer,r.order,r.type,r.item,r.tracking,r.by].some(x=>norm(x).includes(q))));
+  return ROWS.filter(r=>(r.tab||'tt')===TAB.id && inRange(r) && (!q || [r.date,r.buyer,r.order,r.type,r.item,r.tracking,r.by].some(x=>norm(x).includes(q))));
 }
-const COLS=[['date','Date'],['buyer','Buyer Name'],['order','Order ID'],['type','Return/Exchange'],['item','Return Item'],['qty','Qty'],['tracking','Return Tracking']];
+const cols=()=>TAB.cols.map(c=>[c, colLabel(TAB,c)]);
 function sortRows(list){
   const {k,d}=SORT;
   return list.slice().sort((a,b)=>{ let av=a[k],bv=b[k];
@@ -337,26 +405,31 @@ function sortRows(list){
 }
 function typeTag(t){ const c=t==='exchange'?'ex':(t==='refund'?'rf':(t==='return for refund'?'rr':'')); return '<span class="tag '+c+'">'+esc(t)+'</span>'; }
 function render(){
+  renderTabs();
   const list=filtered(); const units=list.reduce((a,r)=>a+(+r.qty||0),0);
-  const byType={}; list.forEach(r=>byType[r.type]=(byType[r.type]||0)+(+r.qty||0));
+  const byType={}; list.forEach(r=>{ if(r.type) byType[r.type]=(byType[r.type]||0)+(+r.qty||0); });
   $('#kv').innerHTML='<div><div class="n">'+fmt(list.length)+'</div><div class="l">rows</div></div><div><div class="n">'+fmt(units)+'</div><div class="l">units</div></div>'+
     '<div><div class="n">'+fmt(new Set(list.map(r=>r.item)).size)+'</div><div class="l">products</div></div><div><div class="n">'+fmt(new Set(list.map(r=>r.order).filter(Boolean)).size)+'</div><div class="l">orders</div></div>'+
     TYPES.filter(t=>byType[t]).map(t=>'<div><div class="n">'+fmt(byType[t])+'</div><div class="l">'+esc(t)+'</div></div>').join('');
   $$('#vtab button').forEach(b=>b.classList.toggle('on',b.dataset.v===VIEW));
   if(VIEW==='sum') return renderSummary(list);
   const rows=sortRows(list);
-  const th=COLS.map(([k,l])=>'<th'+(k==='qty'?' class="num"':'')+' data-s="'+k+'">'+l+(SORT.k===k?'<span class="sd">'+(SORT.d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th data-s="at">Added</th><th></th>';
+  const C=cols();
+  const th='<th class="rn"></th>'+C.map(([k,l],i)=>'<th'+(k==='qty'?' class="num"':'')+' data-s="'+k+'" data-col="'+i+'"><span class="cl">'+String.fromCharCode(65+i)+'</span>'+esc(l)+(SORT.k===k?'<span class="sd">'+(SORT.d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th></th>';
   let h='<thead><tr>'+th+'</tr></thead><tbody>';
-  if(!rows.length) h+='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">No returns in this range.</td></tr>';
-  rows.forEach(r=>{ h+='<tr data-id="'+esc(r.id)+'">'+
-    '<td class="ed mono" data-f="date">'+esc(r.date)+'</td><td class="ed" data-f="buyer">'+esc(r.buyer)+'</td><td class="ed mono" data-f="order">'+esc(r.order)+'</td>'+
-    '<td class="ed" data-f="type">'+typeTag(r.type)+'</td><td class="ed" data-f="item">'+esc(r.item)+'</td><td class="ed num mono" data-f="qty">'+esc(r.qty)+'</td><td class="ed mono" data-f="tracking">'+esc(r.tracking)+'</td>'+
-    '<td class="mini">'+esc(hhmm(r.at))+(r.by?' · '+esc(r.by):'')+'</td><td><button class="btn sm ghost" data-del="'+esc(r.id)+'" title="Delete this row">✕</button></td></tr>'; });
+  if(!rows.length) h+='<tr><td colspan="'+(C.length+2)+'" style="text-align:center;color:var(--muted);padding:28px">No returns in this range.</td></tr>';
+  const cell=(r,k,ri,ci)=>{ const mono=['date','order','tracking'].includes(k)?' mono':''; const a=' data-r="'+ri+'" data-c="'+ci+'"';
+    if(k==='type') return '<td class="ed" data-f="type"'+a+'>'+typeTag(r.type||'return')+'</td>';
+    if(k==='qty') return '<td class="ed num mono" data-f="qty"'+a+'>'+esc(r.qty)+'</td>'; return '<td class="ed'+mono+'" data-f="'+k+'"'+a+'>'+esc(r[k])+'</td>'; };
+  rows.forEach((r,ri)=>{ h+='<tr data-id="'+esc(r.id)+'" title="'+esc(hhmm(r.at)+(r.by?' · '+r.by:''))+'"><td class="rn" data-row="'+ri+'">'+(ri+1)+'</td>'+C.map(([k],ci)=>cell(r,k,ri,ci)).join('')+
+    '<td><button class="btn sm ghost" data-del="'+esc(r.id)+'" title="Delete this row">✕</button></td></tr>'; });
   $('#tbl').innerHTML=h+'</tbody>';
-  $('#info').textContent=rows.length+' row(s) shown · click a cell to edit it · the Copy button copies exactly these rows (columns A–G)';
-  $$('#tbl th[data-s]').forEach(t=>t.onclick=()=>{ const k=t.dataset.s; SORT=SORT.k===k?{k,d:-SORT.d}:{k,d:(k==='qty'||k==='at'||k==='date')?-1:1}; render(); });
+  GRID=rows.map(r=>C.map(([k])=>k==='qty'?(+r.qty||0):(r[k]==null?'':r[k])));
+  $('#info').textContent=rows.length+' row(s) · select cells like in a sheet (drag, Shift+click, click a row number, Alt+click a column header, Ctrl+A for all) and press Ctrl+C or Copy — the header is never copied · double-click a cell to edit it';
+  $$('#tbl th[data-s]').forEach(t=>t.onclick=e=>{ if(e.shiftKey||SEL&&SEL.dragging) return; const k=t.dataset.s; SORT=SORT.k===k?{k,d:-SORT.d}:{k,d:(k==='qty'||k==='at'||k==='date')?-1:1}; render(); });
   $$('#tbl [data-del]').forEach(b=>b.onclick=()=>{ const r=ROWS.find(x=>x.id===b.dataset.del); if(!r) return; if(!confirm('Delete this row?\n'+r.item+' × '+r.qty+' · '+r.date)) return; if(R && !String(r.id).startsWith('local')) R.child(r.id).remove(); else { ROWS=ROWS.filter(x=>x!==r); render(); } });
-  $$('#tbl td.ed').forEach(td=>td.onclick=()=>editCell(td));
+  $$('#tbl td.ed').forEach(td=>td.ondblclick=()=>editCell(td));
+  wireGrid();
 }
 function editCell(td){
   if(td.querySelector('input,select')) return;
@@ -387,37 +460,80 @@ function renderSummary(list){
   const rows=summaryRows(list); const {k,d}=SSORT;
   rows.sort((a,b)=>{ let av=a[k],bv=b[k]; if(typeof av==='string'){ av=norm(av); bv=norm(bv); } return (av<bv?-1:av>bv?1:0)*d || a.item.localeCompare(b.item); });
   const cols=[['item','Return Item'],['qty','Qty'],['rows','Rows'],['ordersN','Orders'],['first','First date'],['last','Last date']];
-  let h='<thead><tr>'+cols.map(([c,l])=>'<th'+(['qty','rows','ordersN'].includes(c)?' class="num"':'')+' data-s="'+c+'">'+l+(k===c?'<span class="sd">'+(d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th>By type</th></tr></thead><tbody>';
-  if(!rows.length) h+='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Nothing in this range.</td></tr>';
-  rows.forEach(s=>{ h+='<tr><td>'+esc(s.item)+'</td><td class="num mono"><b>'+fmt(s.qty)+'</b></td><td class="num mono">'+s.rows+'</td><td class="num mono">'+s.ordersN+'</td><td class="mono">'+esc(isoToUS(s.first))+'</td><td class="mono">'+esc(isoToUS(s.last))+'</td>'+
-    '<td>'+TYPES.filter(t=>s.types[t]).map(t=>typeTag(t)+' <span class="mono">'+s.types[t]+'</span>').join(' ')+'</td></tr>'; });
+  let h='<thead><tr><th class="rn"></th>'+cols.map(([c,l],i)=>'<th'+(['qty','rows','ordersN'].includes(c)?' class="num"':'')+' data-s="'+c+'" data-col="'+i+'"><span class="cl">'+String.fromCharCode(65+i)+'</span>'+l+(k===c?'<span class="sd">'+(d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th data-col="6"><span class="cl">G</span>By type</th></tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">Nothing in this range.</td></tr>';
+  const td=(ri,ci,cls,html)=>'<td class="'+cls+'" data-r="'+ri+'" data-c="'+ci+'">'+html+'</td>';
+  rows.forEach((s,ri)=>{ h+='<tr><td class="rn" data-row="'+ri+'">'+(ri+1)+'</td>'+td(ri,0,'',esc(s.item))+td(ri,1,'num mono','<b>'+fmt(s.qty)+'</b>')+td(ri,2,'num mono',s.rows)+td(ri,3,'num mono',s.ordersN)+td(ri,4,'mono',esc(isoToUS(s.first)))+td(ri,5,'mono',esc(isoToUS(s.last)))+
+    td(ri,6,'',TYPES.filter(t=>s.types[t]).map(t=>typeTag(t)+' <span class="mono">'+s.types[t]+'</span>').join(' '))+'</tr>'; });
   $('#tbl').innerHTML=h+'</tbody>';
-  $('#info').textContent=rows.length+' product(s) · click a column header to sort · Copy copies this summary';
-  $$('#tbl th[data-s]').forEach(t=>t.onclick=()=>{ const c=t.dataset.s; SSORT=SSORT.k===c?{k:c,d:-SSORT.d}:{k:c,d:['qty','rows','ordersN','last','first'].includes(c)?-1:1}; render(); });
+  GRID=rows.map(s=>[s.item,s.qty,s.rows,s.ordersN,isoToUS(s.first),isoToUS(s.last),TYPES.filter(t=>s.types[t]).map(t=>t+' '+s.types[t]).join(', ')]);
+  $$('#tbl th[data-s]').forEach(t=>t.onclick=e=>{ if(e.shiftKey||SEL&&SEL.dragging) return; const c=t.dataset.s; SSORT=SSORT.k===c?{k:c,d:-SSORT.d}:{k:c,d:['qty','rows','ordersN','last','first'].includes(c)?-1:1}; render(); });
+  $('#info').textContent=rows.length+' product(s) · '+TAB.name+' · select cells and press Ctrl+C or Copy (no header) · click a header to sort';
+  wireGrid();
 }
+
+/* ---------------- sheet-like selection: drag / Shift+click / row number / column letter ---------------- */
+let GRID=[], SEL=null;      // GRID = cell values of the table on screen; SEL = {r0,c0,r1,c1}
+function selRect(){ if(!SEL) return null; return {r0:Math.min(SEL.r0,SEL.r1), r1:Math.max(SEL.r0,SEL.r1), c0:Math.min(SEL.c0,SEL.c1), c1:Math.max(SEL.c0,SEL.c1)}; }
+function paintSel(){
+  const rc=selRect();
+  $$('#tbl td[data-r]').forEach(td=>{ const r=+td.dataset.r, c=+td.dataset.c; td.classList.toggle('sel', !!rc && r>=rc.r0 && r<=rc.r1 && c>=rc.c0 && c<=rc.c1); });
+  $$('#tbl .rn[data-row]').forEach(td=>td.classList.toggle('on', !!rc && +td.dataset.row>=rc.r0 && +td.dataset.row<=rc.r1));
+  const n=rc?(rc.r1-rc.r0+1)*(rc.c1-rc.c0+1):0; const b=$('#copyBtn'); b.textContent=rc?'📋 Copy selection ('+(rc.r1-rc.r0+1)+' row'+(rc.r1-rc.r0?'s':'')+')':'📋 Copy all rows';
+}
+function setSel(r0,c0,r1,c1){ SEL={r0,c0,r1,c1}; paintSel(); }
+function wireGrid(){
+  SEL=null; paintSel();
+  const tb=$('#tbl'); const maxC=GRID[0]?GRID[0].length-1:0, maxR=GRID.length-1;
+  tb.onmousedown=e=>{
+    if(e.button!==0) return;
+    const td=e.target.closest('td[data-r]'), rn=e.target.closest('td.rn[data-row]'), th=e.target.closest('th[data-col]');
+    if(td){ if(e.target.closest('input,select')) return; const r=+td.dataset.r, c=+td.dataset.c;
+      if(e.shiftKey && SEL) setSel(SEL.r0,SEL.c0,r,c); else setSel(r,c,r,c);
+      SEL.dragging=true; e.preventDefault(); }
+    else if(rn){ const r=+rn.dataset.row; if(e.shiftKey && SEL) setSel(SEL.r0,0,r,maxC); else setSel(r,0,r,maxC); SEL.dragging='row'; e.preventDefault(); }
+    else if(th && e.shiftKey && SEL){ setSel(SEL.r0,SEL.c0,maxR,+th.dataset.col); e.preventDefault(); }
+    else if(th && GRID.length && !e.target.closest('.sd')){ /* plain click sorts; Alt+click selects the column */ if(e.altKey){ setSel(0,+th.dataset.col,maxR,+th.dataset.col); e.preventDefault(); } }
+  };
+  tb.onmousemove=e=>{ if(!SEL||!SEL.dragging) return; const td=e.target.closest('td[data-r]'), rn=e.target.closest('td.rn[data-row]');
+    if(SEL.dragging==='row'){ const r=td?+td.dataset.r:(rn?+rn.dataset.row:null); if(r!=null && r!==SEL.r1){ SEL.r1=r; paintSel(); } }
+    else if(td){ const r=+td.dataset.r, c=+td.dataset.c; if(r!==SEL.r1||c!==SEL.c1){ SEL.r1=r; SEL.c1=c; paintSel(); } } };
+  document.onmouseup=()=>{ if(SEL) SEL.dragging=false; };
+}
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && !e.target.closest('input,select,textarea')){ e.preventDefault(); copyGrid(); }
+  if(e.key==='Escape' && SEL && !e.target.closest('input,select')){ SEL=null; paintSel(); }
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a' && !e.target.closest('input,select,textarea') && GRID.length){ e.preventDefault(); setSel(0,0,GRID.length-1,GRID[0].length-1); }
+});
+document.addEventListener('mousedown',e=>{ if(SEL && !e.target.closest('#tbl,#copyBtn,#xlsxBtn')){ SEL=null; paintSel(); } });
 
 /* ---------------- copy / export — what is on the screen ---------------- */
 function exportGrid(){
   const list=filtered();
   if(VIEW==='sum'){ const rows=summaryRows(list); const {k,d}=SSORT; rows.sort((a,b)=>{ let av=a[k],bv=b[k]; if(typeof av==='string'){ av=norm(av); bv=norm(bv); } return (av<bv?-1:av>bv?1:0)*d; });
     return [['Return Item','Qty','Rows','Orders','First date','Last date'].concat(TYPES)].concat(rows.map(s=>[s.item,s.qty,s.rows,s.ordersN,isoToUS(s.first),isoToUS(s.last)].concat(TYPES.map(t=>s.types[t]||0)))); }
-  return [COLS.map(c=>c[1])].concat(sortRows(list).map(r=>COLS.map(([k])=>k==='qty'?(+r.qty||0):(r[k]==null?'':r[k]))));
+  const C=cols();
+  return [C.map(c=>c[1])].concat(sortRows(list).map(r=>C.map(([k])=>k==='qty'?(+r.qty||0):(r[k]==null?'':r[k]))));
 }
+/* copies the selected cells (or every row shown) — data only, never the header */
 async function copyGrid(){
-  const grid=exportGrid();
-  const tsv=grid.map(r=>r.map(c=>String(c).replace(/\t/g,' ').replace(/\r?\n/g,' ')).join('\t')).join('\r\n');
-  const html='<table>'+grid.map((r,i)=>'<tr>'+r.map(c=>(i?'<td>':'<th>')+esc(c)+(i?'</td>':'</th>')).join('')+'</tr>').join('')+'</table>';
+  if(!GRID.length){ toast('Nothing to copy','warn'); return; }
+  const rc=selRect()||{r0:0,r1:GRID.length-1,c0:0,c1:GRID[0].length-1};
+  const grid=GRID.slice(rc.r0,rc.r1+1).map(r=>r.slice(rc.c0,rc.c1+1));
+  const tsv=grid.map(r=>r.map(c=>String(c==null?'':c).replace(/\t/g,' ').replace(/\r?\n/g,' ')).join('\t')).join('\r\n');
+  const html='<table>'+grid.map(r=>'<tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('')+'</table>';
+  const n=grid.length+' row'+(grid.length>1?'s':'')+(rc.c1-rc.c0+1<GRID[0].length?' · '+(rc.c1-rc.c0+1)+' col':'');
   try{
     if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([tsv],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]); }
     else { await navigator.clipboard.writeText(tsv); }
-    toast('Copied '+(grid.length-1)+' row(s) — paste into Sheets or Excel','ok',3000);
-  }catch(e){ const ta=$('#copybox'); ta.value=tsv; ta.select(); try{ document.execCommand('copy'); toast('Copied '+(grid.length-1)+' row(s)','ok',3000); }catch(_){ toast('Could not copy — select the table manually','warn',3500); } }
+    toast('Copied '+n+' — paste into Sheets or Excel','ok',2600);
+  }catch(e){ const ta=$('#copybox'); ta.value=tsv; ta.select(); try{ document.execCommand('copy'); toast('Copied '+n,'ok',2600); }catch(_){ toast('Could not copy — select the table manually','warn',3500); } }
 }
 function exportXlsx(){
   const grid=exportGrid(); const ws=XLSX.utils.aoa_to_sheet(grid);
   ws['!cols']=grid[0].map((_,i)=>({wch:i===4?44:16}));
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,VIEW==='sum'?'Summary':'Returns');
-  const d=new Date(); XLSX.writeFile(wb,'returns_'+(VIEW==='sum'?'summary_':'')+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.xlsx');
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,(VIEW==='sum'?'Summary':'Returns'));
+  const d=new Date(); XLSX.writeFile(wb,TAB.name.replace(/\s+/g,'_').toLowerCase()+'_'+(VIEW==='sum'?'summary_':'')+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.xlsx');
 }
 $('#copyBtn').onclick=copyGrid; $('#xlsxBtn').onclick=exportXlsx;
 $$('#vtab button').forEach(b=>b.onclick=()=>{ VIEW=b.dataset.v; render(); });
@@ -429,13 +545,21 @@ function start(){
   $('#who').textContent=WHO+' · '+BUILD;
   try{ const c=JSON.parse(localStorage.getItem('rt.cat')||'null'); if(c&&c.length) setCatalog(c); }catch(e){}
   try{ const r=JSON.parse(localStorage.getItem('rt.rows')||'null'); if(r&&r.length) ROWS=r; }catch(e){}
-  resetForm(false); render(); connect();
+  try{ const t=localStorage.getItem('rt.tab'); if(t) TAB=tabOf(t); }catch(e){}
+  applyTab(); resetForm(false); render(); connect();
   if(!CAT.length) loadCatalogFromSheet();
 }
-$('#nameGo').onclick=()=>{ const v=$('#nameInput').value.trim(); if(!v){ toast('Type your name','warn'); return; } WHO=v; try{ localStorage.setItem('ps_name',v); }catch(e){} start(); };
-$('#nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#nameGo').click(); });
+const ADMIN_PIN='0515';
+$('#nameGo').onclick=()=>{ const v=$('#nameInput').value.trim(), pin=$('#pinInput').value.trim(); const err=$('#gateErr');
+  if(norm(v)!=='admin'){ err.textContent='This section is for the admin only.'; $('#nameInput').focus(); return; }
+  if(pin!==ADMIN_PIN){ err.textContent='Wrong PIN.'; $('#pinInput').value=''; $('#pinInput').focus(); return; }
+  WHO=v; try{ sessionStorage.setItem('rt.ok','1'); localStorage.setItem('ps_name',v); }catch(e){} start(); };
+$('#nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#pinInput').focus(); });
+$('#pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#nameGo').click(); });
 $('#homeBtn').onclick=()=>{ try{ window.close(); }catch(e){} setTimeout(()=>{ if(!window.closed) location.href=STATION_FILE; },150); };
-(function(){ let n=''; try{ n=localStorage.getItem('ps_name')||''; }catch(e){} if(n){ WHO=n; start(); } else $('#nameInput').focus(); })();
+(function(){ let n='', ok=''; try{ n=localStorage.getItem('ps_name')||''; ok=sessionStorage.getItem('rt.ok')||''; }catch(e){}
+  if(n) $('#nameInput').value=n;
+  if(norm(n)==='admin' && ok){ WHO=n; start(); } else { if(norm(n)==='admin') $('#pinInput').focus(); else $('#nameInput').focus(); } })();
 </script>
 </body>
 </html>
