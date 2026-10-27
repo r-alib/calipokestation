@@ -984,10 +984,13 @@ const EXTERNAL_MODES = {
   kpi:       'kpi-tracking.html',
   streamer:  'streamer-assist.html',
   plan:      'warehouse-plan.html',
-  lessons:   'https://r-alib.github.io/calipokehouselessons/'   // staff training — its own site, fully independent
+  lessons:   'https://r-alib.github.io/calipokehouselessons/',  // staff training — its own site, fully independent
+  returns:   'return-tracker.html',
+  transfer:  'https://r-alib.github.io/calipoke-transfer/',        // transfer requests between locations — its own app
+  hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-10-27a · frozen count: deductions & put-aways queued until Sync · Receiving bot';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-27b · Return Tracker · Transfer Request · Ops Hub tiles · frozen count & Sync';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1969,7 +1972,10 @@ const MODES=[
   {icon:'⏱️', name:'KPI TRACKING',       desc:'Packing speed, order lifecycle, packer performance', ext:'kpi', ready:true},
   {icon:'🎥', name:'STREAMER ASSIST',    desc:'Helper for the live stream rooms', ext:'streamer', ready:true},
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true},
-  {icon:'🎓', name:'LESSONS',           desc:'Staff training — video lessons and tests', ext:'lessons', ready:true}
+  {icon:'🎓', name:'LESSONS',           desc:'Staff training — video lessons and tests', ext:'lessons', ready:true},
+  {icon:'↩️', name:'RETURN TRACKER',    desc:'Log returns and exchanges · copy the table to Sheets / Excel', ext:'returns', ready:true},
+  {icon:'⇄', name:'TRANSFER REQUEST',   desc:'Request stock transfers between locations', ext:'transfer', ready:true},
+  {icon:'🧭', name:'CALIPOKE OPS HUB',  desc:'Every company system in one place', ext:'hub', ready:true}   // keep this one last
 ];
 function openExternal(key){
   const f=EXTERNAL_MODES[key]; if(!f) return;

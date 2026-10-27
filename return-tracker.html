@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Return Tracker · CaliPoke Station</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E↩️%3C/text%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1116; --panel:#161A21; --panel2:#1C2129; --raised:#222936;
+  --border:#262D38; --line:#2C3543;
+  --ink:#E6EAF0; --muted:#8A94A3; --faint:#5A6472;
+  --accent:#21C063; --ok:#21C063; --warn:#F2B14C; --err:#F0524D; --info:#4C9AF2; --stale:#A98BF5;
+  --r:14px; --r-sm:9px;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg); color:var(--ink); font-family:var(--body); font-size:15px; line-height:1.45; -webkit-font-smoothing:antialiased; overflow-x:hidden}
+button{font-family:inherit; cursor:pointer; color:inherit}
+input,select{font-family:inherit}
+.hide{display:none !important}
+.mono{font-family:var(--mono)}
+.spacer{flex:1}
+header{position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:12px; padding:9px 16px; background:rgba(14,17,22,.94); border-bottom:1px solid var(--border); backdrop-filter:blur(8px)}
+.brand{display:flex; align-items:center; gap:10px; font-family:var(--disp); font-weight:700; letter-spacing:-.01em}
+.brand small{display:block; font-family:var(--mono); font-size:11px; color:var(--muted); font-weight:500; letter-spacing:.08em; text-transform:uppercase}
+.dot{width:11px; height:11px; border-radius:3px; background:var(--accent); box-shadow:0 0 12px var(--accent)}
+.pill{display:inline-flex; align-items:center; gap:7px; background:var(--panel2); border:1px solid var(--border); border-radius:99px; padding:6px 12px; font-size:12.5px; color:var(--muted); white-space:nowrap}
+.pill b{color:var(--ink); font-family:var(--mono)}
+.pill .led{width:8px; height:8px; border-radius:50%; background:var(--faint)}
+.pill.on .led{background:var(--ok); box-shadow:0 0 8px var(--ok)}
+.btn{background:var(--panel2); border:1px solid var(--line); color:var(--ink); border-radius:11px; padding:10px 15px; font-size:14px; font-weight:600; transition:.12s; white-space:nowrap}
+.btn:hover{border-color:var(--faint); background:var(--raised)}
+.btn:disabled{opacity:.45; cursor:default}
+.btn.primary{background:var(--accent); color:#06120a; border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--err); border-color:#3a2730}
+.btn.sm{padding:6px 10px; font-size:12.5px; border-radius:9px}
+.btn.icon{width:38px; height:38px; padding:0; display:inline-grid; place-items:center}
+main{max-width:1440px; margin:0 auto; padding:18px 16px 60px}
+h1{font-family:var(--disp); font-size:22px; margin:0; letter-spacing:-.01em}
+h2{font-family:var(--disp); font-size:17px; margin:0 0 10px}
+.card{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:14px}
+.eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:8px}
+.sub{color:var(--muted); font-size:13.5px}
+.mini{color:var(--muted); font-size:12.5px}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+.form{display:grid; grid-template-columns:150px 1.1fr 1fr 170px 2fr 90px 1.3fr auto; gap:10px; align-items:end}
+@media (max-width:1100px){ .form{grid-template-columns:repeat(4,1fr)} }
+@media (max-width:640px){ .form{grid-template-columns:1fr 1fr} }
+.fld label{display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:5px}
+.fld .k{color:var(--faint)}
+.tin,.tsel{width:100%; background:var(--bg); border:1.5px solid var(--line); border-radius:11px; color:var(--ink); font-family:var(--mono); font-size:14px; padding:10px 12px; outline:none; transition:.15s}
+.tin:focus,.tsel:focus{border-color:var(--accent)}
+.tin.bad{border-color:var(--err)}
+.itemwrap{position:relative}
+.itemwrap .tin{padding-right:44px}
+.cambtn{position:absolute; right:5px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); display:grid; place-items:center; font-size:15px}
+.sugg{position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:30; background:var(--panel); border:1px solid var(--line); border-radius:12px; max-height:320px; overflow:auto; box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.sugg button{display:flex; width:100%; align-items:center; gap:10px; text-align:left; padding:8px 10px; background:none; border:0; border-bottom:1px solid var(--border)}
+.sugg button:hover,.sugg button.on{background:var(--raised)}
+.sugg img{width:36px; height:36px; object-fit:cover; border-radius:7px; background:var(--panel2); border:1px solid var(--border)}
+.sugg .n{font-weight:600; font-size:13.5px}
+.sugg .v{color:var(--muted); font-size:12px; font-family:var(--mono)}
+.picked{display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; color:var(--muted)}
+.picked img{width:28px; height:28px; border-radius:6px; object-fit:cover; border:1px solid var(--border)}
+.picked b{color:var(--accent)}
+.tscroll{overflow:auto; border:1px solid var(--border); border-radius:var(--r-sm)}
+table.t{width:100%; border-collapse:collapse; font-size:13.5px}
+table.t th{position:sticky; top:0; background:var(--panel2); text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap; cursor:pointer; user-select:none}
+table.t th.num,table.t td.num{text-align:right}
+table.t th .sd{color:var(--accent); margin-left:4px}
+table.t td{padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle}
+table.t tbody tr:hover td{background:rgba(255,255,255,.025)}
+table.t td.ed{cursor:text}
+table.t td.ed:hover{outline:1px dashed var(--line); outline-offset:-3px; border-radius:6px}
+table.t td input,table.t td select{width:100%; min-width:70px; background:var(--bg); border:1.5px solid var(--accent); border-radius:7px; color:var(--ink); font-family:var(--mono); font-size:13px; padding:5px 7px; outline:none}
+.tag{display:inline-block; font-family:var(--mono); font-size:11.5px; border:1px solid var(--border); border-radius:7px; padding:2px 7px; color:var(--muted)}
+.tag.ex{color:var(--info); border-color:#23395c} .tag.rf{color:var(--warn); border-color:#473a1c} .tag.rr{color:var(--stale); border-color:#3b2f5c}
+.chip{background:var(--panel2); border:1px solid var(--border); color:var(--muted); border-radius:99px; padding:6px 12px; font-size:12.5px; font-weight:600; white-space:nowrap}
+.chip.on{border-color:var(--accent); color:var(--accent); background:#11211a}
+.chip .cnt{font-family:var(--mono); opacity:.8; margin-left:5px}
+.kv{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:12px}
+.kv div{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:10px 12px}
+.kv .n{font-family:var(--mono); font-size:22px; font-weight:700}
+.kv .l{color:var(--muted); font-size:12px}
+.gate{min-height:100vh; display:grid; place-items:center; padding:20px}
+.gbox{width:min(440px,100%); background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:26px}
+.toasts{position:fixed; left:50%; bottom:22px; transform:translateX(-50%); display:flex; flex-direction:column; gap:8px; z-index:300}
+.toast{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 14px; font-size:14px; display:flex; gap:10px; align-items:center; box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.toast.ok{border-color:var(--accent)} .toast.err{border-color:var(--err)} .toast.warn{border-color:var(--warn)}
+.cammodal{position:fixed; inset:0; z-index:250; background:#05070b; display:flex; flex-direction:column}
+.camhead{display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel)}
+.camstage{position:relative; flex:1; display:grid; place-items:center; overflow:hidden; background:#000}
+#camView{width:100%; max-width:720px}
+.camhint{padding:14px 16px; text-align:center; color:var(--muted); font-size:14px; background:var(--panel); border-top:1px solid var(--border)}
+.srcrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px}
+.vtab{display:flex; gap:4px; background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:4px}
+.vtab button{background:none; border:0; border-radius:9px; padding:8px 14px; font-weight:600; color:var(--muted)}
+.vtab button.on{background:var(--raised); color:var(--ink)}
+.copybox{position:absolute; left:-9999px; top:0}
+</style>
+</head>
+<body>
+<section id="gate" class="gate">
+  <div class="gbox">
+    <div class="eyebrow">CaliPoke Station · Return Tracker</div>
+    <h1 style="margin-bottom:6px">Your name</h1>
+    <p class="sub">Every return you enter is signed with it.</p>
+    <input id="nameInput" class="tin" style="margin-top:12px" placeholder="Name" autocomplete="off">
+    <button class="btn primary" id="nameGo" style="margin-top:12px; width:100%">Continue</button>
+  </div>
+</section>
+
+<header id="hdr" class="hide">
+  <div class="brand"><span class="dot"></span><div>RETURN TRACKER<small id="who">—</small></div></div>
+  <span class="pill" id="dbPill"><span class="led"></span><span id="dbTxt">offline</span></span>
+  <span class="pill" title="Products known for the item search">📚 <b id="catN">0</b> items</span>
+  <div class="spacer"></div>
+  <button class="btn" id="homeBtn">← Main menu</button>
+</header>
+
+<main id="app" class="hide">
+  <div class="card">
+    <div class="row" style="margin-bottom:12px"><h1>↩️ New return</h1><div class="spacer"></div>
+      <span class="mini">A hardware scanner types into the focused field — <b>Enter</b> moves to the next one, the last field adds the row. Camera: 📷 next to the item.</span></div>
+    <div class="form">
+      <div class="fld"><label><span class="k">A</span> Date</label><input id="fDate" class="tin" type="date"></div>
+      <div class="fld"><label><span class="k">B</span> Buyer name</label><input id="fBuyer" class="tin" autocomplete="off" placeholder="Buyer"></div>
+      <div class="fld"><label><span class="k">C</span> Order ID</label><input id="fOrder" class="tin" autocomplete="off" placeholder="type or scan"></div>
+      <div class="fld"><label><span class="k">D</span> Return / Exchange</label><select id="fType" class="tsel"><option>return</option><option>exchange</option><option>return for refund</option><option>refund</option></select></div>
+      <div class="fld itemwrap"><label><span class="k">E</span> Return item</label><input id="fItem" class="tin" autocomplete="off" placeholder="name or barcode…"><button class="cambtn" id="camBtn" title="Scan with the camera" type="button">📷</button><div class="sugg hide" id="sugg"></div><div class="picked hide" id="picked"></div></div>
+      <div class="fld"><label><span class="k">F</span> Qty</label><input id="fQty" class="tin" inputmode="numeric" value="1"></div>
+      <div class="fld"><label><span class="k">G</span> Return tracking</label><input id="fTrack" class="tin" autocomplete="off" placeholder="type or scan"></div>
+      <div class="fld"><button class="btn primary" id="addBtn" style="height:43px">＋ Add row</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="srcrow">
+      <div class="vtab" id="vtab"><button data-v="rows" class="on">📋 Rows</button><button data-v="sum">Σ Summary by item</button></div>
+      <div class="spacer"></div>
+      <input id="q" class="tin" style="max-width:260px" placeholder="Filter…" autocomplete="off">
+      <select id="range" class="tsel" style="width:auto"><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all" selected>All</option></select>
+      <button class="btn" id="copyBtn" title="Copies the table as it is shown — paste into Google Sheets or Excel and the columns stay in place">📋 Copy for Sheets / Excel</button>
+      <button class="btn ghost" id="xlsxBtn">⬇ Excel</button>
+    </div>
+    <div class="kv" id="kv"></div>
+    <div class="tscroll" style="max-height:62vh"><table class="t" id="tbl"></table></div>
+    <p class="mini" id="info" style="margin:8px 0 0"></p>
+  </div>
+</main>
+
+<div id="cam" class="cammodal hide">
+  <div class="camhead"><b>Scan a barcode</b><span class="mini" id="camFor"></span><div class="spacer"></div><button class="btn" id="camClose">✕ Close</button></div>
+  <div class="camstage"><div id="camView"></div></div>
+  <div class="camhint">Point the camera at the barcode — it is read automatically.</div>
+</div>
+<div class="toasts" id="toasts"></div>
+<textarea class="copybox" id="copybox" aria-hidden="true"></textarea>
+
+<script>
+/* ============================================================
+   RETURN TRACKER — returns & exchanges, one row per item
+   Rows live in packstation/returns/<key> (shared live between devices):
+     {date:'mm/dd/yyyy', buyer, order, type, item, ikey, qty, tracking, by, at}
+   Products for the item search come from packstation/inventory (what the
+   station loaded) with the company inventory sheet as fallback.
+   ============================================================ */
+const BUILD='2026-10-27a · return tracker';
+const STATION_FILE='index.html';
+const DB_PATH='packstation/returns';
+const INV_PATH='packstation/inventory';
+const INVENTORY_SHEET_ID='13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw';
+const TYPES=['return','exchange','return for refund','refund'];
+const firebaseConfig={
+  apiKey:"AIzaSyB2I2sR9czF6F29OZMyEZubmwQGP7nWFlc", authDomain:"calipoke-packstation.firebaseapp.com",
+  databaseURL:"https://calipoke-packstation-default-rtdb.firebaseio.com", projectId:"calipoke-packstation",
+  storageBucket:"calipoke-packstation.firebasestorage.app", messagingSenderId:"125288117157", appId:"1:125288117157:web:461b4d553e100c07b9ae4c"
+};
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=v=>(v==null?'':String(v)).trim().toLowerCase().replace(/\s+/g,' ');
+const clean=v=>(v==null?'':String(v)).toLowerCase().replace(/[^a-z0-9]/g,'');
+const int=v=>{ const n=parseInt(String(v).replace(/[^0-9-]/g,''),10); return isNaN(n)?0:n; };
+const fmt=n=>(+n||0).toLocaleString('en-US');
+const pad=n=>String(n).padStart(2,'0');
+const todayISO=()=>{ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const isoToUS=iso=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||''); return m ? m[2]+'/'+m[3]+'/'+m[1] : (iso||''); };
+const usToISO=us=>{ const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(us||''); return m ? m[3]+'-'+pad(m[1])+'-'+pad(m[2]) : ''; };
+const hhmm=t=>t?new Date(t).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+function toast(msg,kind,ms){ const el=document.createElement('div'); el.className='toast '+(kind||''); el.textContent=msg; $('#toasts').appendChild(el); setTimeout(()=>el.remove(), ms||2400); }
+let WHO='', db=null, R=null, ROWS=[], CAT=[], CATIDX={byBc:{}}, VIEW='rows', SORT={k:'at',d:-1}, SSORT={k:'qty',d:-1}, PICK=null;
+const PLACEHOLDER='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="8" fill="#1C2129"/><path d="M12 26l6-8 5 6 3-3 4 5H12z" fill="#2C3543"/></svg>');
+
+/* ---------------- products for the item search ---------------- */
+function setCatalog(list, merge){
+  list=list.filter(x=>x && x.name);
+  if(merge && CAT.length){ const seen=new Set(list.map(x=>norm(x.name)+'||'+norm(x.variation||''))); list=list.concat(CAT.filter(x=>!seen.has(norm(x.name)+'||'+norm(x.variation||'')))); }
+  CAT=list; CATIDX={byBc:{}};
+  CAT.forEach(x=>{ x.key=x.key||(norm(x.name)+'||'+norm(x.variation||'')); x.bcs=String(x.barcode||'').split(/[,;\s]+/).map(clean).filter(Boolean); x.bcs.forEach(b=>{ (CATIDX.byBc[b]=CATIDX.byBc[b]||[]).push(x); }); });
+  $('#catN').textContent=fmt(CAT.length);
+}
+function parseCSV(text){ const rows=[]; let row=[],cur='',q=false; for(let i=0;i<text.length;i++){ const c=text[i];
+  if(q){ if(c==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=c; }
+  else if(c==='"') q=true; else if(c===','){ row.push(cur); cur=''; } else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; } else if(c!=='\r') cur+=c; }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); } return rows; }
+async function loadCatalogFromSheet(){
+  try{
+    const url='https://docs.google.com/spreadsheets/d/'+INVENTORY_SHEET_ID+'/gviz/tq?tqx=out:csv&headers=1&sheet=Inventory&_='+Date.now();
+    const r=await fetch(url,{cache:'no-store'}); const rows=parseCSV(await r.text()); if(rows.length<2) return;
+    const H=rows[0].map(norm); const ci=n=>H.findIndex(h=>h===n||h.startsWith(n));
+    const cn=ci('item name')>=0?ci('item name'):ci('name'), cv=ci('variation'), cb=ci('barcode'), cim=ci('image');
+    const list=rows.slice(1).map(r=>({name:String(r[cn]||'').trim(), variation:cv>=0?String(r[cv]||'').trim():'', barcode:cb>=0?r[cb]:'', image:cim>=0?r[cim]:''})).filter(x=>x.name);
+    if(list.length){ setCatalog(list, true); try{ localStorage.setItem('rt.cat', JSON.stringify(list)); }catch(e){} }
+  }catch(e){ /* keep whatever we have */ }
+}
+function suggest(q){
+  const n=norm(q), c=clean(q); if(!n) return [];
+  if(c.length>=6 && CATIDX.byBc[c]) return CATIDX.byBc[c].slice(0,12);
+  const words=n.split(' ').filter(Boolean);
+  return CAT.filter(x=>{ const hay=norm(x.name+' '+(x.variation||'')); return words.every(w=>hay.includes(w)) || (c.length>=5 && x.bcs.some(b=>b.includes(c))); })
+    .sort((a,b)=>{ const an=norm(a.name).startsWith(n)?0:1, bn=norm(b.name).startsWith(n)?0:1; return an-bn || a.name.localeCompare(b.name) || (a.variation||'').localeCompare(b.variation||''); }).slice(0,30);
+}
+function itemLabel(x){ return x.name+(x.variation && norm(x.variation)!=='default' ? ' · '+x.variation : ''); }
+
+/* ---------------- firebase ---------------- */
+function setDb(on,txt){ const p=$('#dbPill'); p.classList.toggle('on',on); $('#dbTxt').textContent=txt; }
+function connect(){
+  if(typeof firebase==='undefined' || !firebase.database){ setDb(false,'offline'); return; }
+  try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); R=db.ref(DB_PATH); }catch(e){ setDb(false,'offline'); return; }
+  db.ref('.info/connected').on('value', s=>setDb(!!s.val(), s.val()?'live':'reconnecting…'));
+  R.on('value', s=>{ const a=[]; s.forEach(c=>{ const v=c.val(); if(v && typeof v==='object'){ v.id=c.key; a.push(v); } }); ROWS=a; try{ localStorage.setItem('rt.rows', JSON.stringify(a)); }catch(e){} render(); });
+  db.ref(INV_PATH).on('value', s=>{ const list=[]; s.forEach(c=>{ const v=c.val(); if(v && v.name) list.push({name:v.name, variation:v.variation||'', barcode:v.barcode||'', image:v.image||'', key:v.ikey||''}); });
+    if(list.length) setCatalog(list, true); else if(!CAT.length) loadCatalogFromSheet(); });
+}
+
+/* ---------------- entry form ---------------- */
+const F={date:'#fDate',buyer:'#fBuyer',order:'#fOrder',type:'#fType',item:'#fItem',qty:'#fQty',track:'#fTrack'};
+const ORDER=['#fBuyer','#fOrder','#fType','#fItem','#fQty','#fTrack'];
+function resetForm(keepDate){
+  if(!keepDate) $('#fDate').value=todayISO();
+  ['#fBuyer','#fOrder','#fItem','#fTrack'].forEach(s=>$(s).value=''); $('#fType').value='return'; $('#fQty').value='1';
+  PICK=null; $('#picked').classList.add('hide'); $('#sugg').classList.add('hide');
+  $('#fBuyer').focus();
+}
+function pickItem(x){ PICK=x; $('#fItem').value=itemLabel(x); $('#sugg').classList.add('hide');
+  $('#picked').classList.remove('hide'); $('#picked').innerHTML='<img src="'+esc(x.image||PLACEHOLDER)+'" onerror="this.src=\''+PLACEHOLDER+'\'"><span><b>✓</b> '+esc(itemLabel(x))+(x.bcs&&x.bcs.length?' <span class="mono">⌗ '+esc(x.bcs[0])+'</span>':'')+'</span>'; }
+let sgIdx=-1;
+function renderSugg(){
+  const q=$('#fItem').value; const box=$('#sugg'); const hits=suggest(q);
+  if(!q.trim() || (PICK && itemLabel(PICK)===q)){ box.classList.add('hide'); return; }
+  if(!hits.length){ box.innerHTML='<button type="button" data-free="1"><div><div class="n">Use “'+esc(q.trim())+'” as typed</div><div class="v">not in the product list</div></div></button>'; box.classList.remove('hide'); sgIdx=0; wireSugg(); return; }
+  if(hits.length===1 && CATIDX.byBc[clean(q)]){ pickItem(hits[0]); $('#fQty').focus(); $('#fQty').select(); return; }   // exact barcode → take it
+  box.innerHTML=hits.map((x,i)=>'<button type="button" data-i="'+i+'"'+(i===sgIdx?' class="on"':'')+'><img src="'+esc(x.image||PLACEHOLDER)+'" onerror="this.src=\''+PLACEHOLDER+'\'" loading="lazy"><div><div class="n">'+esc(x.name)+'</div><div class="v">'+esc(x.variation||'')+(x.bcs.length?' · ⌗ '+esc(x.bcs.slice(0,2).join(', ')):'')+'</div></div></button>').join('');
+  box.classList.remove('hide'); box._hits=hits; wireSugg();
+}
+function wireSugg(){ $$('#sugg [data-i]').forEach(b=>b.onclick=()=>{ pickItem($('#sugg')._hits[+b.dataset.i]); $('#fQty').focus(); $('#fQty').select(); });
+  const f=$('#sugg [data-free]'); if(f) f.onclick=()=>{ PICK={name:$('#fItem').value.trim(), variation:'', free:true, bcs:[]}; $('#sugg').classList.add('hide'); $('#picked').classList.remove('hide'); $('#picked').innerHTML='<span><b>✓</b> '+esc(PICK.name)+' <span class="mini">(free text)</span></span>'; $('#fQty').focus(); $('#fQty').select(); }; }
+$('#fItem').addEventListener('input',()=>{ PICK=null; $('#picked').classList.add('hide'); sgIdx=-1; renderSugg(); });
+$('#fItem').addEventListener('focus',renderSugg);
+$('#fItem').addEventListener('keydown',e=>{
+  const box=$('#sugg'), btns=$$('#sugg button');
+  if(e.key==='ArrowDown' && btns.length){ e.preventDefault(); sgIdx=Math.min(btns.length-1,sgIdx+1); btns.forEach((b,i)=>b.classList.toggle('on',i===sgIdx)); btns[sgIdx].scrollIntoView({block:'nearest'}); return; }
+  if(e.key==='ArrowUp' && btns.length){ e.preventDefault(); sgIdx=Math.max(0,sgIdx-1); btns.forEach((b,i)=>b.classList.toggle('on',i===sgIdx)); return; }
+  if(e.key==='Escape'){ box.classList.add('hide'); return; }
+  if(e.key==='Enter'){ e.preventDefault();
+    if(PICK){ $('#fQty').focus(); $('#fQty').select(); return; }
+    const hits=suggest($('#fItem').value);
+    if(hits.length && (sgIdx>=0 || hits.length===1 || CATIDX.byBc[clean($('#fItem').value)])){ pickItem(hits[Math.max(0,sgIdx)]); $('#fQty').focus(); $('#fQty').select(); }
+    else if(!hits.length && $('#fItem').value.trim()){ const f=$('#sugg [data-free]'); if(f) f.click(); }
+    else if(hits.length){ sgIdx=0; renderSugg(); }
+  }
+});
+document.addEventListener('click',e=>{ if(!e.target.closest('.itemwrap')) $('#sugg').classList.add('hide'); });
+/* Enter walks the fields; on the last one it adds the row */
+ORDER.forEach((s,i)=>{ if(s==='#fItem') return; $(s).addEventListener('keydown',e=>{ if(e.key!=='Enter') return; e.preventDefault();
+  if(i===ORDER.length-1) addRow(); else { const n=$(ORDER[i+1]); n.focus(); if(n.select) n.select(); } }); });
+$('#fQty').addEventListener('focus',e=>e.target.select());
+async function addRow(){
+  const date=isoToUS($('#fDate').value||todayISO()); const buyer=$('#fBuyer').value.trim(), order=$('#fOrder').value.trim(), type=$('#fType').value;
+  const qty=Math.max(1,int($('#fQty').value)); const track=$('#fTrack').value.trim();
+  if(!PICK){ const hits=suggest($('#fItem').value); if(hits.length===1) pickItem(hits[0]); else if($('#fItem').value.trim() && !hits.length) PICK={name:$('#fItem').value.trim(), free:true, bcs:[]}; }
+  if(!PICK){ $('#fItem').classList.add('bad'); setTimeout(()=>$('#fItem').classList.remove('bad'),1200); $('#fItem').focus(); toast('Pick the returned item','warn'); return; }
+  const rec={date, buyer, order, type, item:itemLabel(PICK), ikey:PICK.key||'', qty, tracking:track, by:WHO, at:Date.now()};
+  if(R){ try{ await R.push(rec); }catch(e){ toast('Not saved: '+e.message,'err',4000); return; } }
+  else { rec.id='local'+Date.now(); ROWS.push(rec); render(); }
+  toast('Added · '+rec.item+' × '+qty,'ok');
+  resetForm(true);
+}
+$('#addBtn').onclick=addRow;
+
+/* ---------------- camera ---------------- */
+let camScanner=null, camLast={code:'',t:0};
+async function openCam(){
+  if(!window.Html5Qrcode){ toast('Camera library not loaded','err'); return; }
+  $('#cam').classList.remove('hide'); $('#camFor').textContent='→ Return item';
+  const Fm=window.Html5QrcodeSupportedFormats;
+  const fmts=Fm?['QR_CODE','CODE_128','CODE_39','CODE_93','CODABAR','ITF','EAN_13','EAN_8','UPC_A','UPC_E','DATA_MATRIX'].map(n=>Fm[n]).filter(v=>v!==undefined):undefined;
+  try{
+    camScanner=new Html5Qrcode('camView',{formatsToSupport:fmts, verbose:false});
+    await camScanner.start({facingMode:'environment'},{fps:10, qrbox:(w,h)=>({width:Math.max(180,Math.floor(w*.9)),height:Math.max(120,Math.floor(Math.min(h*.55,w*.55)))}), experimentalFeatures:{useBarCodeDetectorIfSupported:true}},
+      text=>{ const now=Date.now(); if(text===camLast.code && now-camLast.t<1500) return; camLast={code:text,t:now}; closeCam(); $('#fItem').value=text; PICK=null; renderSugg(); const hits=suggest(text); if(hits.length===1){ pickItem(hits[0]); $('#fQty').focus(); $('#fQty').select(); } else $('#fItem').focus(); }, ()=>{});
+  }catch(e){ toast('Cannot open camera: '+(e&&e.message||e),'err'); $('#cam').classList.add('hide'); camScanner=null; }
+}
+async function closeCam(){ $('#cam').classList.add('hide'); if(camScanner){ try{ await camScanner.stop(); }catch(e){} try{ camScanner.clear(); }catch(e){} camScanner=null; } }
+$('#camBtn').onclick=openCam; $('#camClose').onclick=closeCam;
+
+/* ---------------- table ---------------- */
+function inRange(r){
+  const v=$('#range').value; if(v==='all') return true;
+  const iso=usToISO(r.date); if(!iso) return true;
+  if(v==='today') return iso===todayISO();
+  const d=new Date(); d.setDate(d.getDate()-(+v)); return iso>=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function filtered(){
+  const q=norm($('#q').value);
+  return ROWS.filter(r=>inRange(r) && (!q || [r.date,r.buyer,r.order,r.type,r.item,r.tracking,r.by].some(x=>norm(x).includes(q))));
+}
+const COLS=[['date','Date'],['buyer','Buyer Name'],['order','Order ID'],['type','Return/Exchange'],['item','Return Item'],['qty','Qty'],['tracking','Return Tracking']];
+function sortRows(list){
+  const {k,d}=SORT;
+  return list.slice().sort((a,b)=>{ let av=a[k],bv=b[k];
+    if(k==='date'){ av=usToISO(a.date)+String(a.at||0).padStart(14,'0'); bv=usToISO(b.date)+String(b.at||0).padStart(14,'0'); }
+    else if(k==='qty'||k==='at'){ av=+av||0; bv=+bv||0; } else { av=norm(av); bv=norm(bv); }
+    return (av<bv?-1:av>bv?1:0)*d || (a.at||0)-(b.at||0); });
+}
+function typeTag(t){ const c=t==='exchange'?'ex':(t==='refund'?'rf':(t==='return for refund'?'rr':'')); return '<span class="tag '+c+'">'+esc(t)+'</span>'; }
+function render(){
+  const list=filtered(); const units=list.reduce((a,r)=>a+(+r.qty||0),0);
+  const byType={}; list.forEach(r=>byType[r.type]=(byType[r.type]||0)+(+r.qty||0));
+  $('#kv').innerHTML='<div><div class="n">'+fmt(list.length)+'</div><div class="l">rows</div></div><div><div class="n">'+fmt(units)+'</div><div class="l">units</div></div>'+
+    '<div><div class="n">'+fmt(new Set(list.map(r=>r.item)).size)+'</div><div class="l">products</div></div><div><div class="n">'+fmt(new Set(list.map(r=>r.order).filter(Boolean)).size)+'</div><div class="l">orders</div></div>'+
+    TYPES.filter(t=>byType[t]).map(t=>'<div><div class="n">'+fmt(byType[t])+'</div><div class="l">'+esc(t)+'</div></div>').join('');
+  $$('#vtab button').forEach(b=>b.classList.toggle('on',b.dataset.v===VIEW));
+  if(VIEW==='sum') return renderSummary(list);
+  const rows=sortRows(list);
+  const th=COLS.map(([k,l])=>'<th'+(k==='qty'?' class="num"':'')+' data-s="'+k+'">'+l+(SORT.k===k?'<span class="sd">'+(SORT.d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th data-s="at">Added</th><th></th>';
+  let h='<thead><tr>'+th+'</tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:28px">No returns in this range.</td></tr>';
+  rows.forEach(r=>{ h+='<tr data-id="'+esc(r.id)+'">'+
+    '<td class="ed mono" data-f="date">'+esc(r.date)+'</td><td class="ed" data-f="buyer">'+esc(r.buyer)+'</td><td class="ed mono" data-f="order">'+esc(r.order)+'</td>'+
+    '<td class="ed" data-f="type">'+typeTag(r.type)+'</td><td class="ed" data-f="item">'+esc(r.item)+'</td><td class="ed num mono" data-f="qty">'+esc(r.qty)+'</td><td class="ed mono" data-f="tracking">'+esc(r.tracking)+'</td>'+
+    '<td class="mini">'+esc(hhmm(r.at))+(r.by?' · '+esc(r.by):'')+'</td><td><button class="btn sm ghost" data-del="'+esc(r.id)+'" title="Delete this row">✕</button></td></tr>'; });
+  $('#tbl').innerHTML=h+'</tbody>';
+  $('#info').textContent=rows.length+' row(s) shown · click a cell to edit it · the Copy button copies exactly these rows (columns A–G)';
+  $$('#tbl th[data-s]').forEach(t=>t.onclick=()=>{ const k=t.dataset.s; SORT=SORT.k===k?{k,d:-SORT.d}:{k,d:(k==='qty'||k==='at'||k==='date')?-1:1}; render(); });
+  $$('#tbl [data-del]').forEach(b=>b.onclick=()=>{ const r=ROWS.find(x=>x.id===b.dataset.del); if(!r) return; if(!confirm('Delete this row?\n'+r.item+' × '+r.qty+' · '+r.date)) return; if(R && !String(r.id).startsWith('local')) R.child(r.id).remove(); else { ROWS=ROWS.filter(x=>x!==r); render(); } });
+  $$('#tbl td.ed').forEach(td=>td.onclick=()=>editCell(td));
+}
+function editCell(td){
+  if(td.querySelector('input,select')) return;
+  const tr=td.closest('tr'), id=tr.dataset.id, f=td.dataset.f, r=ROWS.find(x=>x.id===id); if(!r) return;
+  let el;
+  if(f==='type'){ el=document.createElement('select'); el.innerHTML=TYPES.map(t=>'<option'+(t===r.type?' selected':'')+'>'+esc(t)+'</option>').join(''); }
+  else if(f==='date'){ el=document.createElement('input'); el.type='date'; el.value=usToISO(r.date)||todayISO(); }
+  else { el=document.createElement('input'); el.value=r[f]==null?'':r[f]; if(f==='qty') el.inputMode='numeric'; }
+  td.innerHTML=''; td.appendChild(el); el.focus(); if(el.select) el.select();
+  let done=false;
+  const commit=async()=>{ if(done) return; done=true;
+    let v=el.value; if(f==='date') v=isoToUS(v)||r.date; if(f==='qty') v=Math.max(1,int(v)); if(typeof v==='string') v=v.trim();
+    if(v!==r[f]){ r[f]=v; if(R && !String(id).startsWith('local')) await R.child(id).update({[f]:v, editedBy:WHO, editedAt:Date.now()}).catch(e=>toast('Not saved: '+e.message,'err')); }
+    render(); };
+  el.addEventListener('blur',commit);
+  el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } if(e.key==='Escape'){ done=true; render(); } });
+  if(f==='type'||f==='date') el.addEventListener('change',commit);
+}
+/* summary by item */
+function summaryRows(list){
+  const m=new Map();
+  list.forEach(r=>{ const k=norm(r.item); if(!m.has(k)) m.set(k,{item:r.item, qty:0, rows:0, orders:new Set(), first:'', last:'', types:{}});
+    const s=m.get(k); s.qty+=(+r.qty||0); s.rows++; if(r.order) s.orders.add(r.order); s.types[r.type]=(s.types[r.type]||0)+(+r.qty||0);
+    const iso=usToISO(r.date); if(iso){ if(!s.first||iso<s.first) s.first=iso; if(!s.last||iso>s.last) s.last=iso; } });
+  return [...m.values()].map(s=>Object.assign(s,{ordersN:s.orders.size}));
+}
+function renderSummary(list){
+  const rows=summaryRows(list); const {k,d}=SSORT;
+  rows.sort((a,b)=>{ let av=a[k],bv=b[k]; if(typeof av==='string'){ av=norm(av); bv=norm(bv); } return (av<bv?-1:av>bv?1:0)*d || a.item.localeCompare(b.item); });
+  const cols=[['item','Return Item'],['qty','Qty'],['rows','Rows'],['ordersN','Orders'],['first','First date'],['last','Last date']];
+  let h='<thead><tr>'+cols.map(([c,l])=>'<th'+(['qty','rows','ordersN'].includes(c)?' class="num"':'')+' data-s="'+c+'">'+l+(k===c?'<span class="sd">'+(d>0?'▲':'▼')+'</span>':'')+'</th>').join('')+'<th>By type</th></tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Nothing in this range.</td></tr>';
+  rows.forEach(s=>{ h+='<tr><td>'+esc(s.item)+'</td><td class="num mono"><b>'+fmt(s.qty)+'</b></td><td class="num mono">'+s.rows+'</td><td class="num mono">'+s.ordersN+'</td><td class="mono">'+esc(isoToUS(s.first))+'</td><td class="mono">'+esc(isoToUS(s.last))+'</td>'+
+    '<td>'+TYPES.filter(t=>s.types[t]).map(t=>typeTag(t)+' <span class="mono">'+s.types[t]+'</span>').join(' ')+'</td></tr>'; });
+  $('#tbl').innerHTML=h+'</tbody>';
+  $('#info').textContent=rows.length+' product(s) · click a column header to sort · Copy copies this summary';
+  $$('#tbl th[data-s]').forEach(t=>t.onclick=()=>{ const c=t.dataset.s; SSORT=SSORT.k===c?{k:c,d:-SSORT.d}:{k:c,d:['qty','rows','ordersN','last','first'].includes(c)?-1:1}; render(); });
+}
+
+/* ---------------- copy / export — what is on the screen ---------------- */
+function exportGrid(){
+  const list=filtered();
+  if(VIEW==='sum'){ const rows=summaryRows(list); const {k,d}=SSORT; rows.sort((a,b)=>{ let av=a[k],bv=b[k]; if(typeof av==='string'){ av=norm(av); bv=norm(bv); } return (av<bv?-1:av>bv?1:0)*d; });
+    return [['Return Item','Qty','Rows','Orders','First date','Last date'].concat(TYPES)].concat(rows.map(s=>[s.item,s.qty,s.rows,s.ordersN,isoToUS(s.first),isoToUS(s.last)].concat(TYPES.map(t=>s.types[t]||0)))); }
+  return [COLS.map(c=>c[1])].concat(sortRows(list).map(r=>COLS.map(([k])=>k==='qty'?(+r.qty||0):(r[k]==null?'':r[k]))));
+}
+async function copyGrid(){
+  const grid=exportGrid();
+  const tsv=grid.map(r=>r.map(c=>String(c).replace(/\t/g,' ').replace(/\r?\n/g,' ')).join('\t')).join('\r\n');
+  const html='<table>'+grid.map((r,i)=>'<tr>'+r.map(c=>(i?'<td>':'<th>')+esc(c)+(i?'</td>':'</th>')).join('')+'</tr>').join('')+'</table>';
+  try{
+    if(navigator.clipboard && window.ClipboardItem){ await navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([tsv],{type:'text/plain'}),'text/html':new Blob([html],{type:'text/html'})})]); }
+    else { await navigator.clipboard.writeText(tsv); }
+    toast('Copied '+(grid.length-1)+' row(s) — paste into Sheets or Excel','ok',3000);
+  }catch(e){ const ta=$('#copybox'); ta.value=tsv; ta.select(); try{ document.execCommand('copy'); toast('Copied '+(grid.length-1)+' row(s)','ok',3000); }catch(_){ toast('Could not copy — select the table manually','warn',3500); } }
+}
+function exportXlsx(){
+  const grid=exportGrid(); const ws=XLSX.utils.aoa_to_sheet(grid);
+  ws['!cols']=grid[0].map((_,i)=>({wch:i===4?44:16}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,VIEW==='sum'?'Summary':'Returns');
+  const d=new Date(); XLSX.writeFile(wb,'returns_'+(VIEW==='sum'?'summary_':'')+d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'.xlsx');
+}
+$('#copyBtn').onclick=copyGrid; $('#xlsxBtn').onclick=exportXlsx;
+$$('#vtab button').forEach(b=>b.onclick=()=>{ VIEW=b.dataset.v; render(); });
+$('#q').addEventListener('input',render); $('#range').onchange=render;
+
+/* ---------------- start ---------------- */
+function start(){
+  $('#gate').classList.add('hide'); $('#hdr').classList.remove('hide'); $('#app').classList.remove('hide');
+  $('#who').textContent=WHO+' · '+BUILD;
+  try{ const c=JSON.parse(localStorage.getItem('rt.cat')||'null'); if(c&&c.length) setCatalog(c); }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem('rt.rows')||'null'); if(r&&r.length) ROWS=r; }catch(e){}
+  resetForm(false); render(); connect();
+  if(!CAT.length) loadCatalogFromSheet();
+}
+$('#nameGo').onclick=()=>{ const v=$('#nameInput').value.trim(); if(!v){ toast('Type your name','warn'); return; } WHO=v; try{ localStorage.setItem('ps_name',v); }catch(e){} start(); };
+$('#nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#nameGo').click(); });
+$('#homeBtn').onclick=()=>{ try{ window.close(); }catch(e){} setTimeout(()=>{ if(!window.closed) location.href=STATION_FILE; },150); };
+(function(){ let n=''; try{ n=localStorage.getItem('ps_name')||''; }catch(e){} if(n){ WHO=n; start(); } else $('#nameInput').focus(); })();
+</script>
+</body>
+</html>
