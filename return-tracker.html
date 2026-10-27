@@ -195,7 +195,7 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
    Products for the item search come from packstation/inventory (what the
    station loaded) with the company inventory sheet as fallback.
    ============================================================ */
-const BUILD='2026-10-27c · admin + PIN · sheet-like selection, copy without header';
+const BUILD='2026-10-27d · item name only (no variation) · admin + PIN · sheet-like copy';
 const STATION_FILE='index.html';
 const DB_PATH='packstation/returns';
 const INV_PATH='packstation/inventory';
@@ -266,7 +266,7 @@ function suggest(q){
   return CAT.filter(x=>{ const hay=norm(x.name+' '+(x.variation||'')); return words.every(w=>hay.includes(w)) || (c.length>=5 && x.bcs.some(b=>b.includes(c))); })
     .sort((a,b)=>{ const an=norm(a.name).startsWith(n)?0:1, bn=norm(b.name).startsWith(n)?0:1; return an-bn || a.name.localeCompare(b.name) || (a.variation||'').localeCompare(b.variation||''); }).slice(0,30);
 }
-function itemLabel(x){ return x.name+(x.variation && norm(x.variation)!=='default' ? ' · '+x.variation : ''); }
+function itemLabel(x){ return x.name; }                        // the row carries the product name only — no variation
 
 /* ---------------- firebase ---------------- */
 function setDb(on,txt){ const p=$('#dbPill'); p.classList.toggle('on',on); $('#dbTxt').textContent=txt; }
@@ -317,7 +317,7 @@ function stageItem(){
 }
 $('#moreBtn').onclick=stageItem;
 function pickItem(x){ PICK=x; $('#fItem').value=itemLabel(x); $('#sugg').classList.add('hide');
-  $('#picked').classList.remove('hide'); $('#picked').innerHTML='<img src="'+esc(x.image||PLACEHOLDER)+'" onerror="this.src=\''+PLACEHOLDER+'\'"><span><b>✓</b> '+esc(itemLabel(x))+(x.bcs&&x.bcs.length?' <span class="mono">⌗ '+esc(x.bcs[0])+'</span>':'')+'</span>'; }
+  $('#picked').classList.remove('hide'); $('#picked').innerHTML='<img src="'+esc(x.image||PLACEHOLDER)+'" onerror="this.src=\''+PLACEHOLDER+'\'"><span><b>✓</b> '+esc(itemLabel(x))+(x.variation && norm(x.variation)!=='default'?' <span class="mini">('+esc(x.variation)+' — the row keeps the name only)</span>':'')+(x.bcs&&x.bcs.length?' <span class="mono">⌗ '+esc(x.bcs[0])+'</span>':'')+'</span>'; }
 let sgIdx=-1;
 function renderSugg(){
   const q=$('#fItem').value; const box=$('#sugg'); const hits=suggest(q);
