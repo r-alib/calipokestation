@@ -370,6 +370,7 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .pkstock.dmg{color:var(--err); border-color:#4a2128}
 .pkstock.split{color:var(--ink)} .pkstock.split small{color:var(--muted); font-size:12px; margin-left:4px}
 .shiftchip.todo{border-color:var(--warn); color:var(--warn)}
+.shiftchip.frozen{border-color:var(--info); color:var(--info); cursor:default}
 .pkstock.dmg.low{color:var(--warn); border-color:#473a1c}
 
 /* ---------- product guidebook ---------- */
@@ -986,7 +987,7 @@ const EXTERNAL_MODES = {
   lessons:   'https://r-alib.github.io/calipokehouselessons/'   // staff training — its own site, fully independent
 };
 
-const BUILD = '2026-10-22c · Receiving bot: Finish & post to Slack · Put away · deduction by priority';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-27a · frozen count: deductions & put-aways queued until Sync · Receiving bot';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1137,6 +1138,8 @@ let CELLS = new Map();          // count key k -> {L: cell}          (every cell
 let NAMEK = new Map();          // clean(item name) -> k
 let STOCK_BASE = null;          // packstation/stockCount/base — {items:{k:{n,q}}, locs:[{id,type,pri}]}
 let LOC_PRI = new Map();        // location key -> pick priority (column D of the Location tab; 1 = first)
+let FREEZE = null;              // stockCount/meta/freeze — while {on:true} an inventory count is running: stock changes are queued, not applied
+const frozen = () => !!(FREEZE && FREEZE.on);
 const UNKNOWN_LOC = 'UNKNOWN';  // where a packed product goes below zero when no shelf is known (shows under “Not on plan”)
 function locPri(L){ const p=LOC_PRI.get(String(L||'').toUpperCase()); return p==null ? 9999 : p; }
 let shelfT = null;
@@ -1366,6 +1369,24 @@ async function deductOrder(shiftId, orderKey, order){
   if(!claim.committed) return null;                     // someone (or an earlier run) already did it
   const lines=[], skipped=[]; let units=0;
   const tag=(order.platform?order.platform+' ':'')+(order.trackingId||'');
+  if(frozen()){
+    /* ❄ inventory count in progress: nothing touches the shelves — the order waits in stockCount/pending
+       and Inventory → Sync applies it (by location priority) once the count is finished */
+    const ql=[]; let qu=0;
+    for(const it of (order.items||[])){
+      if(it.packed===false || (it.status && it.status!=='ok')) continue;
+      const qty=Math.max(0, +it.qty||1); if(!qty) continue;
+      const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
+      const k=stockKeyFor(iv) || clean(it.name); if(!k) continue;
+      ql.push({k, n:nameOfKey(k)||it.name, qty, varKey:(it.variation && norm(it.variation)!=='default') ? clean(it.variation) : '', home:homeShelfFor(iv)||''});
+      qu+=qty;
+    }
+    const pkey='pack_'+safeKey(shiftId)+'_'+safeKey(orderKey);
+    if(ql.length) await db.ref(STOCK_PATH+'/pending/'+pkey).set({type:'pack', at:Date.now(), by:MY_NAME||'', order:orderKey, shift:shiftId, tag, lines:ql});
+    const marker={at:Date.now(), by:MY_NAME||'', units:qu, deferred:true, pending:ql.length?pkey:null};
+    await mref.set(marker);
+    return marker;
+  }
   for(const it of (order.items||[])){
     if(it.packed===false || (it.status && it.status!=='ok')) continue;      // not packed → nothing left the shelf
     const qty=Math.max(0, +it.qty||1); if(!qty) continue;
@@ -1396,6 +1417,7 @@ async function deductOrder(shiftId, orderKey, order){
 async function undeductOrder(shiftId, orderKey, order){
   const m=order.deducted; if(!m) return;
   const mref=root.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  if(m.deferred){ if(m.pending) await db.ref(STOCK_PATH+'/pending/'+m.pending).remove(); await mref.set(null); return; }
   const lines=m.lines ? (Array.isArray(m.lines)?m.lines:Object.values(m.lines)) : [];
   for(const ln of lines){ if(!ln||!ln.d) continue;
     await cellRef(ln.L, ln.k).transaction(cur=>{ cur=cur||{}; const o=Object.assign({}, cur, {n:cur.n||nameOfKey(ln.k), by:'pack', at:Date.now()});
@@ -1451,6 +1473,7 @@ function connect(){
   db.ref(STOCK_PATH+'/base').on('value', snap=>{ STOCK_BASE=snap.val()||null; if(STOCK_BASE && STOCK_BASE.items && Array.isArray(STOCK_BASE.items)){ const o={}; STOCK_BASE.items.forEach((x,i)=>{ if(x) o[i]=x; }); STOCK_BASE.items=o; }
     LOC_PRI=new Map(); const locs=STOCK_BASE && STOCK_BASE.locs; (Array.isArray(locs)?locs:Object.values(locs||{})).forEach(l=>{ if(l && l.id && l.pri!=null) LOC_PRI.set(String(l.id).trim().toUpperCase().replace(/\s+/g,''), +l.pri); }); });
   db.ref(STOCK_PATH+'/counts').on('value', snap=>{ buildShelfIdx(snap.val()||{}); });
+  db.ref(STOCK_PATH+'/meta/freeze').on('value', snap=>{ FREEZE=snap.val()||null; if(curScreen==='platforms') renderShiftBar(); });
   /* Daily SOH — fallback quantities for products the count has not seen; refreshed every 30 min */
   dsohTick(); setInterval(()=>dsohTick(), 10*60*1000);
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
@@ -2930,6 +2953,7 @@ function renderShiftBar(){
       (IS_ADMIN?'<span class="x" data-del="'+esc(id)+'" title="Clear this shift">✕</span>':'')+'</button>';
   }).join('');
   if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
+  if(frozen()) h+='<span class="shiftchip frozen" title="An inventory count is running — orders packed now are queued and applied to the shelves when the count is synced in Inventory">❄ Count in progress · deductions queued</span>';
   if(IS_ADMIN && CUR_SHIFT){ const c=deductStats();
     h+='<button class="shiftchip'+(c.todo?' todo':'')+'" id="deductChip" title="Take the packed units of this shift off the pick shelves (S-/R-). Orders confirmed in this build are deducted automatically; this catches the ones that were not."'+(DEDUCT_BUSY||!c.todo?' disabled':'')+'>📦→ Deduct packed orders <span class="n">'+c.done+' / '+c.total+'</span>'+(c.todo?' · '+c.todo+' to do':'')+'</button>'; }
   bar.innerHTML=h;
@@ -5080,7 +5104,7 @@ function rcOpenPutaway(id){
     $$('#rcModal [data-putwh]').forEach(b=>b.onclick=async()=>{ const i=+b.dataset.putwh; const n=qtyOf(i); if(!n) return;
       const L=String($('#rcpl_'+i).value||'').trim().toUpperCase().replace(/\s+/g,''); if(!L){ toast('Type the location','warn'); $('#rcpl_'+i).focus(); return; }
       if(isStoreLoc(L)){ await rcPutaway(s, tot[i], n, null, tag); draw(); return; }
-      b.disabled=true; try{ await rcPutaway(s, tot[i], n, L, tag); toast(n+' × '+tot[i].name+' → '+L,'ok'); }catch(e){ toast(e.message||'Could not save','err'); } draw(); });
+      b.disabled=true; try{ await rcPutaway(s, tot[i], n, L, tag); toast(n+' × '+tot[i].name+' → '+L+(frozen()?' (queued — count in progress)':''),'ok'); }catch(e){ toast(e.message||'Could not save','err'); } draw(); });
     $$('#rcModal [data-putst]').forEach(b=>b.onclick=async()=>{ const i=+b.dataset.putst; const n=qtyOf(i); if(!n) return;
       b.disabled=true; try{ await rcPutaway(s, tot[i], n, null, tag); toast(n+' × '+tot[i].name+' → Store','ok'); }catch(e){ toast(e.message||'Could not save','err'); } draw(); });
     const all=$('#rcPutAllStore'); if(all) all.onclick=async()=>{ if(!confirm('Send everything that is still unplaced ('+fmtN(left)+' units) to the Store?')) return;
@@ -5097,9 +5121,13 @@ async function rcPutaway(s, t, qty, L, tag){
   if(L){
     const iv={name:t.name, variation:t.variation||''};
     const k=stockKeyFor(iv) || clean(t.name);
-    await cellRef(L,k).transaction(cur=>{ cur=cur||{}; const o=Object.assign({}, cur, {n:cur.n||nameOfKey(k)||t.name, by, at}); o.b=(o.b||0)+qty; if(!o.a0) o.a0=at; return o; });
-    await stockLog({type:'add', k, n:nameOfKey(k)||t.name, loc:L, qty, d:{[L]:{b:qty}}, reason:'New shipment', note:tag+(t.variation?' · '+t.variation:'')});
-    const wh=rcArr(line.wh).concat([{L, qty, by, at}]); line.wh=wh;
+    if(frozen()){            // ❄ count in progress — queued, applied at Inventory → Sync
+      await db.ref(STOCK_PATH+'/pending').push({type:'put', at, by, tag, lines:[{k, n:nameOfKey(k)||t.name, L, qty}]});
+    } else {
+      await cellRef(L,k).transaction(cur=>{ cur=cur||{}; const o=Object.assign({}, cur, {n:cur.n||nameOfKey(k)||t.name, by, at}); o.b=(o.b||0)+qty; if(!o.a0) o.a0=at; return o; });
+      await stockLog({type:'add', k, n:nameOfKey(k)||t.name, loc:L, qty, d:{[L]:{b:qty}}, reason:'New shipment', note:tag+(t.variation?' · '+t.variation:'')});
+    }
+    const wh=rcArr(line.wh).concat([Object.assign({L, qty, by, at}, frozen()?{queued:true}:{})]); line.wh=wh;
     await ref.child('wh').set(wh);
   } else {
     line.store=(+line.store||0)+qty;

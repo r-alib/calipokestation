@@ -98,6 +98,23 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .chip.on{border-color:var(--accent); color:var(--accent); background:#11211a}
 .chip .cnt{font-family:var(--mono); opacity:.8; margin-left:5px}
 .chipbar{display:flex; gap:6px; flex-wrap:wrap}
+.btn.warnb{border-color:var(--warn); color:var(--warn)}
+.pendrow{display:grid; grid-template-columns:1fr auto; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px}
+.pendrow .mini{display:block}
+.ied{display:flex; flex-direction:column; gap:8px; padding:6px 0 10px}
+.ied .ierow{display:grid; grid-template-columns:120px 1fr auto; gap:10px; align-items:center; background:var(--raised); border:1px solid var(--border); border-radius:9px; padding:8px 10px}
+.ied .ierow.neg{border-color:#5a2a2e}
+.ied .iel{font-family:var(--mono); font-weight:700}
+.ied .iel small{display:block; color:var(--muted); font-weight:400; font-size:11px}
+.ied .ief{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.ied .ief label{display:flex; flex-direction:column; gap:2px; font-size:11px; color:var(--muted)}
+.ied .ief input{width:68px; background:var(--bg); border:1.5px solid var(--line); border-radius:8px; color:var(--ink); font-family:var(--mono); font-size:14px; padding:6px 8px; text-align:center}
+.ied .ief input.changed{border-color:var(--warn)}
+.ied .ief input.negv{color:var(--err)}
+.ied .ieb{display:flex; gap:6px}
+.ied .ieadd{display:flex; gap:8px; align-items:center; flex-wrap:wrap; color:var(--muted); font-size:12.5px}
+.ied .ieadd input{background:var(--bg); border:1.5px solid var(--line); border-radius:8px; color:var(--ink); font-family:var(--mono); font-size:13px; padding:6px 9px; width:170px}
+.ctbl tbody tr[data-k]{cursor:pointer}
 .ctbl td.cdiff{color:var(--err); font-weight:700; background:#2a1519}
 .ctbl td.cok{color:var(--ok)}
 .ctbl tr.cst-onlyeod td, .ctbl tr.cst-noeod td{color:var(--muted)}
@@ -329,6 +346,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
   </div>
   <div class="spacer"></div>
   <span class="mini" id="baseInfo"></span>
+  <button class="btn sm hide" id="syncBtn" title="">❄ Frozen · <b id="syncN">0</b> queued · ⇆ Sync</button>
   <button class="btn sm" id="newCountBtn" title="Start a new inventory — current data stays, every shelf goes to “Awaiting update”">✚ New count</button>
 </div>
 
@@ -488,7 +506,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-22a · inventory v3 · pick priority from the Location tab · Daily SOH twice a day';
+const BUILD = '2026-10-27a · frozen counts + Sync · edit lines right in Total / Compare';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -532,6 +550,7 @@ let ROUND = null;
 let CAT = { items:[], at:0 }; // company catalog [{name, variation, barcode, image}]
 let IDX = { bc:{}, img:{}, locBc:{}, nameKey:{} };
 let WHO='', IS_ADMIN=false, soundOn=true;
+let FREEZE=null, PENDING=[];        // ❄ count in progress: packers' deductions wait in stockCount/pending
 let VIEW='count', CUR=null, FILTER='all', shelfQ='', totMode='all', totQ='', whereMode='all', whereQ='';
 let db=null, R=null, DB_ON=false;
 let WB=null;                  // last fetched counting workbook
@@ -658,6 +677,8 @@ function connectDB(){
   R.child('status').on('value', s=>{ STATUS=s.val()||{}; mirrorSoon(); onData(); });
   R.child('bind').on('value', s=>{ BIND=s.val()||{}; buildIdx(); });
   R.child('meta/round').on('value', s=>{ ROUND=s.val()||null; renderToolbar(); });
+  R.child('meta/freeze').on('value', s=>{ FREEZE=s.val()||null; renderToolbar(); });
+  R.child('pending').on('value', s=>{ const a=[]; s.forEach(c=>{ const v=c.val(); if(v){ v.id=c.key; a.push(v); } }); PENDING=a.sort((x,y)=>(x.at||0)-(y.at||0)); renderToolbar(); if($('#syncModal')) renderSyncModal(); });
   R.child('log').limitToLast(1500).on('value', s=>{ const a=[]; s.forEach(c=>{ const v=c.val(); if(v){ v.id=c.key; a.push(v); } }); LOG=a; mirrorSoon(); if(VIEW==='history') renderHistory(); });
 }
 function cleanCounts(v){ const m={}; for(const L in v){ const o={}; let n=0; for(const k in (v[L]||{})){ if(v[L][k] && typeof v[L][k]==='object'){ o[k]=v[L][k]; n++; } } if(n) m[L]=o; } return m; }
@@ -1276,6 +1297,8 @@ function openNewCount(){
   $('#modalHost').innerHTML='<div class="modal"><div class="mbox">'+
     '<h2>Start a new count</h2>'+
     '<p class="sub">Nothing is erased. Every shelf that has data ('+withData+') goes to <b style="color:var(--stale)">Awaiting update</b>: open it, check what is there, fix quantities, add or remove products, then switch on <b>Count complete</b>.</p>'+
+    '<p class="sub" style="margin-top:8px">❄ The numbers are <b>frozen</b> while you count: orders packed and goods put away meanwhile do not change them — they wait in a queue. When the count is finished, press <b>⇆ Sync</b> in the toolbar to apply the queue and unfreeze.</p>'+
+    (FREEZE&&FREEZE.on?'<div class="warnbox" style="margin-top:10px">A count is already frozen since '+esc(hhmm(FREEZE.at))+' with '+PENDING.length+' queued change(s). Starting a new one keeps the queue — it is applied at the next Sync.</div>':'')+
     '<div class="fld"><label>Date tab for this count (expected qty)</label><select id="ncTab" class="gsel">'+
       tabs.map(t=>'<option'+(t===(BASE&&BASE.tab)?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>'+
     '<p class="mini" style="margin-top:8px">The tab list comes from the last Refresh — press ⟳ Refresh first if a new tab was just added.</p>'+
@@ -1289,8 +1312,9 @@ function openNewCount(){
     const up={}; const now=Date.now();
     allLocs().forEach(l=>{ if(shelfItems(l.L).length || STATUS[l.L]) up[l.L]={st:'stale',by:WHO,at:now}; });
     STATUS=up;
-    if(R){ await R.child('status').set(up); await R.child('meta/round').set({n:((ROUND&&ROUND.n)||0)+1, at:now, by:WHO, tab}); }
-    OPS.log({type:'status', note:'new count started · tab '+tab+' · '+Object.keys(up).length+' shelves awaiting update'});
+    if(R){ await R.child('status').set(up); await R.child('meta/round').set({n:((ROUND&&ROUND.n)||0)+1, at:now, by:WHO, tab});
+      await R.child('meta/freeze').set({on:true, at:now, by:WHO, tab, round:((ROUND&&ROUND.n)||0)+1}); }   // ❄ from now on only people change the numbers
+    OPS.log({type:'status', note:'new count started · tab '+tab+' · '+Object.keys(up).length+' shelves awaiting update · counts frozen (packed orders are queued until Sync)'});
     closeModal(); renderAll(); toast('New count started · '+Object.keys(up).length+' shelves awaiting update','ok',3600);
   };
   const w=$('#ncWipe'); if(w) w.onclick=async()=>{
@@ -1310,6 +1334,100 @@ async function refresh(){
   const b=$('#refreshBtn'); b.disabled=true; b.textContent='… loading';
   try{ await loadFromSheet(BASE && BASE.tab); loadCatalog(); }catch(e){ toast('Refresh failed: '+e.message,'err',5000); }
   b.disabled=false; b.textContent='⟳ Refresh';
+}
+
+/* =====================================================================
+   FREEZE & SYNC — while a count is frozen, Pick & Pack and Receiving write
+   their stock changes to stockCount/pending instead of the cells:
+     {type:'pack', at, by, order, shift, tag, lines:[{k,n,qty,varKey,home}]}
+     {type:'put',  at, by, tag,          lines:[{k,n,L,qty}]}
+   Sync applies them to the (now corrected) counts in time order, logs each
+   one and unfreezes.
+   ===================================================================== */
+function locPriOf(L){ const l=allLocs().find(x=>x.L===L); return (l && l.pri!=null) ? +l.pri : 9999; }
+function pendUnits(p){ return arr(p.lines).reduce((a,l)=>a+(+l.qty||0),0); }
+function syncPlaces(k){                 // warehouse places of k, pick priority first (no priority → last, pallets after)
+  const rank=L=>{ const p=locPriOf(L); return p<9999 ? p : (isPal(L)?99999:9999); };
+  return whereIs(k).filter(x=>!isStore(x.L)).map(x=>({L:x.L, u:x.u, pri:rank(x.L)})).sort((a,b)=>a.pri-b.pri || a.L.localeCompare(b.L,undefined,{numeric:true}));
+}
+function syncTake(cur, qty, q){         // like takeFromCell in Pick & Pack: boxes → confirmed → cases; shortfall goes negative on boxes
+  const src={s:cur.s||0,b:cur.b||0,c:cur.c||0,d:cur.d||0}, mv={s:0,b:0,c:0,d:0}; let left=qty;
+  let x=Math.min(Math.max(0,src.b),left); src.b-=x; mv.b+=x; left-=x;
+  x=Math.min(src.c,left); src.c-=x; mv.c+=x; left-=x;
+  if(left>0 && src.s>0){ const t=Math.min(src.s,Math.floor(left/q)); src.s-=t; mv.s+=t; left-=t*q; if(left>0 && src.s>0){ src.s-=1; src.b+=q-left; mv.b+=left; left=0; } }
+  if(left>0){ x=Math.min(src.d,left); src.d-=x; mv.d+=x; left-=x; }
+  if(left>0){ src.b-=left; mv.b+=left; left=0; }
+  return {src, mv};
+}
+async function syncApplyPack(p){
+  const out=[];
+  for(const ln of arr(p.lines)){
+    const k=ln.k, qty=+ln.qty||0; if(!k||qty<=0) continue;
+    const q=qOf(k); const places=syncPlaces(k), withStock=places.filter(x=>x.u>0);
+    let L, neg=false, from=null;
+    if(withStock.length){ L=withStock[0].L; if(withStock[0].u<qty){ neg=true; from=withStock[1]?withStock[1].L:null; } }
+    else { L=(places[0]&&places[0].L) || (ln.home&&locKey(ln.home)) || 'UNKNOWN'; neg=true; }
+    let delta=null;
+    await R.child('counts/'+L+'/'+k).transaction(cur=>{
+      cur=cur||{}; const r=syncTake(cur, qty, q);
+      delta={s:-r.mv.s||0, b:-r.mv.b||0, c:-r.mv.c||0, d:-r.mv.d||0};
+      const next=Object.assign({}, cur, r.src, {n:cur.n||nameOf(k), by:'pack', at:Date.now()});
+      if(r.mv.c && next.cv){ const cv=Object.assign({},next.cv); let over=r.mv.c; const vk=ln.varKey;
+        if(vk && cv[vk]){ const t=Math.min(cv[vk],over); cv[vk]-=t; over-=t; if(!cv[vk]) delete cv[vk]; }
+        if(over>0){ Object.keys(cv).sort((a,b)=>cv[b]-cv[a]).forEach(x=>{ if(over<=0) return; const t=Math.min(cv[x],over); cv[x]-=t; over-=t; if(!cv[x]) delete cv[x]; }); next.cvx=true; }
+        if(Object.keys(cv).length) next.cv=cv; else delete next.cv; }
+      ['s','b','c','d'].forEach(f=>{ if(!next[f]) delete next[f]; });
+      return next;
+    });
+    await OPS.log({type:'pack', k, n:nameOf(k), loc:L, qty, d:{[L]:delta}, reason:'Packed order', note:(p.tag||'')+' · applied after the count'+(neg?' · below zero — needs restock'+(from?' (transfer from '+from+')':''):'')});
+    out.push({k,L,qty,neg});
+  }
+  return out;
+}
+async function syncApplyPut(p){
+  for(const ln of arr(p.lines)){
+    const k=ln.k, L=locKey(ln.L), qty=+ln.qty||0; if(!k||!L||qty<=0) continue;
+    await R.child('counts/'+L+'/'+k).transaction(cur=>{ cur=cur||{}; const o=Object.assign({}, cur, {n:cur.n||nameOf(k), by:'put', at:Date.now()}); o.b=(o.b||0)+qty; if(!o.a0) o.a0=Date.now(); return o; });
+    await OPS.log({type:'add', k, n:nameOf(k), loc:L, qty, d:{[L]:{b:qty}}, reason:'New shipment', note:(p.tag||'')+' · applied after the count'});
+  }
+}
+function openSyncModal(){
+  $('#modalHost').innerHTML='<div class="modal" id="syncModal"><div class="mbox wide"></div></div>';
+  renderSyncModal();
+}
+function renderSyncModal(){
+  const box=document.querySelector('#syncModal .mbox'); if(!box) return;
+  const on=!!(FREEZE&&FREEZE.on); const units=PENDING.reduce((a,p)=>a+pendUnits(p),0);
+  const locs=allLocs(); const notDone=locs.filter(l=>shelfState(l.L)!=='done' && (shelfItems(l.L).length||STATUS[l.L])).length;
+  box.innerHTML='<h2>⇆ Sync the count with the live system</h2>'+
+    '<p class="sub">'+(on?'Frozen since <b>'+esc(hhmm(FREEZE.at))+'</b>'+(FREEZE.by?' by '+esc(FREEZE.by):'')+'. ':'Not frozen. ')+
+      'Queued while counting: <b>'+PENDING.length+'</b> change(s), <b>'+fmt(units)+'</b> units. Sync applies them to the counted numbers in time order (packed orders by location priority, as Pick &amp; Pack does) and unfreezes — from then on packing changes the numbers again.</p>'+
+    (notDone?'<div class="warnbox">'+notDone+' shelf/shelves are still not marked as counted. You can sync anyway — but the count is meant to be finished first.</div>':'')+
+    '<div style="margin-top:12px;max-height:40vh;overflow:auto">'+(PENDING.length?PENDING.map(p=>
+      '<div class="pendrow"><div><b>'+(p.type==='put'?'📥 Put away':'🚚 Packed')+'</b> · '+esc(p.tag||'')+'<span class="mini">'+esc(hhmm(p.at))+(p.by?' · '+esc(p.by):'')+' · '+arr(p.lines).map(l=>esc(l.n||l.k)+' × '+l.qty+(l.L?' → '+esc(l.L):'')).join(', ')+'</span></div><div class="mono">'+fmt(pendUnits(p))+' u</div></div>').join('')
+      :'<p class="mini">Nothing queued.</p>')+'</div>'+
+    '<div class="rcrow" style="margin-top:16px"><button class="btn primary lg" id="syncGo" style="flex:1">'+(PENDING.length?'Apply '+PENDING.length+' change(s) & unfreeze':'Unfreeze')+'</button><button class="btn ghost" id="syncX">Cancel</button></div>'+
+    '<p class="mini" id="syncProg" style="margin-top:8px"></p>';
+  $('#syncX').onclick=closeModal;
+  $('#syncGo').onclick=runSync;
+}
+let SYNC_BUSY=false;
+async function runSync(){
+  if(SYNC_BUSY || !R) return;
+  if(!confirm('Apply the queued changes to the counted numbers and unfreeze?')) return;
+  SYNC_BUSY=true; const btn=$('#syncGo'); if(btn) btn.disabled=true;
+  const list=PENDING.slice(); let done=0, negs=[];
+  try{
+    for(const p of list){
+      const pr=$('#syncProg'); if(pr) pr.textContent='Applying '+(done+1)+' / '+list.length+' — '+(p.tag||'');
+      if(p.type==='put') await syncApplyPut(p); else { const r=await syncApplyPack(p); r.filter(x=>x.neg).forEach(x=>negs.push(x)); }
+      await R.child('pending/'+p.id).remove(); done++;
+    }
+    await R.child('meta/freeze').set({on:false, at:FREEZE&&FREEZE.at||null, by:FREEZE&&FREEZE.by||'', syncedAt:Date.now(), syncedBy:WHO, applied:done});
+    OPS.log({type:'status', note:'count synced · '+done+' queued change(s) applied · unfrozen'+(negs.length?' · '+negs.length+' line(s) went below zero':'')});
+    closeModal(); toast('Synced · '+done+' change(s) applied · counts unfrozen'+(negs.length?' · '+negs.length+' line(s) need restock':''),'ok',5000);
+  }catch(e){ toast('Sync stopped after '+done+' of '+list.length+': '+e.message,'err',6000); }
+  SYNC_BUSY=false; renderAll();
 }
 
 /* =====================================================================
@@ -1433,6 +1551,7 @@ function cmpFiltered(all){
 }
 function sgn(v){ return v==null?'':(v>0?'+':'')+fmt(v); }
 function renderCompare(){
+  if(editing()) return;
   if(!DSOH && !DSOH_ERR && !DSOH_BUSY){ refreshDSOH(false); return; }
   if(!DSOH){ $('#cmpTbl').innerHTML=''; $('#cmpChips').innerHTML=''; $('#cmpInfo').textContent=DSOH_BUSY?'Reading Daily SOH…':('Daily SOH not available: '+DSOH_ERR); return; }
   const all=cmpRows();
@@ -1446,12 +1565,18 @@ function renderCompare(){
   if(!list.length) h+='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
   list.forEach(r=>{
     const cls=v=>v==null?'':(v?' class="cdiff"':' class="cok"');
-    h+='<tr class="cst-'+r.state+'"><td style="text-align:left" class="hname">'+esc(r.n)+(r.onlyEod?' <span class="mini">· not in the counting workbook</span>':'')+(!r.inEod?' <span class="mini">· no row in Daily SOH</span>':'')+'</td>'+
+    h+='<tr class="cst-'+r.state+'"'+(r.k?' data-k="'+esc(r.k)+'"':'')+'><td style="text-align:left" class="hname">'+esc(r.n)+(r.onlyEod?' <span class="mini">· not in the counting workbook</span>':'')+(!r.inEod?' <span class="mini">· no row in Daily SOH</span>':'')+'</td>'+
       '<td>'+fmt(r.sysWh)+'</td><td>'+(r.inEod?fmt(r.eodWh):'—')+'</td><td'+cls(r.dWh)+'>'+sgn(r.dWh)+'</td>'+
       '<td>'+fmt(r.sysSt)+'</td><td>'+(r.inEod?fmt(r.eodLs):'—')+'</td><td'+cls(r.dSt)+'>'+sgn(r.dSt)+'</td>'+
       '<td><b>'+fmt(r.sysTot)+'</b></td><td>'+(r.inEod?fmt(r.eodTot):'—')+'</td><td'+cls(r.dTot)+'>'+sgn(r.dTot)+'</td></tr>';
   });
   $('#cmpTbl').innerHTML=h+'</tbody>';
+  $$('#cmpTbl tbody tr[data-k]').forEach(tr=>tr.onclick=()=>{
+    const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); OPEN_EDIT=null; return; }
+    $$('#cmpTbl .brkrow').forEach(x=>x.remove());
+    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 10, renderCompare);
+  });
+  if(OPEN_EDIT){ const tr=document.querySelector('#cmpTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 10, renderCompare); }
   const d=new Date(DSOH.date+'T12:00:00');
   $('#cmpInfo').textContent='Daily SOH for '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (tab '+DSOH.tab+') · '+fmt(DSOH.n)+' items · read '+hhmm(DSOH.at)+(DSOH.stale?' · ⚠ could not refresh: '+DSOH.stale:'')+' · '+(cnt.diff||0)+' mismatch';
 }
@@ -1473,7 +1598,7 @@ function showOnly(which){
   $('#toolbar').classList.toggle('hide', which!=='app');
 }
 function setView(v){
-  VIEW=v; try{ localStorage.setItem(LS.view,v); }catch(e){}
+  VIEW=v; OPEN_EDIT=null; $$('.brkrow').forEach(x=>x.remove()); try{ localStorage.setItem(LS.view,v); }catch(e){}
   $$('#viewSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v===v));
   renderAll(); window.scrollTo({top:0});
 }
@@ -1484,6 +1609,10 @@ function renderToolbar(){
   $('#baseInfo').textContent = Object.keys(BASE.items||{}).length+' items · loaded '+hhmm(BASE.loadedAt)+(BASE.by?' by '+BASE.by:'')+
     (ROUND&&ROUND.n?(' · count #'+ROUND.n+' since '+hhmm(ROUND.at)):'');
   $('#unitPill').textContent=fmt(totalUnits());
+  const sb=$('#syncBtn'); const on=!!(FREEZE&&FREEZE.on);
+  sb.classList.toggle('hide', !on); sb.classList.toggle('warnb', on && PENDING.length>0);
+  $('#syncN').textContent=PENDING.length;
+  sb.title = on ? 'Count frozen since '+hhmm(FREEZE.at)+(FREEZE.by?' by '+FREEZE.by:'')+' — packed orders and put-aways are queued ('+PENDING.length+'). Apply them and unfreeze when the count is done.' : '';
 }
 function renderAll(){
   if(!WHO) return;
@@ -1814,7 +1943,82 @@ function totalRows(){
     return {k, it, a, total:a.u, e:it.e, diff:a.u-it.e, touched:a.locs.length>0}; });
 }
 function orphans(){ const out=[]; for(const L in COUNTS) for(const k in COUNTS[L]) if(!itemOf(k)) out.push({L,k,n:COUNTS[L][k].n||k}); return out; }
+/* ============================================================
+   INLINE ITEM EDITOR — Total / Compare: click a row, see every place
+   the product is, fix the numbers right there
+   ============================================================ */
+let OPEN_EDIT=null;                      // item key whose editor is open (survives re-renders)
+function editorHTML(k){
+  const vars=varsOf(k); const q=qOf(k); const it=itemOf(k);
+  const locs=whereIs(k).slice().sort((a,b)=>locSort(a.L,b.L));
+  const num=(id,label,val,extra)=>'<label>'+esc(label)+'<input inputmode="numeric" id="'+id+'" value="'+(val||0)+'" data-init="'+(val||0)+'" '+(extra||'')+'></label>';
+  let h='<div class="ied" data-ied="'+esc(k)+'">';
+  if(!locs.length) h+='<div class="mini">Not found on any shelf — add it below.</div>';
+  locs.forEach((x,i)=>{
+    const v=x.v, id='ie_'+i; const cv=v.cv||{}; const sp=Object.values(cv).reduce((a,b)=>a+(+b||0),0); const un=Math.max(0,(v.c||0)-sp);
+    const extra=Object.keys(cv).filter(y=>!vars.some(z=>z.key===y));
+    h+='<div class="ierow'+(x.u<0?' neg':'')+'" data-l="'+esc(x.L)+'"><div class="iel">'+(isStore(x.L)?'🏬 Store':esc(x.L))+'<small>'+fmt(x.u)+' u'+(v.by?' · '+esc(v.by):'')+(v.at?' · '+esc(hhmm(v.at)):'')+'</small></div><div class="ief">'+
+      num(id+'_s','Case ×'+q,v.s)+num(id+'_b','Boxes',v.b)+num(id+'_d','Damaged',v.d)+
+      (vars.length ? vars.map(z=>num(id+'_v_'+esc(z.key),z.label,cv[z.key],'data-vk="'+esc(z.key)+'"')).join('')+extra.map(y=>num(id+'_v_'+esc(y),y+' (old)',cv[y],'data-vk="'+esc(y)+'"')).join('')+num(id+'_u','Conf · no variation',un)
+                  : num(id+'_c','Confirmed',v.c))+
+      '</div><div class="ieb"><button class="btn sm primary" data-save="'+i+'" disabled>Save</button><button class="btn sm ghost" data-delete="'+i+'" title="Delete this line">✕</button></div></div>';
+  });
+  h+='<div class="ieadd">Add on location: <input id="ie_add" list="ieLocs" placeholder="S-02-2, PL-003, Store…" autocomplete="off"><datalist id="ieLocs">'+allLocs().map(l=>'<option value="'+esc(l.L)+'">').join('')+'</datalist><button class="btn sm" id="ie_addGo">＋ Add</button>'+
+    (it?'<span class="mini">expected '+fmt(it.e||0)+' · 1 case = '+q+'</span>':'')+'</div></div>';
+  return h;
+}
+function wireEditor(root, k, after){
+  const vars=varsOf(k); const locs=whereIs(k).slice().sort((a,b)=>locSort(a.L,b.L));
+  const rows=root.querySelectorAll('.ierow');
+  rows.forEach((row,i)=>{
+    const L=row.dataset.l, ins=[...row.querySelectorAll('input')], save=row.querySelector('[data-save]');
+    const chk=()=>{ let ch=false; ins.forEach(x=>{ const c=String(int(x.value))!==String(x.dataset.init); x.classList.toggle('changed',c); if(c) ch=true; }); save.disabled=!ch; };
+    ins.forEach((x,idx)=>{ x.addEventListener('focus',()=>x.select()); x.addEventListener('input',()=>{ x.value=x.value.replace(/[^0-9-]/g,''); chk(); });
+      x.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); if(e.ctrlKey||e.metaKey||idx===ins.length-1) save.click(); else ins[idx+1].focus(); } }); });
+    save.onclick=()=>{
+      const g=id=>{ const el=row.querySelector('#'+CSS.escape(id)); return el?int(el.value):0; };
+      const id='ie_'+i; const f={s:g(id+'_s'), b:g(id+'_b'), d:g(id+'_d')};
+      if(vars.length){ const cv={}; row.querySelectorAll('input[data-vk]').forEach(x=>{ const n=int(x.value); if(n>0) cv[x.dataset.vk]=n; }); f.c=Object.values(cv).reduce((a,b)=>a+b,0)+g(id+'_u'); f.cv=cv; }
+      else f.c=g(id+'_c');
+      setCellFields(L,k,f); after();
+    };
+    row.querySelector('[data-delete]').onclick=()=>{ const v=COUNTS[L]&&COUNTS[L][k]; if(!v) return; const u=units(k,v);
+      if(!confirm('Delete '+nameOf(k)+' from '+L+' ('+u+' u)?')) return;
+      delete COUNTS[L][k]; if(!Object.keys(COUNTS[L]).length) delete COUNTS[L];
+      if(R) R.child('counts/'+L+'/'+k).remove(); touchStatusOnEdit(L);
+      OPS.log({type:'count', k, n:nameOf(k,v), loc:L, note:'line deleted ('+u+' u)', d:{[L]:OPS.neg(OPS.clean(v))}});
+      toast('Line deleted','warn',1400); after(); };
+  });
+  const add=root.querySelector('#ie_addGo'), inp=root.querySelector('#ie_add');
+  const doAdd=()=>{ const L=locKey(inp.value); if(!L){ inp.focus(); return; }
+    if(COUNTS[L]&&COUNTS[L][k]){ toast('Already on '+L,'info'); return; }
+    const cell={s:0,b:0,d:0,c:0,n:nameOf(k),by:WHO,at:Date.now(),a0:Date.now()};
+    (COUNTS[L]=COUNTS[L]||{})[k]=cell; dbSet('counts/'+L+'/'+k, cell); touchStatusOnEdit(L);
+    OPS.log({type:'count', k, n:nameOf(k), loc:L, note:'added to the shelf'}); after(L); };
+  add.onclick=doAdd; inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doAdd(); } });
+}
+/* write several fields of one line at once; every changed field becomes a history entry */
+function setCellFields(L,k,f){
+  const cell=COUNTS[L]&&COUNTS[L][k]; if(!cell) return;
+  const up={}; let any=false;
+  ['s','b','d','c'].forEach(x=>{ if(f[x]===undefined) return; const v=int(f[x]); if((cell[x]||0)===v) return; logCountEdit(L,k,x,cell[x]||0,v); cell[x]=v; up[x]=v; any=true; });
+  if(f.cv!==undefined){ const ncv=Object.keys(f.cv).length?f.cv:null; if(JSON.stringify(ncv)!==JSON.stringify(cell.cv||null)){ const oldTxt=cvText(k,cell); if(ncv) cell.cv=ncv; else delete cell.cv; delete cell.cvx; up.cv=ncv; up.cvx=null; any=true;
+      OPS.log({type:'count', k, n:nameOf(k), loc:L, f:'c', old:f.c, val:f.c, note:cvText(k,cell)?('variations: '+cvText(k,cell)):'variations cleared'}); } }
+  if(!any) return;
+  cell.by=WHO; cell.at=Date.now(); up.by=WHO; up.at=cell.at; up.n=cell.n||nameOf(k);
+  dbUpdate('counts/'+L+'/'+k, up); touchStatusOnEdit(L); beep('ok');
+}
+/* open the editor under a table row (Total / Compare) */
+function mountEditor(tr, k, colspan, rerender){
+  const old=tr.nextElementSibling; if(old && old.classList.contains('brkrow')) old.remove();
+  const row=document.createElement('tr'); row.className='brkrow';
+  row.innerHTML='<td colspan="'+colspan+'">'+editorHTML(k)+'</td>';
+  tr.after(row);
+  wireEditor(row, k, (focusL)=>{ buildIdx(); rerender(); if(focusL){ const r=document.querySelector('.ierow[data-l="'+CSS.escape(focusL)+'"] input'); if(r) r.focus(); } });
+}
+const editing=()=>{ const a=document.activeElement; return !!(a && a.tagName==='INPUT' && a.closest('.ied')); };
 function renderTotals(){
+  if(editing()) return;                  // someone is typing in the inline editor — do not pull the table from under them
   const rows=totalRows();
   const counted=rows.filter(r=>r.touched).length, bad=rows.filter(r=>r.diff!==0).length, units=rows.reduce((s,r)=>s+r.total,0);
   const exp=rows.reduce((s,r)=>s+r.e,0);
@@ -1849,13 +2053,11 @@ function renderTotals(){
   });
   $('#totTbl').innerHTML=h+'</tbody>';
   $$('#totTbl tbody tr[data-k]').forEach(tr=>tr.onclick=()=>{
-    const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); return; }
-    const k=tr.dataset.k, a=agg(k);
-    const row=document.createElement('tr'); row.className='brkrow';
-    row.innerHTML='<td colspan="12"><div class="brk">'+(a.locs.length?a.locs.map(x=>'<span>'+esc(x.L)+': '+x.u+' ('+
-      [x.v.s?x.v.s+' case':'',x.v.b?x.v.b+' box':'',x.v.d?x.v.d+' dmg':'',x.v.c?x.v.c+' conf':''].filter(Boolean).join(' · ')+')'+(x.v.by?' · '+esc(x.v.by):'')+'</span>').join(''):'<span>not found on any shelf — counted as 0</span>')+'</div></td>';
-    tr.after(row);
+    const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); OPEN_EDIT=null; return; }
+    $$('#totTbl .brkrow').forEach(x=>x.remove());
+    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 12, renderTotals);
   });
+  if(OPEN_EDIT){ const tr=document.querySelector('#totTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 12, renderTotals); }
 }
 function fileStamp(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); return p(d.getMonth()+1)+'-'+p(d.getDate())+'-'+String(d.getFullYear()).slice(2)+' '+p(d.getHours())+p(d.getMinutes()); }
 function exportXlsx(){
@@ -1952,6 +2154,7 @@ $('#newCountBtn').onclick=openNewCount;
 $$('#viewSeg button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
 $('#expXlsx').onclick=exportXlsx;
 $('#histCsv').onclick=exportHistory;
+$('#syncBtn').onclick=openSyncModal;
 $('#cmpCsv').onclick=exportCompare;
 $('#cmpUpd').onclick=()=>refreshDSOH(true);
 $('#cmpQ').addEventListener('input',e=>{ cmpQ=e.target.value; renderCompare(); });
