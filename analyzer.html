@@ -2218,7 +2218,6 @@ function viewWM(root) {
     onchange: e => { UI.wmUncat = e.target.checked; render(); }}), 'Include items missing from the inventory sheet']));
   fbar.appendChild(el('div', {class: 'spacer'}));
   fbar.appendChild(el('button', {class: 'iconbtn', onclick: () => { UI.wmCat = {type: '', brand: '', series: ''}; render(); }}, ['Clear']));
-  root.appendChild(fbar);
   const catOn = !!(sel.type || sel.brand || sel.series);
   const A = Object.assign({}, A0, {rows: A0.rows.filter(r => {
     const inv = DATA.invByKey.get(r.key);
@@ -2254,12 +2253,12 @@ function viewWM(root) {
   });
   root.appendChild(chips);
 
+  root.appendChild(fbar);                       // category filters sit right above the table
   const list = UI.wmMode === 'all' ? A.rows : A.rows.filter(r => r.flags.indexOf(UI.wmMode) >= 0);
   const box = el('div');
   renderTable(box, {id: 'wm:' + UI.wmMode + ':' + catLabel, sortKey: 'name', sortDir: 1, cols: [
     {k: 'name', label: 'Item', wide: true, render: r => nameCell(r) + ' ' + wmFlagChips(r.flags), csv: r => r.name},
     {k: 'flagTxt', label: 'Status', csv: r => r.flagTxt, render: r => '<span style="font-size:12.5px;color:var(--muted)">' + esc(r.flagTxt) + '</span>'},
-    {k: 'type', label: 'Type'}, {k: 'brand', label: 'Brand'}, {k: 'series', label: 'Series'},
     {k: 'sku', label: 'Walmart SKU', render: r => r.sku ? '<span class="num" style="font-size:12px">' + esc(r.sku) + '</span>' : '<span class="zero">—</span>'},
     {k: 'eod', label: 'EOD SOH', type: 'num', hint: 'Total EOD SOH, latest filled day'},
     {k: 'dmg', label: 'Damaged', type: 'num', hint: 'Inventory sheet, column H', render: r => r.dmg ? '<span class="chip crit">' + fmt(r.dmg) + '</span>' : '<span class="zero">0</span>'},
