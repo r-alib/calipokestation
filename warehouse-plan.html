@@ -389,6 +389,7 @@ dialog.wide{max-width:min(900px,95vw)}
           <button class="btn primary" id="syncInv" title="Locations update live from the inventory count. This reloads product photos / barcodes from the inventory workbook.">⟳ Sync</button>
           <button class="btn" id="openReport" title="History — every move, addition, removal, opened case and count edit, here and in the Inventory mode">🕘 History <b id="trCount" style="font-family:var(--mono)">0</b></button>
           <button class="btn" id="showPal" title="Products on pallets (PL-…) — new arrivals and overstock" style="grid-column:1/-1">🧺 Show pallets</button>
+          <button class="btn" id="showDC" title="Damaged units and confirmed units by variation, across every location" style="grid-column:1/-1">🩹 Damaged &amp; Confirmed</button>
         </div>
         <p class="invstat" id="invStat" style="margin:10px 0 0">Not loaded yet.</p>
         <input type="text" id="findItem" style="margin-top:12px" placeholder="Find a product — name or barcode…">
@@ -2142,6 +2143,47 @@ function openHistory(){
   wireUndo();
 }
 
+/* ------------------------------ damaged & confirmed ---------------------- */
+let dcMode = "damaged", dcQ = "";
+const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
+function dcRows(){
+  const out = [];
+  for (const L in COUNTS) for (const k in COUNTS[L]){ const v = COUNTS[L][k]; if (!v) continue;
+    if (dcMode === "damaged"){ if ((v.d || 0) > 0) out.push({k, n:nameOf(k), L, qty:v.d, by:v.by || "", at:v.at || 0}); }
+    else if (v.cv){ for (const vk in v.cv){ const q = +v.cv[vk] || 0; if (q <= 0) continue; const lbl = histVarLabel(k, vk); if (isPlainVar(lbl)) continue; out.push({k, n:nameOf(k), L, variation:lbl, qty:q, by:v.by || "", at:v.at || 0}); } }
+  }
+  const q = nrm(dcQ); const list = q ? out.filter(r => [r.n, r.L, r.variation].some(x => nrm(x).indexOf(q) >= 0)) : out;
+  return list.sort((a, b) => a.n.localeCompare(b.n) || (a.variation || "").localeCompare(b.variation || "") || a.L.localeCompare(b.L, undefined, {numeric:true}));
+}
+function dcTable(){
+  const list = dcRows(), conf = dcMode === "confirmed";
+  return `<table class="rep-tbl"><thead><tr><th>Item</th>${conf ? "<th>Variation</th>" : ""}<th>Location</th><th>${conf ? "Confirmed" : "Damaged"}</th><th>By</th><th>Updated</th></tr></thead><tbody>${
+    list.length ? list.map(r => `<tr><td>${esc(r.n)}</td>${conf ? `<td>${esc(r.variation)}</td>` : ""}<td>${isStore(r.L) ? "🏬 Store" : esc(r.L)}</td><td><b>${fmtN(r.qty)}</b></td><td>${esc(r.by)}</td><td>${r.at ? esc(new Date(r.at).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"})) : ""}</td></tr>`).join("")
+    : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:26px">Nothing here.</td></tr>`}</tbody></table>`;
+}
+function dcCSV(){
+  const conf = dcMode === "confirmed";
+  const rows = [["Item"].concat(conf ? ["Variation"] : []).concat(["Location", conf ? "Confirmed" : "Damaged", "By", "Updated"])]
+    .concat(dcRows().map(r => [r.n].concat(conf ? [r.variation] : []).concat([r.L, r.qty, r.by, r.at ? new Date(r.at).toLocaleString("en-US") : ""])));
+  return "\ufeff" + rows.map(r => r.map(c => { const t = String(c == null ? "" : c); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }).join(",")).join("\r\n");
+}
+function openDC(){
+  let cd = 0, cc = 0;
+  for (const L in COUNTS) for (const k in COUNTS[L]){ const v = COUNTS[L][k]; if (!v) continue; if ((v.d || 0) > 0) cd++; if (v.cv) for (const vk in v.cv){ if (+v.cv[vk] > 0 && !isPlainVar(histVarLabel(k, vk))) cc++; } }
+  openDialog("Damaged & Confirmed",
+    `<p><b>Damaged</b> — every counted line with a Damaged quantity. <b>Confirmed</b> — confirmed units whose variation is a real variation (not Default, not a Case, not “N pc” / “N pack”).</p>
+     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="dcChips"><button class="zone${dcMode === "damaged" ? " on" : ""}" data-m="damaged">✖ Damaged <b>${cd}</b></button><button class="zone${dcMode === "confirmed" ? " on" : ""}" data-m="confirmed">✓ Confirmed · by variation <b>${cc}</b></button></div>
+     <div style="margin-bottom:10px"><input type="text" id="dcQ" placeholder="Filter by item, location, variation…" value="${esc(dcQ)}"></div>
+     <div class="rep-wrap" id="dcWrap" style="max-height:56vh">${dcTable()}</div>`,
+    [{label:"⬇ Download (.csv)", primary:true, act(){ offerFile((dcMode === "confirmed" ? "confirmed-by-variation_" : "damaged_") + stamp() + ".csv", new Blob([dcCSV()], {type:"text/csv;charset=utf-8"})); }},
+     {label:"Close", act:closeDialog}]);
+  dlg.classList.add("wide");
+  const body = $("dlgBody");
+  body.querySelectorAll("#dcChips [data-m]").forEach(b => b.addEventListener("click", () => { dcMode = b.dataset.m; openDC(); }));
+  body.querySelector("#dcQ").addEventListener("input", e => { dcQ = e.target.value; $("dcWrap").innerHTML = dcTable(); });
+}
+$("showDC").addEventListener("click", openDC);
+
 /* ------------------------------ painting --------------------------------- */
 function paintStock(){
   ISL = islandIndex();
@@ -2484,7 +2526,7 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-const PLAN_BUILD = "2026-10-22a · restock hints by pick priority · delete lines · Store zone";
+const PLAN_BUILD = "2026-10-28a · Damaged & Confirmed · restock hints · delete lines";
 let planErr = "";
 function setSyncState(t){
   flagSaved(t);

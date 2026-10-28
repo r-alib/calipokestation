@@ -343,6 +343,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
     <button data-v="where">📍 Locations</button>
     <button data-v="history">🕘 History</button>
     <button data-v="compare">⚖ Compare</button>
+    <button data-v="dc">🩹 Damaged &amp; Confirmed</button>
   </div>
   <div class="spacer"></div>
   <span class="mini" id="baseInfo"></span>
@@ -388,6 +389,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
       <aside class="aside">
         <div class="ahead">
           <div class="fgrid" id="fgrid"></div>
+          <button class="btn sm" id="finishAllBtn" style="width:100%;margin-bottom:8px" title="Every shelf that is Awaiting update or In progress becomes Counted. Not started shelves and the Store are left alone.">✓ Finish all open shelves</button>
           <input id="shelfQ" class="tinput" placeholder="Find / scan a shelf…" autocomplete="off" spellcheck="false">
         </div>
         <div class="slist" id="slist"></div>
@@ -428,6 +430,21 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
     </div>
     <div class="tscroll"><table class="ttbl htbl" id="histTbl"></table></div>
     <p class="mini" style="margin-top:10px">Transfers, stock added or removed (with reason), opened cases, counting edits and shelf status changes — from this screen and from Warehouse Plan. Add / remove / open case / transfer can be undone here.</p>
+  </section>
+
+  <!-- ============ DAMAGED & CONFIRMED ============ -->
+  <section id="view-dc" class="hide">
+    <div class="rcrow" style="margin-bottom:12px">
+      <h1>🩹 Damaged &amp; Confirmed</h1>
+      <div class="spacer"></div>
+      <span class="mini" id="dcInfo"></span>
+      <button class="btn sm" id="dcCsv">⬇ CSV</button>
+      <button class="btn sm" id="dcXlsx">⬇ Excel</button>
+    </div>
+    <div class="chipbar" id="dcChips"></div>
+    <div class="rcrow" style="margin-top:10px"><input id="dcQ" class="tinput" style="max-width:420px" placeholder="Filter by item, location, variation…" autocomplete="off"></div>
+    <div class="tscroll"><table class="ttbl" id="dcTbl"></table></div>
+    <p class="mini" style="margin-top:10px"><b>Damaged</b> — every line with a Damaged quantity. <b>Confirmed</b> — confirmed units whose variation is a real variation (not Default, not a Case, not “N pc” / “N pack”); confirmed units without a variation are left out.</p>
   </section>
 
   <!-- ============ COMPARE ============ -->
@@ -506,7 +523,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-27a · frozen counts + Sync · edit lines right in Total / Compare';
+const BUILD = '2026-10-28a · Finish all · Store = Daily SOH · transferred-from-store · Damaged & Confirmed';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -1521,7 +1538,7 @@ async function refreshDSOH(force){
   if(DSOH_BUSY) return; DSOH_BUSY=true; DSOH_ERR='';
   if(VIEW==='compare') $('#cmpInfo').textContent='Reading Daily SOH…';
   try{ DSOH=await loadDailySOH({force:!!force}); }catch(e){ DSOH_ERR=e.message||String(e); }
-  DSOH_BUSY=false; if(VIEW==='compare') renderCompare();
+  DSOH_BUSY=false; if(VIEW==='compare') renderCompare(); else if(VIEW==='count' && CUR===STORE) renderShelf(true);
 }
 function cmpRows(){
   const rows=[]; const used=new Set(); const D=(DSOH&&DSOH.items)||{};
@@ -1594,7 +1611,7 @@ function exportCompare(){
    ============================================================ */
 function showOnly(which){
   ['gate','load'].forEach(s=>$('#screen-'+s).classList.toggle('hide', s!==which));
-  ['count','total','where','history','compare'].forEach(v=>$('#view-'+v).classList.toggle('hide', which!=='app' || v!==VIEW));
+  ['count','total','where','history','compare','dc'].forEach(v=>$('#view-'+v).classList.toggle('hide', which!=='app' || v!==VIEW));
   $('#toolbar').classList.toggle('hide', which!=='app');
 }
 function setView(v){
@@ -1623,14 +1640,50 @@ function renderAll(){
   else if(VIEW==='where') renderWhere();
   else if(VIEW==='history') renderHistory();
   else if(VIEW==='compare') renderCompare();
+  else if(VIEW==='dc') renderDC();
+}
+/* ============================================================
+   DAMAGED & CONFIRMED — straight from the counted lines
+   ============================================================ */
+let dcMode='damaged', dcQ='';
+const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
+function dcRows(){
+  const out=[];
+  for(const L in COUNTS) for(const k in COUNTS[L]){ const v=COUNTS[L][k]; if(!v) continue;
+    if(dcMode==='damaged'){ if((v.d||0)>0) out.push({k, n:nameOf(k,v), L, qty:v.d, by:v.by||'', at:v.at||0}); }
+    else if(v.cv){ for(const vk in v.cv){ const q=+v.cv[vk]||0; if(q<=0) continue; const lbl=varLabel(k,vk); if(isPlainVar(lbl)) continue; out.push({k, n:nameOf(k,v), L, variation:lbl, qty:q, by:v.by||'', at:v.at||0}); } }
+  }
+  const q=norm(dcQ); const list=q?out.filter(r=>[r.n,r.L,r.variation].some(x=>norm(x).includes(q))):out;
+  return list.sort((a,b)=>a.n.localeCompare(b.n) || (a.variation||'').localeCompare(b.variation||'') || locSort(a.L,b.L));
+}
+function renderDC(){
+  const cnt={damaged:0,confirmed:0};
+  for(const L in COUNTS) for(const k in COUNTS[L]){ const v=COUNTS[L][k]; if(!v) continue; if((v.d||0)>0) cnt.damaged++; if(v.cv) for(const vk in v.cv){ if(+v.cv[vk]>0 && !isPlainVar(varLabel(k,vk))) cnt.confirmed++; } }
+  $('#dcChips').innerHTML=[['damaged','✖ Damaged'],['confirmed','✓ Confirmed · by variation']].map(([k,l])=>'<button class="chip'+(dcMode===k?' on':'')+'" data-m="'+k+'">'+l+'<span class="cnt">'+cnt[k]+'</span></button>').join('');
+  $$('#dcChips [data-m]').forEach(b=>b.onclick=()=>{ dcMode=b.dataset.m; renderDC(); });
+  const list=dcRows(); const units=list.reduce((a,r)=>a+r.qty,0);
+  const conf=dcMode==='confirmed';
+  let h='<thead><tr><th style="text-align:left">Item</th>'+(conf?'<th style="text-align:left">Variation</th>':'')+'<th>Location</th><th>'+(conf?'Confirmed':'Damaged')+'</th><th>By</th><th>Updated</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
+  list.forEach(r=>{ h+='<tr><td style="text-align:left" class="hname">'+esc(r.n)+'</td>'+(conf?'<td style="text-align:left">'+esc(r.variation)+'</td>':'')+'<td>'+(isStore(r.L)?'🏬 Store':esc(r.L))+'</td><td><b>'+fmt(r.qty)+'</b></td><td>'+esc(r.by)+'</td><td>'+esc(hhmm(r.at))+'</td></tr>'; });
+  $('#dcTbl').innerHTML=h+'</tbody>';
+  $('#dcInfo').textContent=list.length+' line(s) · '+fmt(units)+' units';
+}
+function dcGrid(){ const conf=dcMode==='confirmed'; const list=dcRows();
+  return [['Item'].concat(conf?['Variation']:[]).concat(['Location',conf?'Confirmed':'Damaged','By','Updated'])].concat(list.map(r=>[r.n].concat(conf?[r.variation]:[]).concat([r.L,r.qty,r.by,r.at?new Date(r.at).toLocaleString('en-US'):'']))); }
+function exportDC(xlsx){
+  const grid=dcGrid(); const name=(dcMode==='confirmed'?'confirmed by variation ':'damaged ')+fileStamp();
+  if(xlsx){ const ws=XLSX.utils.aoa_to_sheet(grid); ws['!cols']=[{wch:44},{wch:22},{wch:12},{wch:10},{wch:14},{wch:20}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,dcMode==='confirmed'?'Confirmed':'Damaged'); XLSX.writeFile(wb,name+'.xlsx'); return; }
+  const csv=grid.map(r=>r.map(c=>{ const t=String(c==null?'':c); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; }).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'})); a.download=name+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 
 /* ============================================================
    COUNT VIEW — left column
    ============================================================ */
 function renderAside(){
-  const locs=allLocs(); const cnt={all:locs.length,done:0,started:0,todo:0,stale:0};
-  locs.forEach(l=>cnt[shelfState(l.L)]++);
+  const locs=allLocs(); const cnt={all:locs.length,done:0,started:0,todo:0,stale:0,store:0};
+  locs.forEach(l=>{ cnt[shelfState(l.L)]++; if(l.store) cnt.store++; });
   const F=[['all','All'],['done','Counted'],['started','In progress'],['todo','Not started']];
   if(cnt.stale || FILTER==='stale') F.push(['stale','Awaiting update']);
   F.push(['store','🏬 Store']);
@@ -1653,6 +1706,16 @@ function renderAside(){
       '<span class="sm">'+(n?(n+' item'+(n>1?'s':'')+'<br>'+fmt(u)+' u'):(st==='done'?'empty':'—'))+'</span></button>';
   }).join('')).join('');
   $$('#slist [data-l]').forEach(b=>b.onclick=()=>openShelf(b.dataset.l));
+}
+async function finishAll(){
+  const list=allLocs().filter(l=>!l.store && ['stale','started'].includes(shelfState(l.L)));
+  if(!list.length){ toast('No shelf is awaiting update or in progress','info'); return; }
+  if(!confirm('Mark '+list.length+' shelf/shelves as Counted?\n\n'+list.slice(0,12).map(l=>l.id).join(', ')+(list.length>12?' …':'')+'\n\nNot started shelves and the Store are left as they are.')) return;
+  const now=Date.now(), up={};
+  list.forEach(l=>{ STATUS[l.L]={st:'done',by:WHO,at:now}; up[l.L]=STATUS[l.L]; });
+  if(R) await R.child('status').update(up);
+  OPS.log({type:'status', note:'finish all · '+list.length+' shelves marked as counted'});
+  beep('ok'); toast(list.length+' shelves marked as counted','ok',3000); renderAll();
 }
 function openShelf(L){
   CUR=L; try{ localStorage.setItem(LS.shelf,L); }catch(e){}
@@ -1679,6 +1742,7 @@ function renderShelf(force){
     return;
   }
   const L=CUR, l=locOf(L), st=shelfState(L), locked=st==='done';
+  if(isStore(L)){ renderStoreShelf(host); return; }
   const keys=shelfRowKeys(L);
   const sig=L+'|'+st+'|'+keys.join(',');
   if(!force && sig===shelfSig && $('#rows')){ keys.forEach(k=>patchRow(L,k)); patchShelfHead(L); return; }
@@ -1724,6 +1788,27 @@ function renderShelf(force){
   }
   wireRows(L);
   if(aeId && document.getElementById(aeId)){ const el=document.getElementById(aeId); el.focus(); try{ el.setSelectionRange(selS,selE); }catch(e){} }
+}
+/* the Store is not counted here: it shows the Daily SOH (LS EOD SOH) as it is, non-zero rows only */
+function renderStoreShelf(host){
+  shelfSig=''; host.dataset.l=STORE;
+  if(!DSOH && !DSOH_ERR && !DSOH_BUSY){ refreshDSOH(false); }
+  const items=DSOH&&DSOH.items ? Object.values(DSOH.items).filter(x=>(x.ls||0)!==0).sort((a,b)=>(b.ls||0)-(a.ls||0) || a.n.localeCompare(b.n)) : [];
+  const tot=items.reduce((a,x)=>a+(x.ls||0),0);
+  const counted=shelfItems(STORE);
+  host.innerHTML='<div class="shead"><div><div class="eyebrow">Store · shop display</div><h1>🏬 Store</h1></div>'+
+    '<span class="stag st-done" style="background:#11233a;color:var(--info)">Daily SOH</span><div class="spacer"></div>'+
+    '<div class="kvs" style="grid-template-columns:repeat(2,minmax(96px,1fr)); min-width:220px"><div class="kv"><div class="n">'+items.length+'</div><div class="l">products</div></div><div class="kv"><div class="n">'+fmt(tot)+'</div><div class="l">units</div></div></div>'+
+    '<button class="btn" id="storeUpd">↻ Update</button></div>'+
+    '<div class="warnbox" style="border-left-color:var(--info)">What the shop has comes from the Daily SOH sheet, column <b>LS EOD SOH</b>'+(DSOH?' for <b>'+esc(DSOH.date)+'</b> (read '+esc(hhmm(DSOH.at))+')':'')+'. It is shown as it is — nothing here is counted or edited.'+(DSOH_ERR?' <span style="color:var(--err)">Could not read the sheet: '+esc(DSOH_ERR)+'</span>':'')+(DSOH_BUSY?' Reading…':'')+'</div>'+
+    '<div class="rcrow" style="margin-top:10px"><input id="storeQ" class="tinput" style="max-width:360px" placeholder="Filter…" autocomplete="off"></div>'+
+    '<div class="tscroll" style="margin-top:10px"><table class="ttbl" id="storeTbl"></table></div>'+
+    (counted.length?'<p class="mini" style="margin-top:10px">Also counted on the STORE location earlier: '+counted.map(k=>esc(nameOf(k))+' '+fmt(units(k,COUNTS[STORE][k]))).join(' · ')+'</p>':'');
+  const draw=()=>{ const q=norm($('#storeQ').value); const list=q?items.filter(x=>norm(x.n).includes(q)):items;
+    $('#storeTbl').innerHTML='<thead><tr><th style="text-align:left">Item</th><th>LS EOD SOH</th><th>WH EOD SOH</th></tr></thead><tbody>'+
+      (list.length?list.map(x=>'<tr><td style="text-align:left" class="hname">'+esc(x.n)+'</td><td><b>'+fmt(x.ls)+'</b></td><td style="color:var(--muted)">'+fmt(x.wh)+'</td></tr>').join(''):'<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:30px">'+(DSOH?'Nothing in the store.':'Daily SOH not loaded yet.')+'</td></tr>')+'</tbody>'; };
+  draw(); $('#storeQ').addEventListener('input',draw);
+  $('#storeUpd').onclick=async()=>{ $('#storeUpd').disabled=true; await refreshDSOH(true); if(CUR===STORE && VIEW==='count') renderShelf(true); };
 }
 function patchShelfHead(L){
   const kv=$('#shKv'); if(!kv) return;
@@ -1963,7 +2048,9 @@ function editorHTML(k){
                   : num(id+'_c','Confirmed',v.c))+
       '</div><div class="ieb"><button class="btn sm primary" data-save="'+i+'" disabled>Save</button><button class="btn sm ghost" data-delete="'+i+'" title="Delete this line">✕</button></div></div>';
   });
+  const negs=locs.filter(x=>['s','b','c','d'].some(f=>(x.v[f]||0)<0));
   h+='<div class="ieadd">Add on location: <input id="ie_add" list="ieLocs" placeholder="S-02-2, PL-003, Store…" autocomplete="off"><datalist id="ieLocs">'+allLocs().map(l=>'<option value="'+esc(l.L)+'">').join('')+'</datalist><button class="btn sm" id="ie_addGo">＋ Add</button>'+
+    (negs.length?'<button class="btn sm" id="ie_fromStore" style="border-color:var(--info);color:var(--info)" title="The missing units were taken from the shop — the minus is cleared and logged as a transfer from the store">🏬 All transferred from store · clear '+negs.map(x=>esc(x.L)).join(', ')+'</button>':'')+
     (it?'<span class="mini">expected '+fmt(it.e||0)+' · 1 case = '+q+'</span>':'')+'</div></div>';
   return h;
 }
@@ -1996,6 +2083,15 @@ function wireEditor(root, k, after){
     (COUNTS[L]=COUNTS[L]||{})[k]=cell; dbSet('counts/'+L+'/'+k, cell); touchStatusOnEdit(L);
     OPS.log({type:'count', k, n:nameOf(k), loc:L, note:'added to the shelf'}); after(L); };
   add.onclick=doAdd; inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doAdd(); } });
+  const fs=root.querySelector('#ie_fromStore'); if(fs) fs.onclick=async()=>{
+    fs.disabled=true;
+    try{
+      for(const x of locs){ const v=COUNTS[x.L]&&COUNTS[x.L][k]; if(!v) continue; const d={}; ['s','b','c','d'].forEach(f=>{ if((v[f]||0)<0) d[f]=-v[f]; });
+        if(Object.keys(d).length) await OPS.add(k, x.L, d, 'Transferred from store', 'minus cleared — units came from the shop'); }
+      toast('Cleared — logged as transferred from the store','ok');
+    }catch(e){ toast(e.message,'err',4000); }
+    after();
+  };
 }
 /* write several fields of one line at once; every changed field becomes a history entry */
 function setCellFields(L,k,f){
@@ -2155,6 +2251,9 @@ $$('#viewSeg button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
 $('#expXlsx').onclick=exportXlsx;
 $('#histCsv').onclick=exportHistory;
 $('#syncBtn').onclick=openSyncModal;
+$('#finishAllBtn').onclick=finishAll;
+$('#dcCsv').onclick=()=>exportDC(false); $('#dcXlsx').onclick=()=>exportDC(true);
+$('#dcQ').addEventListener('input',e=>{ dcQ=e.target.value; renderDC(); });
 $('#cmpCsv').onclick=exportCompare;
 $('#cmpUpd').onclick=()=>refreshDSOH(true);
 $('#cmpQ').addEventListener('input',e=>{ cmpQ=e.target.value; renderCompare(); });

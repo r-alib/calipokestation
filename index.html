@@ -381,6 +381,13 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .guidechips:empty{display:none}
 .fchip{display:inline-flex; align-items:center; gap:7px; background:var(--panel2); border:1px solid var(--line); color:var(--ink); border-radius:99px; padding:6px 13px; font-size:13px; font-weight:500}
 .fchip:hover{border-color:var(--err); color:var(--err)}
+.seg.gt{display:inline-flex; gap:4px; background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:4px}
+.seg.gt button{background:none; border:0; border-radius:9px; padding:8px 14px; font-weight:600; color:var(--muted); font-size:14px}
+.seg.gt button.on{background:var(--raised); color:var(--ink)}
+.gchip{display:inline-flex; align-items:center; gap:7px; background:var(--panel2); border:1px solid var(--line); color:var(--muted); border-radius:99px; padding:6px 13px; font-size:13px; font-weight:600}
+.gchip b{font-family:var(--mono)} .gchip.on{border-color:var(--accent); color:var(--accent); background:#11211a}
+#dcTbl th{text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--line)}
+#dcTbl td{padding:7px 10px; border-bottom:1px solid var(--border)}
 .gtags{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px}
 .gtag{font-size:11.5px; padding:3px 9px; border-radius:7px; border:1px solid var(--border); color:var(--muted); background:var(--raised)}
 .gtag.type{color:var(--info); border-color:#23395c}
@@ -809,7 +816,16 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn ghost" id="guideSoh" title="Store quantities come from the Daily SOH sheet (LS EOD SOH, latest filled day). Re-read now — it also refreshes itself at 7:00 and 16:00.">↻ Daily SOH <span class="mono" id="guideSohInfo" style="opacity:.75">…</span></button>
       <div class="pill" id="guideCount">—</div>
     </div>
-    <div class="card">
+    <div class="seg gt" id="guideTabs" style="margin-bottom:12px"><button data-gt="items" class="on">📖 Products</button><button data-gt="dc">🩹 Damaged &amp; Confirmed</button></div>
+    <div class="card hide" id="guideDC">
+      <div class="srcrow"><div class="guidechips" id="dcChips" style="margin:0"></div><div class="spacer"></div>
+        <span class="sub" id="dcInfo" style="font-size:12.5px"></span>
+        <button class="btn ghost" id="dcCsv">⬇ CSV</button><button class="btn ghost" id="dcXlsx">⬇ Excel</button></div>
+      <div class="srcrow" style="margin-top:10px"><input id="dcQ" class="tinput" autocomplete="off" placeholder="Filter by item, location, variation…" style="max-width:420px"></div>
+      <div class="tscroll" style="margin-top:10px;overflow:auto"><table class="rtbl" id="dcTbl" style="width:100%"></table></div>
+      <p class="sub" style="font-size:12.5px;margin-top:10px"><b>Damaged</b> — every counted line with a Damaged quantity. <b>Confirmed</b> — confirmed units whose variation is a real variation (not Default, not a Case, not “N pc” / “N pack”). Live from the inventory count.</p>
+    </div>
+    <div class="card" id="guideSearchCard">
       <div class="srcrow"><input id="guideName" class="tinput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Search by name, or scan / type a barcode…" style="min-width:240px">
         <button class="btn primary" id="guideCam" title="Scan with the phone camera">📷 Camera</button>
         <button class="btn ghost" id="guideClear">✕ Clear</button></div>
@@ -990,7 +1006,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-10-27b · Return Tracker · Transfer Request · Ops Hub tiles · frozen count & Sync';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-28a · Guidebook: Damaged & Confirmed tab · Return Tracker · frozen count & Sync';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1160,7 +1176,7 @@ function buildShelfIdx(counts){
   for(const list of m.values()) list.sort((a,b)=>pri(a.L)-pri(b.L) || a.L.localeCompare(b.L,undefined,{numeric:true}));
   SHELF = m; CELLS = cells; NAMEK = nk;
   clearTimeout(shelfT);
-  shelfT=setTimeout(()=>{ if(['pack','picking','guide'].includes(curScreen)) renderCurrent(); }, 1200);
+  shelfT=setTimeout(()=>{ if(['pack','picking','guide'].includes(curScreen)) renderCurrent(); if(curScreen==='guide' && guideTab==='dc') renderDC(); }, 1200);
 }
 /* units per case for a count key (from the counting workbook base), 1 when unknown */
 function qPerCase(k){ const it=STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[k]; return (it && it.q>0) ? +it.q : 1; }
@@ -2747,7 +2763,40 @@ function renderPicking(){
    ============================================================ */
 let guideF={type:'',brand:'',series:'',name:''};
 let guideFrom='platforms';
-function enterGuide(from){ dsohInfo(); guideFrom=from||'platforms'; show('guide'); guideAutoLoad(); buildGuideFilters(); renderGuide(); const i=$('#guideName'); if(i){ i.value=guideF.name||''; i.focus(); } }
+function enterGuide(from){ dsohInfo(); guideFrom=from||'platforms'; show('guide'); guideAutoLoad(); buildGuideFilters(); setGuideTab(guideTab); const i=$('#guideName'); if(i && guideTab==='items'){ i.value=guideF.name||''; i.focus(); } }
+/* ---- Damaged & Confirmed (from the live inventory count) ---- */
+let guideTab='items', dcMode='damaged', dcQ='';
+const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
+function varLabelOf(name, vk){ const c=clean(name); for(const ik in S.inventory){ const iv=S.inventory[ik]; if(clean(iv.name)===c && clean(iv.variation)===vk) return iv.variation; } return vk; }
+function setGuideTab(t){ guideTab=t; $$('#guideTabs button').forEach(b=>b.classList.toggle('on', b.dataset.gt===t));
+  $('#guideDC').classList.toggle('hide', t!=='dc'); $('#guideSearchCard').classList.toggle('hide', t!=='items'); $('#guideResults').classList.toggle('hide', t!=='items');
+  if(t==='dc') renderDC(); else renderGuide(); }
+function dcRows(){
+  const out=[];
+  CELLS.forEach((cells,k)=>{ for(const L in cells){ const v=cells[L]; if(!v) continue; const n=v.n||nameOfKey(k);
+    if(dcMode==='damaged'){ if((v.d||0)>0) out.push({n, L, qty:v.d, by:v.by||'', at:v.at||0}); }
+    else if(v.cv){ for(const vk in v.cv){ const q=+v.cv[vk]||0; if(q<=0) continue; const lbl=varLabelOf(n,vk); if(isPlainVar(lbl)) continue; out.push({n, L, variation:lbl, qty:q, by:v.by||'', at:v.at||0}); } } } });
+  const q=norm(dcQ); const list=q?out.filter(r=>[r.n,r.L,r.variation].some(x=>norm(x).includes(q))):out;
+  return list.sort((a,b)=>a.n.localeCompare(b.n) || (a.variation||'').localeCompare(b.variation||'') || a.L.localeCompare(b.L,undefined,{numeric:true}));
+}
+function renderDC(){
+  if(guideTab!=='dc') return;
+  let cd=0, cc=0; CELLS.forEach((cells,k)=>{ for(const L in cells){ const v=cells[L]; if(!v) continue; if((v.d||0)>0) cd++; if(v.cv) for(const vk in v.cv){ if(+v.cv[vk]>0 && !isPlainVar(varLabelOf(v.n||nameOfKey(k),vk))) cc++; } } });
+  $('#dcChips').innerHTML='<button class="gchip'+(dcMode==='damaged'?' on':'')+'" data-m="damaged">✖ Damaged <b>'+cd+'</b></button><button class="gchip'+(dcMode==='confirmed'?' on':'')+'" data-m="confirmed">✓ Confirmed · by variation <b>'+cc+'</b></button>';
+  $$('#dcChips [data-m]').forEach(b=>b.onclick=()=>{ dcMode=b.dataset.m; renderDC(); });
+  const list=dcRows(), conf=dcMode==='confirmed', units=list.reduce((a,r)=>a+r.qty,0);
+  let h='<thead><tr><th>Item</th>'+(conf?'<th>Variation</th>':'')+'<th>Location</th><th class="num">'+(conf?'Confirmed':'Damaged')+'</th><th>By</th><th>Updated</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:26px">Nothing here.</td></tr>';
+  list.forEach(r=>{ h+='<tr><td>'+esc(r.n)+'</td>'+(conf?'<td>'+esc(r.variation)+'</td>':'')+'<td class="mono">'+(isStoreLoc(r.L)?'🏬 Store':esc(r.L))+'</td><td class="num"><b>'+fmtN(r.qty)+'</b></td><td>'+esc(r.by)+'</td><td class="mono">'+esc(fmtTime(r.at)||'')+'</td></tr>'; });
+  $('#dcTbl').innerHTML=h+'</tbody>';
+  $('#dcInfo').textContent=list.length+' line(s) · '+fmtN(units)+' units';
+}
+function dcGrid(){ const conf=dcMode==='confirmed'; return [['Item'].concat(conf?['Variation']:[]).concat(['Location',conf?'Confirmed':'Damaged','By','Updated'])].concat(dcRows().map(r=>[r.n].concat(conf?[r.variation]:[]).concat([r.L,r.qty,r.by,r.at?new Date(r.at).toLocaleString('en-US'):'']))); }
+function exportDC(xlsx){
+  const grid=dcGrid(); const d=new Date(); const name=(dcMode==='confirmed'?'confirmed_by_variation_':'damaged_')+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(xlsx && window.XLSX){ const ws=XLSX.utils.aoa_to_sheet(grid); ws['!cols']=[{wch:44},{wch:22},{wch:12},{wch:10},{wch:14},{wch:20}]; const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,dcMode==='confirmed'?'Confirmed':'Damaged'); XLSX.writeFile(wb,name+'.xlsx'); return; }
+  downloadCSV(grid, name+'.csv');
+}
 /* the guidebook must work even when no shift is loaded: fall back to the locally
    cached company catalog, and pull the sheet once if we have nothing at all */
 function guideSource(){
@@ -4194,6 +4243,9 @@ $('#guideBack').onclick=()=>{ guideFrom==='menu'?goMenu():goPlatforms(); };
 $('#guideCam').onclick=openCam;
 $('#guideClear').onclick=()=>{ guideF.name=''; const i=$('#guideName'); if(i){ i.value=''; i.focus(); } renderGuide(); };
 $('#guideSoh').onclick=()=>dsohTick(true);
+$$('#guideTabs button').forEach(b=>b.onclick=()=>setGuideTab(b.dataset.gt));
+$('#dcCsv').onclick=()=>exportDC(false); $('#dcXlsx').onclick=()=>exportDC(true);
+$('#dcQ').addEventListener('input',e=>{ dcQ=e.target.value; renderDC(); });
 $('#guideName').addEventListener('input',e=>{ guideF.name=e.target.value; renderGuide(); });
 $('#guideType').addEventListener('change',e=>{ guideF.type=e.target.value; renderGuide(); });
 $('#guideBrand').addEventListener('change',e=>{ guideF.brand=e.target.value; renderGuide(); });
