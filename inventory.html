@@ -412,7 +412,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
       <input id="totFilter" class="tinput" style="max-width:340px" placeholder="Find an item…" autocomplete="off">
     </div>
     <div class="tscroll"><table class="ttbl" id="totTbl"></table></div>
-    <p class="mini" style="margin-top:10px">Total = Case × qty per case (<b>helper</b> tab) + Boxes + Damaged + Confirmed, summed over every shelf. Expected = column J of the date tab. Rows keep the exact order of the date tab — the export lines up with the sheet row for row. Click a row to see where it was counted.</p>
+    <p class="mini" style="margin-top:10px"><b>WH</b> = Case × qty per case (<b>helper</b> tab) + Boxes + Damaged + Confirmed, summed over every warehouse shelf. <b>Store</b> = the Daily SOH (LS EOD SOH), shown for reference. Expected = column J of the date tab; Diff = WH − Expected. Rows keep the exact order of the date tab — the export lines up with the sheet row for row. Click a row to see where it was counted.</p>
   </section>
 
   <!-- ============ HISTORY ============ -->
@@ -456,7 +456,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
       <button class="btn sm" id="cmpCsv">⬇ CSV</button>
       <button class="btn sm primary" id="cmpUpd">↻ Update</button>
     </div>
-    <div class="mini" style="margin-bottom:10px">System = what is counted here (<b>WH</b> = every location except the store · <b>Store</b> = the STORE location). Daily SOH = <b>WH EOD SOH</b> / <b>LS EOD SOH</b> columns of the Daily SOH workbook, latest filled day.</div>
+    <div class="mini" style="margin-bottom:10px"><b>WH · counted</b> = every counted location except the store, compared with <b>WH EOD SOH</b> of the Daily SOH workbook (latest filled day). The shop is not counted here — its <b>LS EOD SOH</b> is shown for reference only.</div>
     <div class="chipbar" id="cmpChips"></div>
     <div class="rcrow" style="margin-top:10px">
       <input id="cmpQ" class="tinput" style="max-width:420px" placeholder="Filter by item…" autocomplete="off">
@@ -523,7 +523,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-28a · Finish all · Store = Daily SOH · transferred-from-store · Damaged & Confirmed';
+const BUILD = '2026-10-29a · Store = Daily SOH everywhere (Total, Locations, Compare, shelf list) · Finish all · Damaged & Confirmed';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -631,7 +631,12 @@ function whereIs(k){
   for(const L in COUNTS){ const v=COUNTS[L][k]; if(v) out.push({L, v, u:units(k,v)}); }
   return out.sort((a,b)=>locSort(a.L,b.L));
 }
-function agg(k){ const a={s:0,b:0,d:0,c:0,u:0,wh:0,st:0,locs:whereIs(k)}; a.locs.forEach(x=>{ a.s+=x.v.s||0; a.b+=x.v.b||0; a.d+=x.v.d||0; a.c+=x.v.c||0; a.u+=x.u; if(isStore(x.L)) a.st+=x.u; else a.wh+=x.u; }); return a; }
+/* the shop's stock is the Daily SOH (LS EOD SOH) — never counted here */
+function storeQty(k){ if(!DSOH||!DSOH.items) return 0; const n=nameOf(k); const d=DSOH.items[norm(n)] || DSOH.items[dsohByClean(clean(n))]; return d ? (+d.ls||0) : 0; }
+let _dsohClean=null, _dsohCleanAt=0;
+function dsohByClean(c){ if(!DSOH||!DSOH.items) return ''; if(_dsohCleanAt!==DSOH.at){ _dsohClean={}; for(const n in DSOH.items) _dsohClean[clean(DSOH.items[n].n)]=n; _dsohCleanAt=DSOH.at; } return _dsohClean[c]||''; }
+/* WH = counted lines (every location but the store) · Store = Daily SOH · Total = WH + Store */
+function agg(k){ const a={s:0,b:0,d:0,c:0,u:0,wh:0,st:0,locs:whereIs(k).filter(x=>!isStore(x.L))}; a.locs.forEach(x=>{ a.s+=x.v.s||0; a.b+=x.v.b||0; a.d+=x.v.d||0; a.c+=x.v.c||0; a.wh+=x.u; }); a.st=storeQty(k); a.u=a.wh; a.all=a.wh+a.st; return a; }   // u (what Diff compares with Expected) is the warehouse; all = WH + Store
 function totalUnits(){ let u=0; for(const L in COUNTS) u+=shelfUnits(L); return u; }
 
 /* ---------------- indexes ---------------- */
@@ -982,6 +987,10 @@ function makeStockOps(env){
        variations), or a number of units (taken automatically) */
     async transfer(k, from, to, what){
       need(from && to, 'Choose both places'); need(from !== to, 'That is the same place');
+      /* the shop is not counted here (its stock is the Daily SOH): a move to the store leaves the
+         warehouse as a removal, a move from the store arrives as an addition — both with a clear reason */
+      if (to === 'STORE') return this.remove(k, from, what, 'Transferred to store', 'moved to the shop');
+      if (from === 'STORE'){ const d = (what && typeof what === 'object') ? what : {b:Math.floor(+what || 0)}; return this.add(k, to, d, 'Transferred from store', 'moved from the shop'); }
       if (what && typeof what === 'object'){
         const d = clean(what); need(!isZero(d), 'Enter what to move');
         const a = await applyDelta(from, k, neg(d)); need(a, 'Not that much of it in ' + from);
@@ -1100,8 +1109,8 @@ function histChange(rec, q){
 }
 function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' + rec.to) : (rec.loc || Object.keys(rec.d || {}).join(', ')); }
 const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
-const REASONS_ADD = ['New shipment', 'Return', 'Other'];
-const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
+const REASONS_ADD = ['New shipment', 'Return', 'Transferred from store', 'Other'];
+const REASONS_REMOVE = ['Employee purchase', 'Transferred to store', 'Discrepancy', 'Other'];
 const REASONS_DELETE = ['Verified — not here', 'Missed transfer (already moved)', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
 
@@ -1538,7 +1547,7 @@ async function refreshDSOH(force){
   if(DSOH_BUSY) return; DSOH_BUSY=true; DSOH_ERR='';
   if(VIEW==='compare') $('#cmpInfo').textContent='Reading Daily SOH…';
   try{ DSOH=await loadDailySOH({force:!!force}); }catch(e){ DSOH_ERR=e.message||String(e); }
-  DSOH_BUSY=false; if(VIEW==='compare') renderCompare(); else if(VIEW==='count' && CUR===STORE) renderShelf(true);
+  DSOH_BUSY=false; _dsohCleanAt=0; renderAll();
 }
 function cmpRows(){
   const rows=[]; const used=new Set(); const D=(DSOH&&DSOH.items)||{};
@@ -1547,22 +1556,19 @@ function cmpRows(){
     const n=nameOf(k), a=agg(k);
     let dk=norm(n); if(!D[dk]) dk=byClean[clean(n)]||null;
     const d=dk?D[dk]:null; if(dk) used.add(dk);
-    rows.push({k, n, sysWh:a.wh, sysSt:a.st, eodWh:d?d.wh:null, eodLs:d?d.ls:null, inEod:!!d});
+    rows.push({k, n, sysWh:a.wh, eodWh:d?d.wh:null, eodLs:d?d.ls:null, inEod:!!d});
   });
-  Object.keys(D).forEach(dk=>{ if(used.has(dk)) return; const d=D[dk]; rows.push({k:null, n:d.n, sysWh:0, sysSt:0, eodWh:d.wh, eodLs:d.ls, inEod:true, onlyEod:true}); });
-  rows.forEach(r=>{ r.dWh=r.inEod?r.sysWh-(r.eodWh||0):null; r.dSt=r.inEod?r.sysSt-(r.eodLs||0):null;
-    r.sysTot=r.sysWh+r.sysSt; r.eodTot=r.inEod?(r.eodWh||0)+(r.eodLs||0):null; r.dTot=r.inEod?r.sysTot-r.eodTot:null;
-    r.state = r.onlyEod?'onlyeod' : !r.inEod?'noeod' : (r.dWh||r.dSt)?'diff':'ok'; });
-  rows.sort((a,b)=>Math.abs((b.dWh||0))+Math.abs((b.dSt||0)) - Math.abs((a.dWh||0))-Math.abs((a.dSt||0)) || a.n.localeCompare(b.n));
+  Object.keys(D).forEach(dk=>{ if(used.has(dk)) return; const d=D[dk]; rows.push({k:null, n:d.n, sysWh:0, eodWh:d.wh, eodLs:d.ls, inEod:true, onlyEod:true}); });
+  rows.forEach(r=>{ r.dWh=r.inEod?r.sysWh-(r.eodWh||0):null;
+    r.state = r.onlyEod?'onlyeod' : !r.inEod?'noeod' : r.dWh?'diff':'ok'; });
+  rows.sort((a,b)=>Math.abs((b.dWh||0)) - Math.abs((a.dWh||0)) || a.n.localeCompare(b.n));
   return rows;
 }
 function cmpFiltered(all){
   let list=all;
   if(cmpMode==='diff') list=list.filter(r=>r.state==='diff');
-  else if(cmpMode==='wh') list=list.filter(r=>r.inEod && r.dWh);
-  else if(cmpMode==='store') list=list.filter(r=>r.inEod && r.dSt);
   else if(cmpMode!=='all') list=list.filter(r=>r.state===cmpMode);
-  if($('#cmpHideZero').checked) list=list.filter(r=>r.sysTot||r.eodTot);
+  if($('#cmpHideZero').checked) list=list.filter(r=>r.sysWh||r.eodWh||r.eodLs);
   const q=norm(cmpQ); if(q) list=list.filter(r=>norm(r.n).includes(q));
   return list;
 }
@@ -1573,34 +1579,32 @@ function renderCompare(){
   if(!DSOH){ $('#cmpTbl').innerHTML=''; $('#cmpChips').innerHTML=''; $('#cmpInfo').textContent=DSOH_BUSY?'Reading Daily SOH…':('Daily SOH not available: '+DSOH_ERR); return; }
   const all=cmpRows();
   const cnt={all:all.length}; all.forEach(r=>cnt[r.state]=(cnt[r.state]||0)+1);
-  cnt.wh=all.filter(r=>r.inEod&&r.dWh).length; cnt.store=all.filter(r=>r.inEod&&r.dSt).length;
-  const C=[['all','All'],['diff','Mismatch'],['wh','WH differs'],['store','Store differs'],['ok','Match'],['noeod','Not in Daily SOH'],['onlyeod','Only in Daily SOH']];
+  const C=[['all','All'],['diff','WH mismatch'],['ok','Match'],['noeod','Not in Daily SOH'],['onlyeod','Only in Daily SOH']];
   $('#cmpChips').innerHTML=C.map(([k,l])=>'<button class="chip'+(cmpMode===k?' on':'')+'" data-c="'+k+'">'+l+'<span class="cnt">'+(cnt[k]||0)+'</span></button>').join('');
   $$('#cmpChips [data-c]').forEach(b=>b.onclick=()=>{ cmpMode=b.dataset.c; renderCompare(); });
   const list=cmpFiltered(all);
-  let h='<thead><tr><th style="text-align:left">Item</th><th>WH · system</th><th>WH EOD SOH</th><th>Δ WH</th><th>Store · system</th><th>LS EOD SOH</th><th>Δ Store</th><th>Total · system</th><th>Total EOD</th><th>Δ Total</th></tr></thead><tbody>';
-  if(!list.length) h+='<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
+  let h='<thead><tr><th style="text-align:left">Item</th><th>WH · counted</th><th>WH EOD SOH</th><th>Δ WH</th><th title="The shop is not counted here — this is the Daily SOH figure">Store · LS EOD SOH</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
   list.forEach(r=>{
     const cls=v=>v==null?'':(v?' class="cdiff"':' class="cok"');
     h+='<tr class="cst-'+r.state+'"'+(r.k?' data-k="'+esc(r.k)+'"':'')+'><td style="text-align:left" class="hname">'+esc(r.n)+(r.onlyEod?' <span class="mini">· not in the counting workbook</span>':'')+(!r.inEod?' <span class="mini">· no row in Daily SOH</span>':'')+'</td>'+
       '<td>'+fmt(r.sysWh)+'</td><td>'+(r.inEod?fmt(r.eodWh):'—')+'</td><td'+cls(r.dWh)+'>'+sgn(r.dWh)+'</td>'+
-      '<td>'+fmt(r.sysSt)+'</td><td>'+(r.inEod?fmt(r.eodLs):'—')+'</td><td'+cls(r.dSt)+'>'+sgn(r.dSt)+'</td>'+
-      '<td><b>'+fmt(r.sysTot)+'</b></td><td>'+(r.inEod?fmt(r.eodTot):'—')+'</td><td'+cls(r.dTot)+'>'+sgn(r.dTot)+'</td></tr>';
+      '<td style="color:var(--info)">'+(r.inEod?fmt(r.eodLs):'—')+'</td></tr>';
   });
   $('#cmpTbl').innerHTML=h+'</tbody>';
   $$('#cmpTbl tbody tr[data-k]').forEach(tr=>tr.onclick=()=>{
     const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); OPEN_EDIT=null; return; }
     $$('#cmpTbl .brkrow').forEach(x=>x.remove());
-    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 10, renderCompare);
+    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 5, renderCompare);
   });
-  if(OPEN_EDIT){ const tr=document.querySelector('#cmpTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 10, renderCompare); }
+  if(OPEN_EDIT){ const tr=document.querySelector('#cmpTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 5, renderCompare); }
   const d=new Date(DSOH.date+'T12:00:00');
   $('#cmpInfo').textContent='Daily SOH for '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (tab '+DSOH.tab+') · '+fmt(DSOH.n)+' items · read '+hhmm(DSOH.at)+(DSOH.stale?' · ⚠ could not refresh: '+DSOH.stale:'')+' · '+(cnt.diff||0)+' mismatch';
 }
 function exportCompare(){
   if(!DSOH) return;
-  const rows=[['Item','WH system','WH EOD SOH','Diff WH','Store system','LS EOD SOH','Diff Store','Total system','Total EOD','Diff Total','Status']];
-  cmpFiltered(cmpRows()).forEach(r=>rows.push([r.n,r.sysWh,r.eodWh==null?'':r.eodWh,r.dWh==null?'':r.dWh,r.sysSt,r.eodLs==null?'':r.eodLs,r.dSt==null?'':r.dSt,r.sysTot,r.eodTot==null?'':r.eodTot,r.dTot==null?'':r.dTot,r.state]));
+  const rows=[['Item','WH counted','WH EOD SOH','Diff WH','Store (LS EOD SOH)','Status']];
+  cmpFiltered(cmpRows()).forEach(r=>rows.push([r.n,r.sysWh,r.eodWh==null?'':r.eodWh,r.dWh==null?'':r.dWh,r.eodLs==null?'':r.eodLs,r.state]));
   const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?'':c); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
   a.download='compare daily soh '+DSOH.date+' '+fileStamp()+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
@@ -1700,7 +1704,8 @@ function renderAside(){
   });
   if(!groups.length){ $('#slist').innerHTML='<div class="empty" style="padding:20px">No shelves match.</div>'; return; }
   $('#slist').innerHTML=groups.map(g=>'<div class="sgroup">'+esc(g.t)+' · '+g.list.length+'</div>'+g.list.map(({l,st})=>{
-    const n=shelfItems(l.L).length, u=shelfUnits(l.L);
+    let n=shelfItems(l.L).length, u=shelfUnits(l.L);
+    if(l.store && DSOH && DSOH.items){ const its=Object.values(DSOH.items).filter(x=>(x.ls||0)>0); n=its.length; u=its.reduce((a,x)=>a+x.ls,0); }
     return '<button class="stile '+st+(CUR===l.L?' sel':'')+(l.extra?' extra':'')+(l.store?' storet':'')+'" data-l="'+esc(l.L)+'" title="'+esc(l.store?'The shop — everything on display / in the store':STATE_LABEL[st])+'">'+
       '<span class="sdot"></span><span class="sid">'+(l.store?'🏬 ':'')+esc(l.id)+'</span>'+
       '<span class="sm">'+(n?(n+' item'+(n>1?'s':'')+'<br>'+fmt(u)+' u'):(st==='done'?'empty':'—'))+'</span></button>';
@@ -2137,14 +2142,14 @@ function renderTotals(){
   if(totMode==='none') list=list.filter(r=>!r.touched);
   if(totMode==='ok') list=list.filter(r=>r.diff===0);
   if(q) list=list.filter(r=>clean(r.it.n).includes(q));
-  let h='<thead><tr><th>Item</th><th>Qty / case</th><th>Case</th><th>Boxes</th><th>Damaged</th><th>Confirmed</th><th>WH</th><th>Store</th><th>Total</th><th>Expected</th><th>Diff</th><th style="text-align:left">Locations</th></tr></thead><tbody>';
+  let h='<thead><tr><th>Item</th><th>Qty / case</th><th>Case</th><th>Boxes</th><th>Damaged</th><th>Confirmed</th><th>WH</th><th title="Daily SOH · LS EOD SOH — not part of Diff">Store</th><th title="WH + Store">All</th><th>Expected</th><th title="WH − Expected">Diff</th><th style="text-align:left">Locations</th></tr></thead><tbody>';
   if(!list.length) h+='<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
   list.slice(0,1500).forEach(r=>{
     const cls=r.diff===0?'good':(r.touched?'bad':'miss');
     h+='<tr class="'+cls+(r.touched?'':' none')+'" data-k="'+esc(r.k)+'"><td>'+esc(r.it.n)+'</td><td>'+r.it.q+'</td>'+
       '<td>'+(r.a.s||'')+'</td><td>'+(r.a.b||'')+'</td><td>'+(r.a.d||'')+'</td><td>'+(r.a.c||'')+'</td>'+
-      '<td>'+fmt(r.a.wh)+'</td><td>'+(r.a.st?fmt(r.a.st):'')+'</td>'+
-      '<td><b>'+fmt(r.total)+'</b></td><td>'+fmt(r.e)+'</td><td class="disc">'+(r.diff>0?'+':'')+r.diff+'</td>'+
+      '<td><b>'+fmt(r.a.wh)+'</b></td><td style="color:var(--info)">'+(r.a.st?fmt(r.a.st):'')+'</td>'+
+      '<td>'+fmt(r.a.all)+'</td><td>'+fmt(r.e)+'</td><td class="disc">'+(r.diff>0?'+':'')+r.diff+'</td>'+
       '<td class="locs">'+r.a.locs.map(x=>esc(x.L)+':'+x.u).join(' · ')+'</td></tr>';
   });
   $('#totTbl').innerHTML=h+'</tbody>';
@@ -2188,7 +2193,7 @@ function renderWhere(){
   const all=[]; const seen=new Set();
   (BASE.rows||[]).forEach(k=>{ if(!k||k[0]==='#'||seen.has(k)) return; seen.add(k); all.push(k); });
   for(const L in COUNTS) for(const k in COUNTS[L]) if(!seen.has(k)){ seen.add(k); all.push(k); }
-  const rows=all.map(k=>{ const p=whereIs(k).filter(x=>x.u>0); return {k, p, u:p.reduce((a,x)=>a+x.u,0)}; });
+  const rows=all.map(k=>{ const p=whereIs(k).filter(x=>x.u>0 && !isStore(x.L)); const st=storeQty(k); if(st>0) p.push({L:STORE, u:st, soh:true}); return {k, p, u:p.reduce((a,x)=>a+x.u,0)}; });
   const cnt={all:rows.length, placed:rows.filter(r=>r.p.some(x=>!isStore(x.L))).length, pal:rows.filter(r=>r.p.some(x=>isPal(x.L))).length, store:rows.filter(r=>r.p.some(x=>isStore(x.L))).length, multi:rows.filter(r=>r.p.length>1).length, none:rows.filter(r=>!r.p.length).length};
   const C=[['all','All'],['placed','On shelves'],['pal','On pallets'],['store','In the store'],['multi','Several places'],['none','Not found']];
   $('#whereChips').innerHTML=C.map(([k,l])=>'<button class="chip'+(whereMode===k?' on':'')+'" data-m="'+k+'">'+l+'<span class="cnt">'+cnt[k]+'</span></button>').join('');
@@ -2208,7 +2213,7 @@ function renderWhere(){
         (r.p.length? r.p.map(x=>'<span class="lchip'+(isPri(x.L)?' pri':(isPal(x.L)?' pal':(isStore(x.L)?' sto':'')))+'">'+(isStore(x.L)?'🏬 Store':esc(x.L))+' · <b>'+x.u+'</b></span>').join('') : '<span class="mini">not on any shelf</span>')+
       '</div></div>'+
       '<div class="wt">'+fmt(r.u)+'<small>units</small></div>'+
-      '<div class="wbtn rcrow" style="gap:6px"><button class="btn sm" data-tr="'+esc(r.k)+'"'+(r.p.length?'':' disabled')+'>⇄ Transfer</button>'+
+      '<div class="wbtn rcrow" style="gap:6px"><button class="btn sm" data-tr="'+esc(r.k)+'"'+(r.p.some(x=>!x.soh)?'':' disabled')+'>⇄ Transfer</button>'+
       '<button class="btn sm ghost" data-adj="'+esc(r.k)+'" title="Add · remove · open case">± Adjust</button></div></div>').join('')+
       (list.length>shown.length?'<div class="mini" style="text-align:center;padding:10px">'+(list.length-shown.length)+' more — narrow the search</div>':'')
     : '<div class="empty">Nothing matches.</div>';
@@ -2290,6 +2295,7 @@ function start(){
   try{ const v=localStorage.getItem(LS.view); if(v) VIEW=v; const s=localStorage.getItem(LS.shelf); if(s) CUR=s; }catch(e){}
   $$('#viewSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v===VIEW));
   buildIdx(); renderAll();
+  refreshDSOH(false);                      // the Store column everywhere is the Daily SOH
   if(!(BASE && BASE.items) && (!R || BASE_EMPTY)) firstLoad();
 }
 loadMirror();

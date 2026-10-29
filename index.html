@@ -1006,7 +1006,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-10-28a · Guidebook: Damaged & Confirmed tab · Return Tracker · frozen count & Sync';   // bump when you change this file; visible in the header
+const BUILD = '2026-10-29a · Store = Daily SOH · Guidebook: Damaged & Confirmed · Return Tracker';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1216,8 +1216,7 @@ function locOf(iv){
     const shown=list.slice(0,3).map(x=>x.L).join(' · ');
     return shown + (list.length>3 ? ' +'+(list.length-3) : '');
   }
-  const k=stockKeyFor(iv), cells=k && CELLS.get(k);
-  if(cells && cells[STORE_LOC] && cellUnits(k, cells[STORE_LOC])>0) return 'Store';
+  if(DSOH && DSOH.items){ const d=DSOH.items[dsohNorm(iv && iv.name)]; if(d && (d.ls||0)>0) return 'Store'; }   // only in the shop (Daily SOH)
   return (iv && iv.location) || '—';
 }
 

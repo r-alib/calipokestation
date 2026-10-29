@@ -1814,6 +1814,10 @@ function makeStockOps(env){
        variations), or a number of units (taken automatically) */
     async transfer(k, from, to, what){
       need(from && to, 'Choose both places'); need(from !== to, 'That is the same place');
+      /* the shop is not counted here (its stock is the Daily SOH): a move to the store leaves the
+         warehouse as a removal, a move from the store arrives as an addition — both with a clear reason */
+      if (to === 'STORE') return this.remove(k, from, what, 'Transferred to store', 'moved to the shop');
+      if (from === 'STORE'){ const d = (what && typeof what === 'object') ? what : {b:Math.floor(+what || 0)}; return this.add(k, to, d, 'Transferred from store', 'moved from the shop'); }
       if (what && typeof what === 'object'){
         const d = clean(what); need(!isZero(d), 'Enter what to move');
         const a = await applyDelta(from, k, neg(d)); need(a, 'Not that much of it in ' + from);
@@ -1932,8 +1936,8 @@ function histChange(rec, q){
 }
 function histPlaces(rec){ return rec.type === 'transfer' ? (rec.from + ' → ' + rec.to) : (rec.loc || Object.keys(rec.d || {}).join(', ')); }
 const HIST_MODE = {inventory:'Inventory count', plan:'Warehouse plan', pack:'Pick & Pack'};
-const REASONS_ADD = ['New shipment', 'Return', 'Other'];
-const REASONS_REMOVE = ['Employee purchase', 'Discrepancy', 'Other'];
+const REASONS_ADD = ['New shipment', 'Return', 'Transferred from store', 'Other'];
+const REASONS_REMOVE = ['Employee purchase', 'Transferred to store', 'Discrepancy', 'Other'];
 const REASONS_DELETE = ['Verified — not here', 'Missed transfer (already moved)', 'Discrepancy', 'Other'];
 /* ===================== end of STOCK OPS ===================== */
 
@@ -2143,6 +2147,104 @@ function openHistory(){
   wireUndo();
 }
 
+/* =====================================================================
+   DAILY SOH — shared reader (identical copy in index / inventory / plan)
+   Reads the latest day of the Daily SOH workbook: per item
+     wh = "WH EOD SOH"  (warehouse, end of day)
+     ls = "LS EOD SOH"  (store / live, end of day)
+   The workbook has one tab per week (named like "10/12"); the newest
+   tab that has a day block is used. Days whose EOD column is entirely
+   empty (today, before the sheet is filled) are skipped.
+   Result: {date:'2026-10-18', tab:'10/12', items:{<norm name>:{n,wh,ls,tot}}, at}
+   ===================================================================== */
+const DSOH_SHEET_ID = '1keeoQrnw2jemRXxLq8iEp4UixyqvUdV4QrBFc7Mp5bE';
+const DSOH_LS_KEY = 'cps.dailysoh.v1';
+function dsohNorm(s){ return String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' '); }
+function dsohCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++){ const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ','){ row.push(cur); cur = ''; }
+    else if (c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c; }
+  if (cur !== '' || row.length){ row.push(cur); rows.push(row); } return rows;
+}
+function dsohNum(v){ if (v == null || v === '') return null; const n = parseFloat(String(v).replace(/[,\s]/g, '')); return isFinite(n) ? n : null; }
+function dsohMonday(d){ const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function dsohTabNames(monday){ const M = monday.getMonth() + 1, D = monday.getDate(), p = n => String(n).padStart(2, '0');
+  return [p(M) + '/' + p(D), M + '/' + D, p(M) + '/' + D, M + '/' + p(D)]; }
+/* parse one week tab → list of {date, items{}} (only days with an EOD figure) */
+function dsohParse(text){
+  const rows = dsohCSV(text); if (rows.length < 2) return [];
+  const H = rows[0].map(dsohNorm);
+  const col = names => { for (const n of names){ const i = H.indexOf(n); if (i >= 0) return i; } return -1; };
+  const cWh = col(['wh eod soh', 'eod soh']), cLs = col(['ls eod soh']), cTot = col(['total eod soh']);
+  if (cWh < 0) return [];
+  const days = []; let cur = null;
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r]; const c0 = String(row[0] || '').trim(); if (!c0) continue;
+    const m = c0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m){ cur = {date: m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'), items: {}, filled: 0}; days.push(cur); continue; }
+    if (!cur || c0.toUpperCase() === 'ITEM') continue;
+    const wh = dsohNum(row[cWh]), ls = cLs >= 0 ? dsohNum(row[cLs]) : null, tot = cTot >= 0 ? dsohNum(row[cTot]) : null;
+    if (wh != null || ls != null) cur.filled++;
+    const k = dsohNorm(c0), prev = cur.items[k];
+    if (prev){ prev.wh += wh || 0; prev.ls += ls || 0; prev.tot = (prev.tot || 0) + (tot || 0); }
+    else cur.items[k] = {n: c0, wh: wh || 0, ls: ls || 0, tot: tot != null ? tot : (wh || 0) + (ls || 0)};
+  }
+  return days.filter(d => d.filled > 0);
+}
+async function dsohFetchTab(name){
+  const url = 'https://docs.google.com/spreadsheets/d/' + DSOH_SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name) + '&_=' + Date.now();
+  const r = await fetch(url, {credentials: 'omit', cache: 'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text();
+  if (/<!DOCTYPE|<html/i.test(t.slice(0, 300))) throw new Error('Daily SOH sheet is not shared for reading');
+  return t;
+}
+/* refresh schedule: twice a day, 7:00 and 16:00 local — a cached copy read before
+   the most recent of those two times is stale (a manual Update button forces a re-read) */
+const DSOH_SLOTS = [7, 16];
+function dsohLastSlot(now){ now = now || new Date(); let best = null;
+  for (let back = 0; back < 2 && best == null; back++) for (const h of DSOH_SLOTS.slice().reverse()){ const t = new Date(now); t.setDate(t.getDate() - back); t.setHours(h, 0, 0, 0); if (t <= now){ best = t.getTime(); break; } }
+  return best || 0; }
+function dsohIsFresh(c){ return !!(c && c.items && c.at >= dsohLastSlot()); }
+/* latest filled day: this week's tab first, then last week's */
+async function loadDailySOH(opts){
+  opts = opts || {};
+  if (!opts.force){ try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (dsohIsFresh(c)) return c; }catch(e){} }
+  let lastErr = null;
+  for (let back = 0; back < 3; back++){
+    const mon = dsohMonday(new Date()); mon.setDate(mon.getDate() - 7 * back);
+    for (const nm of dsohTabNames(mon)){
+      let days = null;
+      try{ days = dsohParse(await dsohFetchTab(nm)); }catch(e){ lastErr = e; continue; }
+      if (!days.length) break;                        // tab exists but nothing filled yet → previous week
+      const d = days[days.length - 1];
+      const out = {date: d.date, tab: nm, items: d.items, n: Object.keys(d.items).length, at: Date.now()};
+      try{ localStorage.setItem(DSOH_LS_KEY, JSON.stringify(out)); }catch(e){}
+      return out;
+    }
+  }
+  try{ const c = JSON.parse(localStorage.getItem(DSOH_LS_KEY) || 'null'); if (c && c.items){ c.stale = (lastErr && lastErr.message) || 'no recent tab'; return c; } }catch(e){}
+  throw lastErr || new Error('Daily SOH: no week tab found');
+}
+/* ===================== end of DAILY SOH ===================== */
+
+/* ------------------------------ the store = Daily SOH -------------------- */
+let DSOH = null, DSOH_ERR = "";
+function dsohTick(force){ return loadDailySOH({force:!!force}).then(d => { DSOH = d; DSOH_ERR = ""; paintStock(); if (OPEN === "__STORE") renderPanel(); }).catch(e => { DSOH_ERR = e.message || String(e); if (OPEN === "__STORE") renderPanel(); }); }
+dsohTick(false); setInterval(() => dsohTick(false), 10 * 60 * 1000);
+function storeList(){ return DSOH && DSOH.items ? Object.values(DSOH.items).filter(x => (x.ls || 0) !== 0).sort((a, b) => (b.ls || 0) - (a.ls || 0) || a.n.localeCompare(b.n)) : []; }
+function storeQtyOf(k){ if (!DSOH || !DSOH.items) return 0; const n = nameOf(k); const d = DSOH.items[nrm(n)]; return d ? (+d.ls || 0) : 0; }
+function storePanelHTML(f){
+  const list = storeList().filter(x => !f || nrm(x.n).indexOf(f) >= 0);
+  return `<div class="sec"><div class="sec-h">🏬 Store · shop display<span class="n">${list.length} · ${fmtN(list.reduce((a, x) => a + (x.ls || 0), 0))} u</span></div>
+    <p class="hint" style="margin:10px 14px 4px">The shop is not counted here: this is the Daily SOH sheet, column <b>LS EOD SOH</b>${DSOH ? " for <b>" + esc(DSOH.date) + "</b>" : ""}${DSOH_ERR ? ` <span style="color:var(--err)">· could not read: ${esc(DSOH_ERR)}</span>` : ""}. Nothing can be dragged here — a move <b>to</b> the store is a removal with the reason “Transferred to store”, a move <b>from</b> the store is an addition.</p>
+    ${list.length ? list.map(x => `<div class="irow" style="grid-template-columns:1fr auto;cursor:default"><div style="min-width:0"><div class="nm">${esc(x.n)}</div><div class="vr">WH EOD SOH ${fmtN(x.wh)}</div></div><div class="q">${fmtN(x.ls)}<small>units</small></div></div>`).join("")
+      : `<div class="sec-empty">${DSOH ? "Nothing in the store." : "Daily SOH not loaded yet."}</div>`}
+    <div style="padding:10px 14px"><button class="btn" id="storeUpd">↻ Update Daily SOH</button></div></div>`;
+}
+
 /* ------------------------------ damaged & confirmed ---------------------- */
 let dcMode = "damaged", dcQ = "";
 const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
@@ -2204,7 +2306,7 @@ function paintStock(){
     el.classList.toggle("sel", S.sel.has(it.id) || (MODE === "stock" && OPEN === locKey(it.label)));
   }
   $("zPAL").textContent = fmtN(t.PAL.size);
-  $("zSTORE").textContent = fmtN(t.STORE.size);
+  $("zSTORE").textContent = fmtN(storeList().length);
   $("zNEG").textContent = fmtN(t.neg.length); $("zNegBtn").hidden = !t.neg.length;
   $("zUNK").textContent = fmtN(t.UNK.size); $("zUnkBtn").hidden = !t.UNK.size;
   document.querySelectorAll(".zone[data-zone]").forEach(z => z.classList.toggle("on", OPEN === z.dataset.zone));
@@ -2271,6 +2373,7 @@ function renderPanel(){
     const it = infoOf(r.k); return nrm(it.name).indexOf(f) >= 0 || it.barcodes.some(b => b.indexOf(f) >= 0) || nrm(r.loc).indexOf(f) >= 0;
   });
   rows.sort((a, b) => infoOf(a.k).name.localeCompare(infoOf(b.k).name, undefined, {numeric:true}));
+  if (OPEN === "__STORE"){ const sl = storeList(); rows = sl.map(x => ({k:"", loc:STORE, qty:x.ls || 0})); }
   const units = rows.reduce((a, r) => a + r.qty, 0);
   const title = OPEN === "__UNK" ? "Not on the plan" : (OPEN === "__PAL" ? "Pallets" : (OPEN === "__STORE" ? "Store" : (OPEN === "__NEG" ? "Needs restock" : OPEN)));
   $("spTitle").textContent = title;
@@ -2294,7 +2397,7 @@ function renderPanel(){
     if (empty.length && !f) h += `<div class="sec"><div class="sec-h">Empty pallets<span class="n">${empty.length}</span></div>
         <div class="palgrid">${empty.map(P => `<span class="palchip" data-drop="${esc(P)}" title="Drop a product here">${esc(P)}</span>`).join("")}</div></div>`;
   } else if (OPEN === "__STORE"){
-    h = secHTML(STORE, "Store · shop display", rows, f ? "Nothing matches the filter" : "Nothing in the store yet — drag a product here or add it with ＋.");
+    h = storePanelHTML(f);
   } else if (OPEN === "__NEG"){
     const locs = [...new Set(rows.map(r => r.loc))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
     h = locs.map(l => secHTML(l, l + " · needs restock", rows.filter(r => r.loc === l))).join("") ||
@@ -2307,9 +2410,10 @@ function renderPanel(){
   } else {
     h = secHTML(OPEN, title, rows, f ? "Nothing matches the filter" : null);
   }
-  h += `<p class="hint" style="margin:14px 14px 0">Drag a product (hold the row, or the ⠿ handle on a touch screen) onto another island,
+  if (OPEN !== "__STORE") h += `<p class="hint" style="margin:14px 14px 0">Drag a product (hold the row, or the ⠿ handle on a touch screen) onto another island,
         a section or pallet header to move it. <b>Click</b> a product to add, remove, open a case or move it; <b>＋</b> on a header adds new stock. Everything is logged in History.</p>`;
   body.innerHTML = h;
+  const su = body.querySelector("#storeUpd"); if (su) su.onclick = () => { su.disabled = true; dsohTick(true); };
 }
 
 /* ------------------------------ drag & drop ------------------------------ */
@@ -2466,7 +2570,8 @@ function runFind(){
   if (!hits.length){ box.innerHTML = `<div class="empty">Nothing found</div>`; return; }
   box.innerHTML = hits.map(k => {
     const map = HOLD.get(k) || new Map();
-    const locs = [...map.entries()].filter(([, h]) => h.qty !== 0).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}));
+    const locs = [...map.entries()].filter(([l, h]) => h.qty !== 0 && !isStore(l)).sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}));
+    const stq = storeQtyOf(k); if (stq > 0) locs.push([STORE, {qty:stq}]);
     const tot = locs.reduce((a, [, h]) => a + h.qty, 0);
     return `<div class="fr"><b>${esc(nameOf(k))}</b><span style="color:var(--faint);font-family:var(--mono)"> · ${fmtN(tot)}</span>
       <div class="locs">${locs.length ? locs.map(([l, h]) => {
@@ -2526,7 +2631,7 @@ const planPayload = it => ({label:String(it.label || ""), cx:+it.cx, cy:+it.cy, 
   hue:(it.hue === undefined || it.hue === null) ? 210 : +it.hue, locked:!!it.locked});
 const planJ = it => JSON.stringify(planPayload(it));
 function planSig(list){ return list.map(planJ).sort().join("|"); }
-const PLAN_BUILD = "2026-10-28a · Damaged & Confirmed · restock hints · delete lines";
+const PLAN_BUILD = "2026-10-29a · Store = Daily SOH · Damaged & Confirmed · restock hints";
 let planErr = "";
 function setSyncState(t){
   flagSaved(t);
