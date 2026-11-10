@@ -322,6 +322,9 @@ const CFG = {
   INV_ID : '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw',
   INV_TAB: 'Inventory',
   DEFAULT_WEEKS: 3,
+  /* new-item shipping data (size, weight, estimated shipment cost) — entered by the admin in
+     CALIPOKE STATION → New Shipment → New items; read-only here, straight from the station database */
+  NI_URL : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/receiving/newItems.json',
   CACHE_VERSION: 4,
   /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
   SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
@@ -711,6 +714,38 @@ function indexListings(d) {
     tab.names.forEach(n => { if (!DATA.lstByItem.has(n)) DATA.lstByItem.set(n, []); DATA.lstByItem.get(n).push(t); });
   });
 }
+/* ------------------------- new-item shipping data ------------------------- */
+async function loadShipInfo(force) {
+  const key = 'ship1';
+  if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
+  try {
+    const r = await fetch(CFG.NI_URL + '?_=' + Date.now(), {cache: 'no-store', credentials: 'omit'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = {rows: (await r.json()) || {}, at: Date.now()};
+    await IDB.set(key, {ts: Date.now(), data});
+    return data;
+  } catch (e) { const stale = await IDB.get(key); if (stale) return stale.data; throw e; }
+}
+function indexShipInfo(d) {
+  DATA.ship.clear();
+  const rows = d.rows || {}, num = v => (v == null || v === '' || !isFinite(+v)) ? null : +v;
+  for (const id in rows) {
+    const r = rows[id]; if (!r || !r.name) continue;
+    const o = {l: num(r.l), w: num(r.w), h: num(r.h), wt: num(r.wt), cost: num(r.cost)};
+    if (o.l == null && o.w == null && o.h == null && o.wt == null && o.cost == null) continue;
+    DATA.ship.set(norm(r.name), o);
+  }
+}
+function shipChipsHTML(key) {
+  const s = DATA.ship.get(key); if (!s) return '';
+  const n = v => Number(v).toLocaleString('en-US', {maximumFractionDigits: 2});
+  const out = [];
+  if (s.l != null || s.w != null || s.h != null)
+    out.push('<span class="chip" title="Length × width × height, inches">📐 ' + [s.l, s.w, s.h].map(v => v == null ? '?' : n(v)).join(' × ') + ' in</span>');
+  if (s.wt != null) out.push('<span class="chip" title="Weight">⚖ ' + n(s.wt) + ' lb</span>');
+  if (s.cost != null) out.push('<span class="chip b" title="Estimated shipment cost">🚚 est. shipping ' + money(s.cost) + '</span>');
+  return out.join('');
+}
 /* short tags for one item, in CFG order; [] when it is listed nowhere */
 const listingTags = key => CFG.LST_TABS.filter(t => DATA.lstByTab.has(t.tab) && DATA.lstByTab.get(t.tab).has(key));
 function listingTagsHTML(key) {
@@ -860,6 +895,8 @@ const DATA = {
   platToTab: new Map(),  // norm(Daily SOH platform) -> listing tab config
   costInfo: null, costErr: '',
   wm      : null, wmErr: '',  // Walmart catalog snapshot
+  ship    : new Map(),   // norm(item name) -> {l, w, h, wt, cost}  (New Shipment → New items)
+  shipErr : '',
   loadedAt: 0
 };
 const FILTER = {
@@ -1480,6 +1517,13 @@ function viewItem(root) {
     lc.appendChild(el('span', {class: 'chiplbl', text: 'Listed on'}));
     lc.insertAdjacentHTML('beforeend', listingTagsHTML(key));
     info.appendChild(lc);
+  }
+  const shipHTML = shipChipsHTML(key);
+  if (shipHTML) {
+    const sc = el('div', {class: 'chips', style: 'margin-top:7px'});
+    sc.appendChild(el('span', {class: 'chiplbl', text: 'Shipping'}));
+    sc.insertAdjacentHTML('beforeend', shipHTML);
+    info.appendChild(sc);
   }
   hb.appendChild(info);
   const back = el('button', {class: 'iconbtn', onclick: () => { UI.item = null; render(); }}, ['← All items']);
@@ -2403,11 +2447,14 @@ async function reload(force) {
     .catch(e => { DATA.wmErr = e.message; });
   const lstP = loadListings(force).then(d => { indexListings(d); DATA.lstErr = d.stale || ''; })
     .catch(e => { DATA.lstErr = e.message; });
+  const shipP = loadShipInfo(force).then(d => { indexShipInfo(d); DATA.shipErr = ''; })
+    .catch(e => { DATA.shipErr = e.message; });
   const failed = await ensureWeeks(force);
-  await Promise.race([Promise.all([costP, lstP, wmP]), new Promise(r => setTimeout(r, 6000))]);
+  await Promise.race([Promise.all([costP, lstP, wmP, shipP]), new Promise(r => setTimeout(r, 6000))]);
   lstP.then(() => { if (DATA.lst) refresh(true); });
   wmP.then(() => { if (DATA.wm && UI.view === 'wm') refresh(true); });   // do not hold the screen for a slow cost table
   costP.then(() => { if (DATA.cost.size) refresh(true); });
+  shipP.then(() => { if (DATA.ship.size && UI.view === 'item' && UI.item) refresh(true); });
   $('#bootBar').style.width = '100%';
   DATA.loadedAt = Date.now();
   $('#boot').classList.add('hide'); $('#views').classList.remove('hide');

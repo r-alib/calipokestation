@@ -393,6 +393,20 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .gtag.type{color:var(--info); border-color:#23395c}
 .gtag.brand{color:var(--accent); border-color:#1d4530}
 .gtag.series{color:var(--warn); border-color:#473a1c}
+/* guidebook: confirmed chip + variations listed under the product */
+.pkstock.conf{color:var(--accent); border-color:#1d4530}
+.gvars{margin-top:11px; border-top:1px dashed var(--line); padding-top:9px; display:flex; flex-direction:column; gap:5px; max-width:600px}
+.gvhead{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600}
+.gvrow{display:flex; align-items:baseline; gap:10px; font-size:13.5px; padding:5px 10px; background:var(--panel2); border:1px solid var(--border); border-radius:8px}
+.gvrow.zero{opacity:.5} .gvrow.hit{border-color:var(--accent)}
+.gvname{font-weight:600}
+.gvsub{color:var(--muted); font-size:12px; font-family:var(--mono); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.gvqty{font-family:var(--mono); font-weight:700; margin-left:auto; white-space:nowrap}
+/* new shipment: New items tab */
+.nifld{display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--muted); white-space:nowrap}
+.nifld input{width:74px; text-align:center; background:var(--bg); border:1.5px solid var(--line); border-radius:9px; color:var(--ink); font-family:var(--mono); font-weight:700; font-size:14px; padding:8px 4px; outline:none}
+.nifld input:focus{border-color:var(--accent)}
+.nisep{color:var(--faint)}
 
 /* scan-only: dim non-interactive manual controls */
 .item.scanlock .chk{opacity:.45}
@@ -918,6 +932,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <div class="spacer"></div>
       <div class="pill" id="rcCatPill" title="Catalog cached locally">📚 <b id="rcCatCount">0</b> catalog</div>
       <button class="btn ghost" id="rcList">☰ Receivings</button>
+      <button class="btn ghost hide" id="rcNewBtn" title="Products received that have no listing — size, weight, shipping cost">🆕 New items <b id="rcNewCount"></b></button>
       <button class="btn ghost" id="rcCatBtn">⚙ Catalog</button>
     </div>
     <div class="pill" id="rcDiag" style="margin-bottom:12px"></div>
@@ -1006,7 +1021,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-10-29a · Store = Daily SOH · Guidebook: Damaged & Confirmed · Return Tracker';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-10a · Guidebook: variations grouped + Confirmed · New Shipment: New items';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1198,11 +1213,16 @@ function qtySplit(iv){
   if(wh==null && st==null) return null;
   return {wh:wh||0, st:st||0, tot:(wh||0)+(st||0), whKnown:wh!=null, stKnown:st!=null};
 }
-function splitChip(iv){
-  const q=qtySplit(iv); if(!q) return '';
-  const cls=q.tot<=0?'zero':''; const t='WH — inventory count (live)'+(q.whKnown?'':' · not counted yet')+' · Store — Daily SOH '+(DSOH&&DSOH.date?'for '+DSOH.date:'')+(q.stKnown?'':' · no row for this product');
-  return '<span class="pkstock split '+cls+'" title="'+esc(t)+'">📦 '+fmtN(q.tot)+' <small>WH '+(q.whKnown?fmtN(q.wh):'—')+' · Store '+(q.stKnown?fmtN(q.st):'—')+'</small></span>';
+/* a place that holds nothing is not shown: only WH, only Store, or both */
+function splitParts(q){ const p=[]; if(q.wh>0) p.push('WH '+fmtN(q.wh)); if(q.st>0) p.push('Store '+fmtN(q.st)); return p; }
+function splitChipQ(q){
+  if(!q) return '';
+  const p=splitParts(q), cls=q.tot<=0?'zero':'';
+  const t='WH — inventory count (live)'+(q.whKnown?'':' · not counted yet')+' · Store — Daily SOH '+(DSOH&&DSOH.date?'for '+DSOH.date:'')+(q.stKnown?'':' · no row for this product');
+  const body = p.length===2 ? fmtN(q.tot)+' <small>'+p.join(' · ')+'</small>' : (p.length===1 ? p[0] : fmtN(q.tot));
+  return '<span class="pkstock split '+cls+'" title="'+esc(t)+'">📦 '+body+'</span>';
 }
+function splitChip(iv){ return splitChipQ(qtySplit(iv)); }
 function fmtN(n){ return (+n||0).toLocaleString('en-US'); }
 function shelfList(iv){
   if(!iv) return null;
@@ -2400,7 +2420,7 @@ function renderOrderArea(){
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv); const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; const qs=qtySplit(iv);
-    if(qs) stockChip='<span class="chip stock '+(qs.tot<=0?'zero':(qs.wh<q?'low':''))+'" title="WH — inventory count (live) · Store — Daily SOH LS EOD">📦 <b>'+fmtN(qs.tot)+'</b> · WH '+(qs.whKnown?fmtN(qs.wh):'—')+' · Store '+(qs.stKnown?fmtN(qs.st):'—')+'</span>';
+    if(qs){ const sp=splitParts(qs); stockChip='<span class="chip stock '+(qs.tot<=0?'zero':(qs.wh<q?'low':''))+'" title="WH — inventory count (live) · Store — Daily SOH LS EOD">📦 '+(sp.length===2 ? '<b>'+fmtN(qs.tot)+'</b> · '+sp.join(' · ') : (sp.length ? sp[0] : '<b>'+fmtN(qs.tot)+'</b>'))+'</span>'; }
     else if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
     const dmg=(iv.damaged==null)?null:iv.damaged;
     if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="chip stock dmg '+dcls+'">✖ dmg <b>'+dmg+'</b></span>'; }
@@ -2765,7 +2785,9 @@ let guideFrom='platforms';
 function enterGuide(from){ dsohInfo(); guideFrom=from||'platforms'; show('guide'); guideAutoLoad(); buildGuideFilters(); setGuideTab(guideTab); const i=$('#guideName'); if(i && guideTab==='items'){ i.value=guideF.name||''; i.focus(); } }
 /* ---- Damaged & Confirmed (from the live inventory count) ---- */
 let guideTab='items', dcMode='damaged', dcQ='';
-const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
+/* "plain" variations are packaging, not a confirmed variation: Default, Case, Case of X, X pc, X pack */
+const isPlainVar = lbl => { const s=String(lbl==null?'':lbl).trim();
+  return !s || /^default$/i.test(s) || /^case\b/i.test(s) || /^case(of)?\d*$/i.test(s) || /^\d+\s*pcs?\.?$/i.test(s) || /^\d+[\s-]*packs?$/i.test(s); };
 function varLabelOf(name, vk){ const c=clean(name); for(const ik in S.inventory){ const iv=S.inventory[ik]; if(clean(iv.name)===c && clean(iv.variation)===vk) return iv.variation; } return vk; }
 function setGuideTab(t){ guideTab=t; $$('#guideTabs button').forEach(b=>b.classList.toggle('on', b.dataset.gt===t));
   $('#guideDC').classList.toggle('hide', t!=='dc'); $('#guideSearchCard').classList.toggle('hide', t!=='items'); $('#guideResults').classList.toggle('hide', t!=='items');
@@ -2825,41 +2847,106 @@ function renderGuideChips(){
   el.innerHTML=h;
   $$('#guideChips [data-fclear]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fclear; guideF[f]=''; if(f==='name'){ const i=$('#guideName'); if(i) i.value=''; } buildGuideFilters(); renderGuide(); });
 }
+/* ---- one card per product: the Default row on top, its variations listed under it ---- */
+function isDefaultVar(v){ const n=norm(v); return !n || n==='default'; }
+/* a count key that belongs to this variation alone (the counting workbook lists it as its own item) */
+function varOwnKey(iv){
+  if(!iv || isDefaultVar(iv.variation)) return null;
+  const t=clean((iv.name||'')+iv.variation); if(!t) return null;
+  if(STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[t]) return t;
+  return NAMEK.has(t) ? NAMEK.get(t) : null;
+}
+/* all = every inventory row of one product name */
+function guideGroupInfo(all){
+  const single=all.length===1;
+  const base=all.find(v=>isDefaultVar(v.variation)) || (single ? all[0] : null);
+  const head=base||all[0];
+  const members=all.filter(v=>v!==base);
+  const label={}; all.forEach(v=>{ const vk=clean(v.variation); if(vk) label[vk]=v.variation; });
+  const probe=single ? head : {name:head.name, variation:''};
+  const kBase=stockKeyFor(probe);
+  const cells=(kBase && CELLS.get(kBase)) || null;
+  /* confirmed units are split by variation inside every counted cell (cv) */
+  const cvTot={}, cvLoc={}; let cases=0;
+  if(cells) for(const L in cells){ const c=cells[L]; if(!c) continue;
+    if(!isStoreLoc(L)) cases+=(+c.s||0);
+    if(!c.cv) continue;
+    for(const vk in c.cv){ const n=+c.cv[vk]||0; if(n<=0) continue; cvTot[vk]=(cvTot[vk]||0)+n; (cvLoc[vk]=cvLoc[vk]||[]).push(L); } }
+  let confirmed=0; for(const vk in cvTot){ if(!isPlainVar(label[vk]||vk)) confirmed+=cvTot[vk]; }
+  let q=qtySplit(probe);
+  const rows=[], seen=new Set(), ownSeen=new Set();
+  members.forEach(v=>{
+    const vk=clean(v.variation), own=varOwnKey(v); seen.add(vk);
+    let qty=null, unit='', locs=[];
+    if(own && own!==kBase){                                   // counted as its own item
+      const oc=CELLS.get(own)||{}; let wh=0;
+      for(const L in oc){ if(isStoreLoc(L)) continue; const u=cellUnits(own,oc[L]); wh+=u; if(u>0) locs.push(L); }
+      qty=wh;
+      if(!ownSeen.has(own)){ ownSeen.add(own); q=q||{wh:0,st:0,tot:0,whKnown:true,stKnown:false}; q.wh+=wh; q.tot+=wh; q.whKnown=true; }
+    }
+    else if(cvTot[vk]!=null){ qty=cvTot[vk]; locs=cvLoc[vk]||[]; }
+    else if(cells && /^case\b/i.test(String(v.variation).trim())){ qty=cases; unit=' case'+(cases===1?'':'s'); }
+    else if(!cells && v.stock!=null){ qty=+v.stock||0; }      // never counted → the sheet's figure
+    else if(cells && !isPlainVar(v.variation)){ qty=0; }
+    rows.push({name:v.variation||'—', qty, unit, locs, barcode:v.barcode, iv:v});
+  });
+  /* variations the count knows about that have no row in the inventory sheet */
+  for(const vk in cvTot){ if(seen.has(vk) || vk==='default' || (base && vk===clean(base.variation))) continue;
+    rows.push({name:label[vk]||vk, qty:cvTot[vk], unit:'', locs:cvLoc[vk]||[], barcode:''}); }
+  let dmg=null, stock=null;
+  all.forEach(v=>{ if(v.damaged!=null) dmg=(dmg||0)+(+v.damaged||0); if(v.stock!=null) stock=(stock||0)+(+v.stock||0); });
+  return {base, head, rows, q, confirmed, dmg, stock};
+}
 function renderGuide(){
   const area=$('#guideResults'); if(!area) return;
   renderGuideChips();
   const src=guideSource();
   if(Object.keys(src).length===0){ area.innerHTML='<div class="empty">Catalog is not loaded yet.</div>'; $('#guideCount').textContent='—'; return; }
   const nameQ=norm(guideF.name);
-  let list=[];
-  for(const k in src){ const v=src[k];
+  const groups=new Map(), hit=new Set(), exact=new Set(), exactIv=new Set();
+  for(const k in src){ const v=src[k]; if(!v || !v.name) continue;
+    const gk=norm(v.name);
+    (groups.get(gk)||groups.set(gk,[]).get(gk)).push(v);
     if(guideF.type && norm(v.type)!==norm(guideF.type)) continue;
     if(guideF.brand && norm(v.brand)!==norm(guideF.brand)) continue;
     if(guideF.series && norm(v.series)!==norm(guideF.series)) continue;
-    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ)
-       || barcodesOf(v.barcode).some(b=>b.includes(nameQ)))) continue;
-    list.push(v);
+    const bcs=barcodesOf(v.barcode);
+    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ) || bcs.some(b=>b.includes(nameQ)))) continue;
+    hit.add(gk);
+    // a scanned barcode should land on exactly that product, not on everything that contains it
+    if(nameQ && bcs.includes(nameQ)){ exact.add(gk); exactIv.add(v); }
   }
-  // a scanned barcode should land on exactly that product, not on everything that contains it
-  if(nameQ){ const exact=list.filter(v=>barcodesOf(v.barcode).includes(nameQ)); if(exact.length) list=exact; }
-  list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')) || String(a.variation||'').localeCompare(String(b.variation||'')));
-  $('#guideCount').textContent=list.length+' item'+(list.length===1?'':'s');
-  if(!list.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
+  const keys=[...(exact.size?exact:hit)].sort((a,b)=>a.localeCompare(b));
+  $('#guideCount').textContent=keys.length+' product'+(keys.length===1?'':'s');
+  if(!keys.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
   let h='<div class="pklist" style="margin-top:14px">';
-  for(const v of list){
-    const img=v.image||PLACEHOLDER; const loc=locOf(v);
-    const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
-    let chips=splitChip(v); if(!chips && stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
-    if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';
+  for(const gk of keys){
+    const all=groups.get(gk).slice().sort((a,b)=>String(a.variation||'').localeCompare(String(b.variation||''),undefined,{numeric:true}));
+    const g=guideGroupInfo(all), v=g.head;
+    const img=v.image||(all.find(x=>x.image)||{}).image||PLACEHOLDER; const loc=locOf(v);
+    const total=g.q?g.q.tot:g.stock;
+    let chips=splitChipQ(g.q); if(!chips && g.stock!=null) chips+='<span class="pkstock '+(g.stock<=0?'zero':'')+'">stock '+fmtN(g.stock)+'</span>';
+    if(g.dmg>0) chips+='<span class="pkstock dmg '+(total!=null&&g.dmg>=total?'':'low')+'">✖ damaged '+fmtN(g.dmg)+'</span>';
+    if(g.confirmed>0) chips+='<span class="pkstock conf" title="Confirmed units of real variations (not Default / Case / N pc / N pack) — from the inventory count">✓ confirmed '+fmtN(g.confirmed)+'</span>';
     const bcs=barcodesOf(v.barcode); if(bcs.length) chips+='<span class="pkstock">⌗ '+esc(bcs.join(' · '))+'</span>';
     let tags='';
     if(v.type) tags+='<span class="gtag type">'+esc(v.type)+'</span>';
     if(v.brand) tags+='<span class="gtag brand">'+esc(v.brand)+'</span>';
     if(v.series) tags+='<span class="gtag series">'+esc(v.series)+'</span>';
+    const sub = g.base ? (g.base.variation || (g.rows.length?'Default':'')) : '';
+    let vars='';
+    if(g.rows.length){
+      vars='<div class="gvars"><div class="gvhead">Variations · '+g.rows.length+'</div>'+g.rows.map(r=>{
+        const b=barcodesOf(r.barcode);
+        const info=[(r.locs&&r.locs.length)?'📍 '+r.locs.slice(0,3).join(' · ')+(r.locs.length>3?' +'+(r.locs.length-3):''):'', b.length?'⌗ '+b.join(' · '):''].filter(Boolean).join('   ');
+        return '<div class="gvrow'+(r.qty===0?' zero':'')+(r.iv&&exactIv.has(r.iv)?' hit':'')+'"><span class="gvname">'+esc(r.name)+'</span>'+
+          '<span class="gvsub">'+esc(info)+'</span><span class="gvqty">'+(r.qty==null?'':fmtN(r.qty)+esc(r.unit||''))+'</span></div>';
+      }).join('')+'</div>';
+    }
     h+='<div class="pkitem"><img class="thumb pkimg" src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'" alt="'+esc(v.name)+'">'+
-       '<div><div class="pkname">'+esc(v.name)+'</div>'+(v.variation?'<div class="pkvar">'+esc(v.variation)+'</div>':'')+
+       '<div style="min-width:0"><div class="pkname">'+esc(v.name)+'</div>'+(sub?'<div class="pkvar">'+esc(sub)+'</div>':'')+
        '<div class="pkmeta"><span class="loc-big">📍 '+esc(loc)+'</span>'+chips+'</div>'+
-       (tags?'<div class="gtags">'+tags+'</div>':'')+'</div></div>';
+       vars+(tags?'<div class="gtags">'+tags+'</div>':'')+'</div></div>';
   }
   h+='</div>';
   area.innerHTML=h;
@@ -4427,7 +4514,7 @@ function rcRemoveLearned(code){ if(rcRef&&code) rcRef.child('learned/'+safeKey(c
 /* live feed — merges what other devices write without disturbing this one. */
 function rcConnect(){
   if(!root) return;
-  rcRef = root.child('receiving');
+  rcRef = root.child('receiving'); niConnect();
   rcRef.child('sessions').once('value')
     .then(snap=>{
       const remote={}; snap.forEach(c=>{ const v=rcNormalizeSession(c.val()); if(v) remote[v.id]=v; });
@@ -5044,10 +5131,12 @@ function rcRenderInner(){
 
   const cc=$('#rcCatCount'); if(cc) cc.textContent=(RCCAT.main.length+RCCAT.pending.length);
   const a=$('#rcArea'); if(!a) return;
+  niBadge(); if(rcView==='newitems' && !IS_ADMIN) rcView='home';
   /* the open receiving can disappear under us — a manager deleted it, or it was
      finished on another device. Fall back to the list instead of breaking. */
   if(RC_VIEWS_NEEDING_SESSION.indexOf(rcView)>=0 && !rcCur()){ rcView='home'; rcActiveId=null; }
   switch(rcView){
+    case 'newitems':  a.innerHTML=rcViewNewItems(); rcWireNewItems(); break;
     case 'catalog':   a.innerHTML=rcViewCatalog(); rcWireCatalog(); break;
     case 'setup':     a.innerHTML=rcViewSetup(); rcWireSetup(); break;
     case 'units':     a.innerHTML=rcViewUnits(); rcWireUnits(); break;
@@ -5647,13 +5736,14 @@ function rcWireReport(){
     if(s.method==='package' && s.palletize.use){ s.stage='palletize'; rcSave(); rcGo('pallets'); }
     else { s.stage='units'; rcSave(); rcGo('units'); } };
   const hm=$('#rcRepHome'); if(hm) hm.onclick=()=>{ rcActiveId=null; rcGo('home'); };
-  const rt=$('#rcSlackRetry'); if(rt) rt.onclick=async()=>{ rt.disabled=true; rt.textContent='Posting…'; await rcPostSlack(s); rcRender(); };
+  const rt=$('#rcSlackRetry'); if(rt) rt.onclick=async()=>{ rt.disabled=true; rt.textContent='Posting…'; await rcPostSlack(s); niAfterFinish(s); rcRender(); };
   const fn=$('#rcFinish'); if(fn) fn.onclick=async()=>{
     if(!confirm('Finish this receiving and post it to Slack?\nThe bot posts the report with the Excel file and flags products that have no listing. The receiving can no longer be counted into.')) return;
     fn.disabled=true; fn.textContent='Posting to Slack…';
     s.finished=true; s.finishedAt=Date.now(); s.finishedBy=MY_NAME||'';
     rcPushSession(s.id);
     await rcPostSlack(s);
+    niAfterFinish(s);
     const fin=RC.sessions.filter(x=>x.finished);
     if(fin.length>RC_ARCHIVE_MAX){                       // keep only the newest finished ones
       const drop=fin.slice(RC_ARCHIVE_MAX).map(x=>x.id);
@@ -5686,9 +5776,207 @@ async function rcPostSlack(s){
   }
 }
 
+/* ============================================================
+   NEW ITEMS  (admin tab of New Shipment)
+   Products that arrive in a receiving and are in none of the platform
+   listing tabs are written here when the receiving is finished. The admin
+   adds size (L x W x H, inches), weight (lb) and the estimated shipment
+   cost ($); Analyzer shows those on the product card.
+     packstation/receiving/newItems/<safeKey(norm(name))> =
+       {name, key, addedAt, supplier, dateStr, sid, qty, by,
+        l, w, h, wt, cost, updatedAt, updatedBy}
+   "Not listed" = the name is in no tab of the listings workbook (the same
+   workbook and tabs Analyzer reads), plus whatever the Slack bot flagged.
+   ============================================================ */
+const LST_SHEET_ID='1WQQxRWnDicFsuYE_98InYhVFeeEL8FEI5nDircmtmOA';
+const LST_TABS=['Temu','TT_Dolldrop','ebay','TT5_SugarPOP','Shopify','CaliToys','TT1 listings','TT2 listings','Best Buy','TT3 listings','walmart'];
+const NI_FIELDS=['l','w','h','wt','cost'];
+let NEWITEMS={}, LST=null, lstLoading=null, lstTriedAt=0;
+let rcNiMode='all', rcNiQ='', rcNiBusy=false;
+
+/* norm(item name) -> [listing tabs]; the SOH column of a listing row may hold several names ("a, b, c" = bundle) */
+function loadListings(force){
+  if(!force && LST && Date.now()-LST.at<15*60*1000) return Promise.resolve(LST);
+  if(lstLoading) return lstLoading;
+  lstTriedAt=Date.now();
+  lstLoading=(async()=>{
+    const by=new Map(); let ok=0;
+    await Promise.all(LST_TABS.map(async tab=>{
+      try{
+        const url='https://docs.google.com/spreadsheets/d/'+LST_SHEET_ID+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(tab)+'&_='+Date.now();
+        const r=await fetch(url,{credentials:'omit',cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
+        const t=await r.text(); if(/<!DOCTYPE|<html/i.test(t.slice(0,300))) throw new Error('not shared');
+        const rows=dsohCSV(t); let hr=-1, ci=-1;
+        for(let i=0;i<Math.min(rows.length,6) && ci<0;i++){
+          const j=rows[i].findIndex(c=>/^soh\s*\//i.test(String(c||'').trim()) || norm(c)==='soh');
+          if(j>=0){ hr=i; ci=j; } }
+        if(ci<0) throw new Error('no SOH column');
+        for(let i=hr+1;i<rows.length;i++) String(rows[i][ci]||'').split(/[,，]/).map(norm).filter(Boolean)
+          .forEach(n=>{ const a=by.get(n)||by.set(n,[]).get(n); if(a.indexOf(tab)<0) a.push(tab); });
+        ok++;
+      }catch(e){}
+    }));
+    if(!ok) throw new Error('listings workbook unavailable');
+    LST={at:Date.now(), by, tabs:ok};
+    return LST;
+  })();
+  lstLoading.then(()=>{ lstLoading=null; }, ()=>{ lstLoading=null; });
+  return lstLoading;
+}
+
+function niRef(id){ return rcRef.child('newItems'+(id?'/'+id:'')); }
+function niConnect(){
+  if(!rcRef) return;
+  niRef().on('value', snap=>{ NEWITEMS=snap.val()||{}; niBadge();
+    if(curScreen==='recv' && rcView==='newitems') rcRenderKeepingFocus(); });
+}
+function niHas(v){ return v!=null && v!=='' && isFinite(+v); }
+function niList(){ return Object.keys(NEWITEMS||{}).map(id=>Object.assign({}, NEWITEMS[id], {id})).filter(x=>x && x.name); }
+function niComplete(x){ return NI_FIELDS.every(f=>niHas(x[f])); }
+function niBadge(){
+  const b=$('#rcNewBtn'); if(!b) return;
+  b.classList.toggle('hide', !IS_ADMIN);
+  const c=$('#rcNewCount'); if(c){ const n=niList().filter(x=>!niComplete(x)).length; c.textContent=n?String(n):''; }
+}
+/* write the not-listed products of one receiving; an existing record is never overwritten.
+   L: listings (pass null when they could not be read; leave undefined to load them here).
+   Returns how many were added, or -1 when there was nothing to check against. */
+async function rcNoteNewItems(s, L){
+  if(!rcRef || !s) return 0;
+  if(L===undefined){ try{ L=await loadListings(); }catch(e){ L=null; } }
+  const posted=!!(s.slack && s.slack.ts);
+  const flagged=new Set(rcArr(s.slack && s.slack.flagged).map(f=>norm(f && f.name)).filter(Boolean));
+  if(!L && !posted) return -1;
+  const byName=new Map();
+  rcTotals(s).forEach(t=>{ const k=norm(t.name); if(!k) return; const e=byName.get(k)||{name:t.name, qty:0}; e.qty+=(+t.qty||0); byName.set(k,e); });
+  let n=0;
+  for(const [k,e] of byName){
+    if(!((L && !L.by.has(k)) || flagged.has(k))) continue;
+    const rec={name:e.name, key:k, addedAt:Date.now(), supplier:s.supplier||'', dateStr:s.dateStr||'', sid:s.id, qty:e.qty, by:s.finishedBy||MY_NAME||''};
+    try{ const r=await niRef(safeKey(k)).transaction(cur=>cur ? undefined : rec); if(r.committed) n++; }catch(err){}
+  }
+  return n;
+}
+function niAfterFinish(s){
+  rcNoteNewItems(s).then(n=>{
+    if(n>0) toast(n+' product(s) without a listing added to “New items”','info',4500);
+  }).catch(()=>{});
+}
+function niImageMap(){
+  const m=new Map(); const add=e=>{ if(e && e.name && e.image){ const k=norm(e.name); if(!m.has(k)) m.set(k,e.image); } };
+  for(const k in S.inventory) add(S.inventory[k]);
+  (RCCAT.main||[]).forEach(add); (RCCAT.pending||[]).forEach(add);
+  return m;
+}
+function niFiltered(){
+  const q=norm(rcNiQ); let list=niList();
+  if(rcNiMode==='todo') list=list.filter(x=>!niComplete(x)); else if(rcNiMode==='done') list=list.filter(niComplete);
+  if(q) list=list.filter(x=>norm(x.name).includes(q) || norm(x.supplier).includes(q));
+  return list.sort((a,b)=>(b.addedAt||0)-(a.addedAt||0) || String(a.name).localeCompare(String(b.name)));
+}
+function niInput(x,f,ph){
+  return '<input id="ni_'+f+'_'+esc(x.id)+'" data-ni="'+esc(x.id)+'" data-f="'+f+'" inputmode="decimal" autocomplete="off" placeholder="'+ph+'" value="'+(niHas(x[f])?esc(String(x[f])):'')+'">';
+}
+function rcViewNewItems(){
+  const all=niList(), todo=all.filter(x=>!niComplete(x)).length;
+  const list=niFiltered(), imgs=niImageMap();
+  let h='<div class="rcrow"><button class="btn ghost" id="rcNiBack">← Back</button><h1 style="margin:0">🆕 New items</h1><div class="spacer" style="flex:1"></div>'+
+    '<div class="pill">To fill <b>'+todo+'</b></div><div class="pill">Total <b>'+all.length+'</b></div></div>'+
+    '<p class="sub">Products received in a shipment that are in none of the listing tabs. Add the size, the weight and the estimated shipment cost — once filled in, they show on the product card in Analyzer. A field saves itself when you leave it.</p>';
+  h+='<div class="card"><div class="rcrow">'+
+    [['all','All',all.length],['todo','To fill',todo],['done','Complete',all.length-todo]].map(m=>
+      '<button class="shiftchip'+(rcNiMode===m[0]?' on':'')+'" data-nimode="'+m[0]+'">'+m[1]+' <span class="n">'+m[2]+'</span></button>').join('')+
+    '<input id="rcNiQ" class="tinput" style="min-width:180px" autocomplete="off" placeholder="Search item or supplier…" value="'+esc(rcNiQ)+'"></div>'+
+    '<div class="rcrow" style="margin-top:12px"><button class="btn" id="rcNiScan" title="Re-read the listings workbook and check every finished receiving on this list">🔎 Check finished receivings</button>'+
+    '<button class="btn ghost" id="rcNiAdd">＋ Add manually</button><div class="spacer" style="flex:1"></div>'+
+    '<button class="btn ghost" id="rcNiCsv">⬇ CSV</button></div>'+
+    '<p class="sub" style="font-size:12.5px;margin-top:9px">'+(LST ? 'Listings read '+esc(fmtTime(LST.at))+' · '+LST.tabs+' of '+LST_TABS.length+' tabs' : 'Listings workbook not read yet')+
+    ' · a product is added here when its receiving is finished.</p></div>';
+  if(!list.length){
+    h+='<div class="empty" style="margin-top:14px">'+(all.length?'Nothing matches this filter.':'No new items yet.<br><span style="font-size:13px">They appear when a receiving with a not-listed product is finished — or press “Check finished receivings”.</span>')+'</div>';
+    return h;
+  }
+  h+='<div class="rcput" style="margin-top:14px">';
+  for(const x of list){
+    const listed=LST ? (LST.by.get(norm(x.name))||[]) : null;
+    const meta=[x.supplier?esc(x.supplier):'', x.dateStr?esc(x.dateStr):'', x.qty?('received '+fmtN(x.qty)):'', x.by?('by '+esc(x.by)):''].filter(Boolean).join(' · ');
+    h+='<div class="rcputrow">'+rcImg(imgs.get(norm(x.name)),x.name,'thumb')+
+      '<div style="min-width:0"><div class="rcrow"><div class="an" style="flex:1;min-width:0">'+esc(x.name)+'</div>'+
+        (niComplete(x)?'<span class="statustag st-packed">complete</span>':'<span class="statustag st-partial">to fill</span>')+
+        '<button class="rcdel" data-nidel="'+esc(x.id)+'" title="Remove from New items">✕</button></div>'+
+      '<div class="am">'+(meta||'added manually')+
+        (listed ? (listed.length ? ' · <span style="color:var(--accent)">now listed: '+esc(listed.join(', '))+'</span>' : ' · <span style="color:var(--warn)">no listing</span>') : '')+'</div>'+
+      '<div class="rcputctl">'+
+        '<span class="nifld" title="Length × width × height, inches">📐 '+niInput(x,'l','L')+'<span class="nisep">×</span>'+niInput(x,'w','W')+'<span class="nisep">×</span>'+niInput(x,'h','H')+' in</span>'+
+        '<span class="nifld" title="Weight, pounds">⚖ '+niInput(x,'wt','0.0')+' lb</span>'+
+        '<span class="nifld" title="Estimated shipment cost, USD">🚚 $ '+niInput(x,'cost','0.00')+'</span>'+
+        (x.updatedAt?'<span class="sub" style="font-size:11.5px">saved '+esc(fmtTime(x.updatedAt))+(x.updatedBy?' · '+esc(x.updatedBy):'')+'</span>':'')+
+      '</div></div></div>';
+  }
+  return h+'</div>';
+}
+function niSaveField(inp){
+  const id=inp.dataset.ni, f=inp.dataset.f; if(!id || NI_FIELDS.indexOf(f)<0 || !rcRef) return;
+  const cur=NEWITEMS[id] && niHas(NEWITEMS[id][f]) ? +NEWITEMS[id][f] : null;
+  const raw=String(inp.value||'').trim().replace(/[$\s]/g,'').replace(',','.');
+  let v=null;
+  if(raw!==''){ v=Number(raw);
+    if(!isFinite(v) || v<0){ toast('Enter a number, e.g. 12.5','warn',2600); inp.value=cur==null?'':String(cur); return; }
+    v=Math.round(v*100)/100; inp.value=String(v); }
+  if(v===cur) return;
+  niRef(id).update({[f]:v, updatedAt:Date.now(), updatedBy:MY_NAME||''})
+    .catch(()=>toast('Could not save — check the connection','err',3600));
+}
+async function rcNiScan(){
+  if(rcNiBusy) return; rcNiBusy=true;
+  const b=$('#rcNiScan'); if(b){ b.disabled=true; b.textContent='Checking…'; }
+  let L=null, n=0, blind=0;
+  try{ L=await loadListings(true); }catch(e){ L=null; }
+  for(const s of RC.sessions.filter(x=>x.finished)){ const r=await rcNoteNewItems(s, L); if(r>0) n+=r; else if(r<0) blind++; }
+  rcNiBusy=false;
+  if(!L) toast('The listings workbook could not be read — only products flagged by the Slack bot were checked'+(n?' · '+n+' added':''),'warn',5200);
+  else toast(n ? n+' new item(s) added' : 'Nothing new — every received product is listed or already here','ok',3800);
+  rcRender();
+}
+function rcNiAddManual(){
+  const name=(prompt('Product name (exactly as in the inventory / Daily SOH):','')||'').trim();
+  if(name.length<2) return;
+  const k=norm(name), id=safeKey(k);
+  if(NEWITEMS[id]){ toast('“'+name+'” is already on the list','info',2600); return; }
+  niRef(id).set({name, key:k, addedAt:Date.now(), by:MY_NAME||'', manual:true})
+    .catch(()=>toast('Could not save — check the connection','err',3600));
+}
+function rcNiExport(){
+  const list=niFiltered(); if(!list.length){ toast('Nothing to export','warn',2200); return; }
+  const rows=[['Item','Supplier','Received','Qty','Length in','Width in','Height in','Weight lb','Est. shipment cost $','Listed on (now)']];
+  for(const x of list){ const g=f=>niHas(x[f])?+x[f]:'';
+    rows.push([x.name, x.supplier||'', x.dateStr||'', x.qty||'', g('l'), g('w'), g('h'), g('wt'), g('cost'), LST?(LST.by.get(norm(x.name))||[]).join(', '):'']); }
+  downloadCSV(rows, 'new_items_'+TODAY+'.csv');
+}
+function rcWireNewItems(){
+  if(!LST && !lstLoading && Date.now()-lstTriedAt>60000)
+    loadListings().then(()=>{ if(curScreen==='recv' && rcView==='newitems') rcRenderKeepingFocus(); }).catch(()=>{});
+  $('#rcNiBack').onclick=()=>{ const s=rcCur(); if(s) rcOpenSession(s.id); else rcGo('home'); };
+  $$('#rcArea [data-nimode]').forEach(b=>b.onclick=()=>{ rcNiMode=b.dataset.nimode; rcRender(); });
+  const q=$('#rcNiQ'); if(q) q.addEventListener('input',e=>{ rcNiQ=e.target.value; rcRenderKeepingFocus(); });
+  $$('#rcArea [data-ni]').forEach(inp=>{
+    inp.addEventListener('change',()=>niSaveField(inp));
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); inp.blur(); } });
+  });
+  $$('#rcArea [data-nidel]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.nidel, x=NEWITEMS[id]; if(!x) return;
+    if(!confirm('Remove “'+x.name+'” from New items?\nIts size, weight and shipping cost are deleted and disappear from Analyzer.')) return;
+    niRef(id).remove().catch(()=>toast('Could not delete it','err',3000));
+  });
+  $('#rcNiScan').onclick=rcNiScan;
+  $('#rcNiAdd').onclick=rcNiAddManual;
+  $('#rcNiCsv').onclick=rcNiExport;
+}
+
 /* ---------- wiring ---------- */
 $('#rcBack').onclick=goMenu;
 $('#rcCatBtn').onclick=()=>{ rcBcFilter=''; rcGo('catalog'); };
+$('#rcNewBtn').onclick=()=>{ if(!IS_ADMIN) return; rcNiQ=''; rcGo('newitems'); };
 /* leave the current receiving at any moment — everything is already saved */
 $('#rcList').onclick=()=>{ if(rcDraft){ rcDraft=null; } rcActiveId=null; rcGo('home'); };
 $('#packMenuBtn').onclick=goMenu;
