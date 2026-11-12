@@ -998,7 +998,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-11d · order # in reports · reports → Drive';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-11e · full-length ids in reports';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1077,12 +1077,15 @@ const _proxy={ord:null, inv:null};
 /* ============================================================
    PARSING
    ============================================================ */
+/* an id cell (tracking / order #): when the sheet stores it as a number, write all its digits */
+function idCell(rows,rawRows,r,c){ if(c<0) return ''; const raw=rawRows[r]&&rawRows[r][c]; if(typeof raw==='number'&&isFinite(raw)&&Math.abs(raw)>=1e6) return raw.toLocaleString('fullwide',{useGrouping:false,maximumFractionDigits:0}); return String((rows[r]&&rows[r][c])??'').trim(); }
 function parseOrders(arrayBuf){
   const wb = XLSX.read(arrayBuf, {type:'array'});
   const platforms={};
   for(const sn of wb.SheetNames){
     if(INVENTORY_NAMES.includes(norm(sn))) continue; // ignore an inventory tab if present
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:false, defval:''});
+    const rawRows=XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:true, defval:''});   // ids stored as numbers → full digits, never 3.8E+11
     if(rows.length<2) continue;
     const h=rows[0];
     const oc=pickOrderCol(h);
@@ -1090,12 +1093,13 @@ function parseOrders(arrayBuf){
     if(ci.tracking<0||ci.name<0) continue;
     const orders={};
     for(let r=1;r<rows.length;r++){
-      const row=rows[r]; const tid=String(row[ci.tracking]??'').trim(); const nm=String(row[ci.name]??'').trim();
+      const row=rows[r]; const tid=idCell(rows,rawRows,r,ci.tracking); const nm=String(row[ci.name]??'').trim();
       if(!tid||!nm) continue;
       const variation=ci.variation>=0?String(row[ci.variation]??'').trim():'';
       const qty=ci.qty>=0?(parseInt(row[ci.qty],10)||1):1;
-      const ono=ci.order>=0?String(row[ci.order]??'').trim():'';
-      if(!orders[tid]) orders[tid]={trackingId:tid, orderNo:'', items:[]};
+      const ono=ci.order>=0?idCell(rows,rawRows,r,ci.order):'';
+      const shown=String(row[ci.tracking]??'').trim();      // how older builds read it (e.g. 3.84693E+11)
+      if(!orders[tid]) orders[tid]={trackingId:tid, orderNo:'', items:[], legacyTid:shown!==tid?shown:''};
       if(ono&&!orders[tid].orderNo) orders[tid].orderNo=ono;
       orders[tid].items.push({name:nm, variation, qty, invKey:keyOf(nm,variation)});
     }
@@ -1823,9 +1827,11 @@ async function syncShiftOrders(buf, label){
   const sheetPlatforms=new Set(Object.keys(platforms));
   const sheet={};                      // key -> {platform, trackingId, items}
   for(const pk in platforms) for(const o of platforms[pk].orders)
-    sheet[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, orderNo:o.orderNo||null, items:o.items};
+    sheet[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, orderNo:o.orderNo||null, items:o.items, legacyTid:o.legacyTid||''};
 
   const cur={}; for(const pk in S.platforms) S.platforms[pk].orders.forEach(o=>cur[o._key]=o);
+  /* orders saved by older builds with a shortened tracking id (3.84693E+11) are matched and repaired, not duplicated */
+  for(const k of Object.keys(sheet)){ const sh=sheet[k]; if(cur[k]||!sh.legacyTid) continue; const lk=safeKey(sh.platform+'__'+sh.legacyTid); if(cur[lk]&&!sheet[lk]){ delete sheet[k]; sh.fixTid=true; sheet[lk]=sh; } }
   const now=Date.now();
   const claimedFresh=o=>o.claim && (now-(o.claim.at||0))<STALE_MS;
 
@@ -1843,6 +1849,7 @@ async function syncShiftOrders(buf, label){
       continue;
     }
     if(s.orderNo&&s.orderNo!==ex.orderNo){ updates['orders/'+k+'/orderNo']=s.orderNo; orderNos++; }     // order number only feeds the report
+    if(s.fixTid&&s.trackingId!==ex.trackingId){ updates['orders/'+k+'/trackingId']=s.trackingId; idx['trackIndex/'+CUR_SHIFT+'/'+k]={t:s.trackingId,p:s.platform}; orderNos++; }
     if(claimedFresh(ex)){ skipped.push(ex.trackingId); continue; }   // being packed right now
     if(!itemsChanged(ex.items, s.items)) continue;                   // unchanged → left exactly as it is
     const m=mergeItems(ex.items, s.items);
@@ -1882,11 +1889,11 @@ async function syncShiftOrders(buf, label){
   lines.push('', 'Everything else keeps its current status. Continue?');
 
   if(!added.length && !changed.length && !removedPending.length && !removedDone.length){
-    if(orderNos){ try{ await shiftRef.update(updates); toast('Order numbers added to '+orderNos+' order(s) — they show in the reports','ok',3600); }catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); } return; }
+    if(orderNos){ try{ await shiftRef.update(updates); if(Object.keys(idx).length) root.update(idx).catch(()=>{}); toast('Order numbers / full tracking ids written for '+orderNos+' order(s)','ok',3600); }catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); } return; }
     toast('“'+shiftLabel+'” already matches the file'+(skipped.length?(' · '+skipped.length+' being packed'):'')+(noOrderCol.length?' · no Order # column in: '+noOrderCol.join(', '):''),noOrderCol.length?'warn':'info',4200);
     return;
   }
-  if(orderNos) lines.splice(lines.length-2,0,'• add order numbers to '+orderNos+' order(s) (reports only)');
+  if(orderNos) lines.splice(lines.length-2,0,'• add order numbers / full tracking ids to '+orderNos+' order(s)');
   if(noOrderCol.length) lines.splice(lines.length-2,0,'• no Order # column found in: '+noOrderCol.join(', '));
   if(!confirm(lines.join('\n'))) { toast('Sync cancelled','info',2000); return; }
 
@@ -3556,7 +3563,9 @@ function ordersToCSVRows(orders, shiftDateDefault){
   }
   return rows;
 }
-function rowsToCSV(rows){ return rows.map(r=>r.map(c=>{c=String(c==null?'':c);return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',')).join('\r\n'); }
+/* long numbers (tracking, order #) are written as ="…" — Excel and Google Sheets then keep every digit instead of 3.8E+11 */
+function csvCell(c){ c=String(c==null?'':c); if(/^\d{11,}$/.test(c)) c='="'+c+'"'; return /[",\n\r]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; }
+function rowsToCSV(rows){ return rows.map(r=>r.map(csvCell).join(',')).join('\r\n'); }
 function downloadCSV(rows, filename){ const blob=new Blob(['\ufeff'+rowsToCSV(rows)],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href); }
 
 /* ---------- report viewer: parse past CSV reports (read-only) ---------- */
@@ -3585,7 +3594,7 @@ function ordersFromCSV(rows, sourceName){
     packer:findCol(h,['packer']), packedAt:findCol(h,['packed at','packed_at','packed time']), sdate:findCol(h,['shift date','report date','date']), order:findCol(h,['order #','order id','order number']) };
   const groups={};
   for(let r=1;r<rows.length;r++){ const row=rows[r]; if(!row||row.every(x=>String(x).trim()===''))continue;
-    const get=idx=>idx>=0?String(row[idx]==null?'':row[idx]).trim():'';
+    const get=idx=>idx>=0?String(row[idx]==null?'':row[idx]).trim().replace(/^="(.*)"$/,'$1'):'';
     const plat=get(ci.plat)||'\u2014'; const label=get(ci.label); const gk=plat+' '+label;
     if(!groups[gk]) groups[gk]={platform:plat,trackingId:label,orderNo:get(ci.order),status:orderStatusFromText(get(ci.ostatus)),
       packedBy:get(ci.packer), packedAt:get(ci.packedAt), shiftDate:get(ci.sdate), source:sourceName, items:[]};
