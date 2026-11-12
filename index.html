@@ -992,13 +992,14 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html',
   lessons:   'https://r-alib.github.io/calipokehouselessons/',  // staff training — its own site, fully independent
   returns:   'return-tracker.html',
+  orderprep: 'order-prep.html',                                 // ORDER PREP — platform reports → import file, rules, Daily SOH table (admins)
   transfer:  'https://r-alib.github.io/calipoke-transfer/',        // transfer requests between locations — its own app
   cph:       'https://r-alib.github.io/cph-inventory/',            // CPH INVENTORY — stock by location, games, streamer shifts
   cpadmin:   'https://r-alib.github.io/calipoke-admin/',           // CALIPOKE ADMIN — users, roles, activity (admins only)
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-11e · full-length ids in reports';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-12a · Order Prep';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -2002,6 +2003,7 @@ const MODES=[
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true, feat:'plan'},
   {icon:'🎓', name:'LESSONS',           desc:'Staff training — video lessons and tests', ext:'lessons', ready:true, feat:'lessons'},
   {icon:'↩️', name:'RETURN TRACKER',    desc:'Log returns and exchanges · copy the table to Sheets / Excel', ext:'returns', ready:true, feat:'returns'},
+  {icon:'🧾', name:'ORDER PREP',        desc:'Platform order reports → import file · rules · Daily SOH table', ext:'orderprep', ready:true, feat:'orderprep'},
   {icon:'⇄', name:'TRANSFER REQUEST',   desc:'Request stock transfers between locations', ext:'transfer', ready:true, feat:'transfer'},
   {icon:'🏬', name:'CPH INVENTORY',     desc:'Stock by location · streaming games · streamer shifts', ext:'cph', ready:true, feat:'cphinventory'},
   {icon:'🛡️', name:'CALIPOKE ADMIN',    desc:'Users, roles and activity history', ext:'cpadmin', ready:true, feat:'admin'},
@@ -2016,7 +2018,7 @@ function renderMenu(){
   const who=$('#menuWho'); if(who) who.textContent = MY_NAME + (IS_ADMIN?' · admin':'') + (S.date?(' · shift '+S.date):'');
   const g=$('#modeGrid'); if(!g) return;
   const st=globalStats();
-  const canMode=m=>!m.feat||!window.CPAuth||!CPAuth.user||CPAuth.can(m.feat,'station');
+  const canMode=m=>!m.feat||!window.CPAuth||!CPAuth.user||((CPAuth.ACCESS.station||{})[m.feat]?CPAuth.can(m.feat,'station'):CPAuth.isAdmin);
   g.innerHTML=MODES.map((m,i)=>{ if(!canMode(m)) return '';
     const soon=!!m.ext && !m.ready;         // external but already built → no SOON badge
     let extra='';
