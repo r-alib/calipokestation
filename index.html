@@ -998,7 +998,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-11c · order # in reports · reports → Drive';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-11d · order # in reports · reports → Drive';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1100,7 +1100,7 @@ function parseOrders(arrayBuf){
       orders[tid].items.push({name:nm, variation, qty, invKey:keyOf(nm,variation)});
     }
     const list=Object.values(orders);
-    if(list.length) platforms[sn]={name:sn, orders:list};
+    if(list.length) platforms[sn]={name:sn, orders:list, orderCol:ci.order>=0?String(h[ci.order]):''};
   }
   if(Object.keys(platforms).length===0) throw new Error('No order tabs found (need "tracking id" and "item name").');
   return platforms;
@@ -1694,6 +1694,7 @@ function stageOrders(buf, sourceMeta, fileName){
   let n=0; for(const pk in platforms) n+=platforms[pk].orders.length;
   const src=fileName||_lastSheetName||'';
   _pendingShift={platforms, source:sourceMeta||null, name:shiftNameFrom(src)||todayUS(), fromName:src, orders:n};
+  { const miss=Object.keys(platforms).filter(pk=>!platforms[pk].orderCol); if(miss.length) toast('No Order # column found in: '+miss.join(', ')+' — reports will have no order numbers there','warn',5000); }
   gstatus('ord','✓ Read '+n+' orders across '+Object.keys(platforms).length+' platforms'+(src?' from “'+src+'”':'')+'.','ok');
   renderShiftStage();
 }
@@ -1829,7 +1830,8 @@ async function syncShiftOrders(buf, label){
   const claimedFresh=o=>o.claim && (now-(o.claim.at||0))<STALE_MS;
 
   const updates={}, idx={};          // idx is written on the station root, not the shift
-  const added=[], changed=[], removedPending=[], removedDone=[], skipped=[], untouchedPlatforms=[];
+  const added=[], changed=[], removedPending=[], removedDone=[], skipped=[], untouchedPlatforms=[]; let orderNos=0;
+  const noOrderCol=Object.keys(platforms).filter(pk=>!platforms[pk].orderCol);
 
   /* --- in the file --- */
   for(const k in sheet){
@@ -1840,7 +1842,7 @@ async function syncShiftOrders(buf, label){
       idx['trackIndex/'+CUR_SHIFT+'/'+k]={t:s.trackingId, p:s.platform};
       continue;
     }
-    if(s.orderNo&&s.orderNo!==ex.orderNo) updates['orders/'+k+'/orderNo']=s.orderNo;     // order number only feeds the report
+    if(s.orderNo&&s.orderNo!==ex.orderNo){ updates['orders/'+k+'/orderNo']=s.orderNo; orderNos++; }     // order number only feeds the report
     if(claimedFresh(ex)){ skipped.push(ex.trackingId); continue; }   // being packed right now
     if(!itemsChanged(ex.items, s.items)) continue;                   // unchanged → left exactly as it is
     const m=mergeItems(ex.items, s.items);
@@ -1880,9 +1882,12 @@ async function syncShiftOrders(buf, label){
   lines.push('', 'Everything else keeps its current status. Continue?');
 
   if(!added.length && !changed.length && !removedPending.length && !removedDone.length){
-    toast('“'+shiftLabel+'” already matches the file'+(skipped.length?(' · '+skipped.length+' being packed'):''),'info',3400);
+    if(orderNos){ try{ await shiftRef.update(updates); toast('Order numbers added to '+orderNos+' order(s) — they show in the reports','ok',3600); }catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); } return; }
+    toast('“'+shiftLabel+'” already matches the file'+(skipped.length?(' · '+skipped.length+' being packed'):'')+(noOrderCol.length?' · no Order # column in: '+noOrderCol.join(', '):''),noOrderCol.length?'warn':'info',4200);
     return;
   }
+  if(orderNos) lines.splice(lines.length-2,0,'• add order numbers to '+orderNos+' order(s) (reports only)');
+  if(noOrderCol.length) lines.splice(lines.length-2,0,'• no Order # column found in: '+noOrderCol.join(', '));
   if(!confirm(lines.join('\n'))) { toast('Sync cancelled','info',2000); return; }
 
   for(const o of removedPending){ updates['orders/'+o._key]=null; idx['trackIndex/'+CUR_SHIFT+'/'+o._key]=null; }
