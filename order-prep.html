@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ORDER PREP · CALIPOKE STATION</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--panel2:#171d2b;--raised:#1a2235;--border:#243049;--ink:#e8ecf3;--muted:#8b96ab;--faint:#5a6578;--accent:#4fd18b;--ok:#4fd18b;--warn:#f2c15f;--err:#ff7b8a;--info:#7fb4f2;--sub:#a98bf5;--disp:'Space Grotesk',Inter,sans-serif;--body:Inter,system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--r:14px}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.brand{font-family:var(--disp);font-weight:800;letter-spacing:.04em;font-size:16px} .brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.08em}
+.spacer{flex:1} main{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap} .seg button{background:none;border:0;color:var(--muted);padding:9px 15px;border-radius:9px;font:600 14px var(--body);cursor:pointer} .seg button.on{background:var(--raised);color:var(--ink)}
+.btn{background:var(--raised);border:1px solid var(--border);color:var(--ink);border-radius:11px;padding:9px 14px;font:600 13.5px var(--body);cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block} .btn:hover{border-color:var(--accent)} .btn.primary{background:var(--accent);color:#06110b;border-color:var(--accent)} .btn.ghost{background:none} .btn.sm{padding:6px 10px;font-size:12.5px} .btn.danger{background:#2a1116;color:var(--err);border-color:#4a1f28} .btn.warn{background:#2b2410;color:var(--warn);border-color:#4a3d16} .btn:disabled{opacity:.45;cursor:default}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tinput,.sel{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--ink);font:500 14px var(--body);padding:9px 11px;outline:none} .tinput:focus,.sel:focus{border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px} th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:2;white-space:nowrap} th.num,td.num{text-align:right} td{padding:6px 9px;border-bottom:1px solid #1b2232;vertical-align:middle} tr:hover td{background:#141a28}
+tr.bad td{background:#2a1116} tr.bad:hover td{background:#33141b} tr.auto td:first-child{box-shadow:inset 3px 0 0 var(--info)} tr.bad td:first-child{box-shadow:inset 3px 0 0 var(--err)}
+.tscroll{overflow:auto;max-height:64vh;border:1px solid var(--border);border-radius:12px}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;background:var(--raised);color:var(--muted)} .badge.ok{background:#13301f;color:var(--ok)} .badge.err{background:#2a1116;color:var(--err)} .badge.warn{background:#2b2410;color:var(--warn)} .badge.info{background:#15233a;color:var(--info)}
+.mono{font-family:var(--mono);font-size:12px} .mini{font-size:12px;color:var(--muted)}
+.kvs{display:flex;gap:10px;flex-wrap:wrap} .kv{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;min-width:110px} .kv .n{font-family:var(--mono);font-size:22px;font-weight:700} .kv .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em} .kv.err .n{color:var(--err)} .kv.ok .n{color:var(--ok)}
+.chips{display:flex;gap:8px;flex-wrap:wrap} .chip{background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:8px 14px;font:600 13px var(--body);color:var(--ink);cursor:pointer;white-space:nowrap} .chip:hover{border-color:var(--accent)} .chip.on{background:#11211a;border-color:var(--accent)} .chip .c{font-family:var(--mono);color:var(--muted);margin-left:6px} .chip.haserr{border-color:var(--err)} .chip.hid{opacity:.45;border-style:dashed}
+.grid5{display:grid;grid-template-columns:1.3fr 2.2fr 1.2fr .6fr 1.3fr;gap:10px} .col label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px} .col textarea{width:100%;min-height:170px;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre;resize:vertical;overflow:auto}
+@media (max-width:900px){ .grid5{grid-template-columns:1fr 1fr} }
+.modalbg{position:fixed;inset:0;background:rgba(5,8,14,.72);z-index:100;display:grid;place-items:center;padding:16px} .modal{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:22px 24px;width:min(620px,96vw);max-height:92vh;overflow:auto} .modal.wide{width:min(980px,96vw)} .modal h2{margin:0 0 6px;font-family:var(--disp)} .fld{margin-top:12px} .fld label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px} .fld .tinput,.fld .sel{width:100%}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel2);border:1px solid var(--border);border-radius:12px;max-height:280px;overflow:auto;z-index:10;padding:4px} .sugg button{display:flex;gap:10px;align-items:center;width:100%;background:none;border:0;color:var(--ink);padding:7px 9px;border-radius:8px;cursor:pointer;text-align:left;font:500 13px var(--body)} .sugg button:hover{background:var(--raised)} .sugg img{width:34px;height:34px;border-radius:7px;object-fit:cover;background:var(--raised)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:10px 16px;z-index:200;font-weight:600;max-width:90vw} .toast.ok{border-color:var(--ok)} .toast.err{border-color:var(--err);color:var(--err)} .toast.warn{border-color:var(--warn);color:var(--warn)}
+.hide{display:none!important} .note{background:#15233a;border:1px solid #2b4d73;border-radius:12px;padding:11px 14px;font-size:13px;margin-top:12px} .note.warn{background:#2b2410;border-color:#4a3d16;color:var(--warn)} .note.err{background:#2a1116;border-color:#4a1f28;color:var(--err)}
+.pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px} .pcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px} .pcard h3{margin:0 0 8px;font-family:var(--disp);font-size:16px;display:flex;gap:8px;align-items:center} .pcard .li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid #1b2232;font-size:13px} .pcard .li b{font-family:var(--mono)} .pcard .tot{display:flex;justify-content:space-between;margin-top:8px;font-weight:700}
+td.diff{color:var(--warn);font-weight:700} td.newv{color:var(--ok);font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">ORDER PREP<small>CALIPOKE STATION · ADMIN</small></div>
+  <a class="btn ghost sm" href="index.html">← Station</a>
+  <div class="spacer"></div>
+  <span class="mini">Shift day</span><input id="day" class="tinput" type="date" style="color-scheme:dark;padding:7px 9px">
+  <span class="badge" id="srcPill">loading…</span>
+  <button class="btn sm" id="reloadSrc" title="Re-read the inventory sheet, the listing sheet and the Daily SOH">⟳ Sheets</button>
+  <span class="mini" id="buildPill">v2026-11-12b</span>
+  <div id="hdrUser"></div>
+</header>
+<main id="app" class="hide">
+  <div class="row"><div class="seg" id="tabs">
+    <button data-t="orders" class="on">📥 Orders</button><button data-t="rules">📐 Rules</button><button data-t="items">📦 Items today</button><button data-t="soh">📊 Daily SOH report</button></div>
+    <div class="spacer"></div><button class="btn" id="settingsBtn">⚙ Platforms & sources</button><button class="btn primary" id="xlsxBtn">⬇ Import file (.xlsx)</button></div>
+  <div id="body"></div>
+</main>
+<script>
+'use strict';
+/* ============================================================
+   ORDER PREP — turns platform order reports into the Pick & Pack import file.
+   Data (Firebase, calipoke-packstation → packstation/orderPrep):
+     platforms/{id}        {name, order, hidden, sohCol}
+     rules/{pid}/{key}     {pn, pv, soh, item, var, sku, upc, qty, by, at}     key = product name || variation
+     days/{YYYY-MM-DD}/{pid}/rows   [{t, pn, pv, q, o}]   — what was pasted from the platform report
+     settings              {listingUrl}
+   Read-only sources: inventory sheet (names, variations, UPC = column E, qty = column G),
+   listing sheet (tab "SKU Name_Final": A = name, B = SKU), Daily SOH (week tabs) — never written.
+   ============================================================ */
+const INVENTORY_SHEET_ID='13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw';
+const DSOH_SHEET_ID='1keeoQrnw2jemRXxLq8iEp4UixyqvUdV4QrBFc7Mp5bE';
+const LISTING_TAB='SKU Name_Final';
+const DEFAULT_LISTING_URL='https://docs.google.com/spreadsheets/d/1WQQxRWnDicFsuYE_98InYhVFeeEL8FEI5nDircmtmOA/edit';
+const DEFAULT_PLATFORMS=['Tiktok','Tiktok 2','Koi Slabs','DollDrop','SugarPop','CaliToys','Ebay','Temu','Shopify','TCG Player','Walmart','Best Buy','DollDrop (Friday)','DollDrop (Saturday)','DollDrop (Sunday)'];
+const IMPORT_HEADER=['tracking id','item name','variation','quantity','Order ID'];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,' ');
+const fbKey=k=>String(k).replace(/[.#$/\[\]]/g,'_');
+const fmt=n=>(+n||0).toLocaleString('en-US');
+const int=v=>{ const n=parseInt(String(v).replace(/[, ]/g,''),10); return isFinite(n)?n:0; };
+const dayOf=ts=>{ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const usDate=day=>{ const [y,m,d]=day.split('-'); return m+'/'+d+'/'+y; };
+const isDefault=v=>{ const n=norm(v); return !n||n==='default'; };
+let toastT=null; function toast(m,k,ms){ let t=$('.toast'); if(!t){ t=document.createElement('div'); document.body.appendChild(t); } t.textContent=m; t.className='toast '+(k||''); clearTimeout(toastT); toastT=setTimeout(()=>t.remove(),ms||3200); }
+let _m=null; function modal(h,wide){ closeModal(); const bg=document.createElement('div'); bg.className='modalbg'; bg.innerHTML='<div class="modal'+(wide?' wide':'')+'">'+h+'</div>'; bg.addEventListener('mousedown',e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); _m=bg; return bg; } function closeModal(){ if(_m){ const m=_m; _m=null; try{ m.remove(); }catch(e){} } }
+function copyText(t,msg){ const fb=()=>{ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} ta.remove(); toast(ok?(msg||'Copied'):'Could not copy — allow clipboard access',ok?'ok':'err'); }; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast(msg||'Copied','ok')).catch(fb); else fb(); }
+
+/* ---------------- state ---------------- */
+let DB=null, R=null, DAY=dayOf(Date.now()), tab='orders', curP=null, showHidden=false;
+let PLATFORMS={}, RULES={}, ROWS={}, SETTINGS={};
+let INV={items:{},names:[],bc:{},at:0}, SKU={}, DS=null, DS_ERR='', SRC_ERR=[];
+let dayRef=null;
+
+/* ---------------- sources ---------------- */
+function cellStr(v){ if(typeof v==='number'&&isFinite(v)) return Math.abs(v)>=1e6?v.toLocaleString('fullwide',{useGrouping:false,maximumFractionDigits:0}):String(v); return String(v==null?'':v).trim(); }
+async function fetchXlsx(id){ const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx&_='+Date.now(),{credentials:'omit',cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); const buf=await r.arrayBuffer(); return XLSX.read(buf,{type:'array'}); }
+async function loadInventory(force){
+  if(!force){ try{ const c=JSON.parse(localStorage.getItem('cps.orderprep.inv')||'null'); if(c&&Date.now()-c.at<6*3600e3){ setInv(c.rows,c.at); return; } }catch(e){} }
+  const wb=await fetchXlsx(INVENTORY_SHEET_ID); const sn=wb.SheetNames.find(n=>norm(n)==='inventory')||wb.SheetNames[0];
+  const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''}); const h=(raw[0]||[]).map(norm); const ci=(names,fb)=>{ for(const n of names){ const i=h.indexOf(n); if(i>=0) return i; } return fb; };
+  const cN=ci(['item name','name'],0), cV=ci(['variation'],1), cB=ci(['barcode','upc'],4), cI=ci(['image'],5), cQ=ci(['qty','quantity'],6), cS=ci(['stock'],3);
+  const rows=[]; for(let i=1;i<raw.length;i++){ const r=raw[i]; const n=cellStr(r[cN]); if(!n) continue; rows.push([n,cellStr(r[cV])||'Default',cellStr(r[cB]),cellStr(r[cI]),Math.max(1,int(r[cQ])||1),int(r[cS])]); }
+  setInv(rows,Date.now()); try{ localStorage.setItem('cps.orderprep.inv',JSON.stringify({at:Date.now(),rows})); }catch(e){}
+}
+function setInv(rows,at){ const items={}, bc={}; rows.forEach(([n,v,b,img,q,st])=>{ const k=norm(n); const it=items[k]||(items[k]={name:n,vars:{},image:img||''}); it.vars[norm(v)]={v,upc:b,qty:q,stock:st,image:img||''}; if(!it.image&&img) it.image=img; String(b||'').split(/[\s,;]+/).filter(Boolean).forEach(x=>{ (bc[norm(x)]=bc[norm(x)]||[]).push({k,v}); }); }); INV={items,names:Object.keys(items).sort(),bc,at}; }
+const listingId=()=>{ const u=String((SETTINGS||{}).listingUrl||DEFAULT_LISTING_URL); const m=u.match(/\/spreadsheets\/d\/([A-Za-z0-9-_]+)/)||u.match(/^([A-Za-z0-9-_]{20,})$/); return m?m[1]:''; };
+async function loadListing(force){ const id=listingId(); SKU={}; if(!id) return;
+  if(!force){ try{ const c=JSON.parse(localStorage.getItem('cps.orderprep.sku')||'null'); if(c&&c.id===id&&Date.now()-c.at<6*3600e3){ SKU=c.map; return; } }catch(e){} }
+  const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:csv&headers=1&range=A:B&sheet='+encodeURIComponent(LISTING_TAB)+'&_='+Date.now(),{credentials:'omit',cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); const t=await r.text(); if(/<!DOCTYPE|<html/i.test(t.slice(0,300))) throw new Error('the listing sheet is not shared by link');
+  const raw=csvParse(t); const map={}; raw.forEach((r,i)=>{ const n=norm(r[0]), s=String(r[1]||'').trim(); if(i===0&&/^(name|item name|product name|item|sku name)$/.test(n)) return; if(n&&s&&!map[n]) map[n]=s; }); SKU=map; try{ localStorage.setItem('cps.orderprep.sku',JSON.stringify({id,at:Date.now(),map})); }catch(e){}
+}
+/* ---- Daily SOH (read only) ---- */
+function csvParse(text){ const rows=[]; let row=[], cur='', q=false; for(let i=0;i<text.length;i++){ const c=text[i]; if(q){ if(c==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=c; } else if(c==='"') q=true; else if(c===','){ row.push(cur); cur=''; } else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; } else if(c!=='\r') cur+=c; } if(cur!==''||row.length){ row.push(cur); rows.push(row); } return rows; }
+function mondayOf(day){ const d=new Date(day+'T12:00:00'); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d; }
+function tabNames(mon){ const M=mon.getMonth()+1, D=mon.getDate(), p=n=>String(n).padStart(2,'0'); return [p(M)+'/'+p(D),M+'/'+D,p(M)+'/'+D,M+'/'+p(D)]; }
+async function loadDailySOH(day){ DS=null; DS_ERR=''; let lastErr=null;
+  for(const nm of tabNames(mondayOf(day))){ try{ const r=await fetch('https://docs.google.com/spreadsheets/d/'+DSOH_SHEET_ID+'/gviz/tq?tqx=out:csv&headers=1&sheet='+encodeURIComponent(nm)+'&_='+Date.now(),{credentials:'omit',cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); const t=await r.text(); if(/<!DOCTYPE|<html/i.test(t.slice(0,300))) throw new Error('Daily SOH is not shared for reading');
+      const rows=csvParse(t); if(rows.length<3) throw new Error('empty tab'); const header=rows[0].map(x=>String(x).trim()); if(norm(header[0])!=='item') throw new Error('tab '+nm+' not found');
+      const blocks=[]; let cur=null; for(let i=1;i<rows.length;i++){ const c0=String(rows[i][0]||'').trim(); if(!c0) continue; const m=c0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(m){ cur={date:m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'),rows:[]}; blocks.push(cur); continue; } if(!cur||c0.toUpperCase()==='ITEM') continue; cur.rows.push(rows[i].slice(0,18).map(x=>String(x==null?'':x).trim())); }
+      if(!blocks.length) throw new Error('no day blocks in tab '+nm);
+      const exact=blocks.find(b=>b.date===day); const blk=exact||blocks[blocks.length-1];
+      if(day!==DAY) return loadDailySOH(DAY);           // the day was changed while reading
+      DS={tab:nm,header:header.slice(0,18),rows:blk.rows,date:blk.date,exact:!!exact,at:Date.now()}; return; }catch(e){ lastErr=e; } }
+  if(day!==DAY) return loadDailySOH(DAY);
+  DS_ERR=(lastErr&&lastErr.message)||'Daily SOH tab not found'; }
+async function loadSources(force){ SRC_ERR=[]; $('#srcPill').textContent='reading sheets…'; $('#srcPill').className='badge';
+  await Promise.all([loadInventory(force).catch(e=>SRC_ERR.push('inventory: '+(e.message||e))), loadListing(force).catch(e=>SRC_ERR.push('listing: '+(e.message||e))), loadDailySOH(DAY).catch(e=>{ DS_ERR=e.message||String(e); })]);
+  srcPill(); render(); }
+function srcPill(){ const p=$('#srcPill'); if(SRC_ERR.length){ p.textContent='⚠ '+SRC_ERR.join(' · '); p.className='badge err'; } else { p.textContent=INV.names.length+' products'+(listingId()?' · '+Object.keys(SKU).length+' SKUs':' · no listing sheet'); p.className='badge ok'; } }
+
+/* ---------------- conversion ---------------- */
+const rk=pid=>{ const p=PLATFORMS[pid]; return p&&p.rulesFrom&&PLATFORMS[p.rulesFrom]?p.rulesFrom:pid; };   // platforms may share one rule set (DollDrop Fri/Sat/Sun → DollDrop)
+const ruleKey=(pn,pv)=>fbKey(norm(pn)+'||'+(isDefault(pv)?'':norm(pv)));
+function invVar(item,variation){ const it=INV.items[norm(item)]; if(!it) return null; return it.vars[norm(variation||'Default')]||null; }
+function skuOf(item,soh){ return SKU[norm(item)]||SKU[norm(soh)]||''; }
+function ruleFor(pid,pn,pv){ const rs=RULES[rk(pid)]||{}; return rs[ruleKey(pn,pv)]||null; }
+/* → {status:'rule'|'auto'|'bad', item, variation, qty, soh, why} */
+function convert(pid,row){ const q=int(row.q); const base={t:row.t||'',o:row.o||'',pn:row.pn||'',pv:row.pv||'',rq:q};
+  const problems=[]; if(!String(row.t||'').trim()) problems.push('no tracking id'); if(/^\d(\.\d+)?E\+\d+$/i.test(String(row.t||'').trim())||/^\d(\.\d+)?E\+\d+$/i.test(String(row.o||'').trim())) problems.push('number in scientific notation — copy it as text from the report'); if(!(q>0)) problems.push('quantity is not a number');
+  const r=ruleFor(pid,row.pn,row.pv);
+  if(r&&r.item){ const per=Math.max(1,int(r.qty)||1); return Object.assign(base,{status:problems.length?'bad':'rule',item:r.item,variation:r.var||'Default',qty:per*q,per,soh:r.soh||r.item,why:problems.join('; '),rule:r}); }
+  const it=INV.items[norm(row.pn)];
+  if(it){ const v=it.vars[isDefault(row.pv)?'default':norm(row.pv)]; if(v){ return Object.assign(base,{status:problems.length?'bad':'auto',item:it.name,variation:v.v,qty:v.qty*q,per:v.qty,soh:it.name,why:problems.join('; ')}); } problems.push('variation "'+row.pv+'" is not in the inventory for this product'); }
+  else problems.push('no rule for this product');
+  return Object.assign(base,{status:'bad',item:'',variation:'',qty:0,per:0,soh:'',why:problems.join('; ')}); }
+const rowsOf=pid=>((ROWS[pid]||{}).rows||[]);
+const convOf=pid=>rowsOf(pid).map(r=>convert(pid,r));
+const platList=all=>Object.keys(PLATFORMS).map(id=>Object.assign({id},PLATFORMS[id])).filter(p=>all||!p.hidden).sort((a,b)=>(a.order||0)-(b.order||0)||String(a.name).localeCompare(String(b.name)));
+
+/* ---------------- boot ---------------- */
+CPAuth.init({app:'station',header:'#hdrUser',onReady:start});
+async function start(u){ const allowed=(CPAuth.ACCESS.station&&CPAuth.ACCESS.station.orderprep)?CPAuth.can('orderprep','station'):u.role==='admin';
+  $('#app').classList.remove('hide'); if(!allowed){ CPAuth.denied('#app','Order Prep'); return; }
+  DB=CPAuth.db; R=DB.ref(CPAuth.ROOT+'/orderPrep'); $('#day').value=DAY;
+  const ps=await R.child('platforms').once('value'); if(!ps.exists()){ const init={}; DEFAULT_PLATFORMS.forEach((n,i)=>{ init['p'+String(i+1).padStart(2,'0')]={name:n,order:i+1,hidden:false,sohCol:/^dolldrop/i.test(n)?'DollDrop':(n==='CaliToys'?'':n)}; }); const dd=Object.keys(init).find(k=>init[k].name==='DollDrop'); for(const k in init) if(/^dolldrop\s*\(/i.test(init[k].name)) init[k].rulesFrom=dd; await R.child('platforms').set(init); }
+  R.child('platforms').on('value',s=>{ PLATFORMS=s.val()||{}; if(!curP||!PLATFORMS[curP]){ const l=platList(); curP=l.length?l[0].id:null; } render(); });
+  R.child('rules').on('value',s=>{ RULES=s.val()||{}; render(); });
+  R.child('settings').on('value',s=>{ const old=listingId(); SETTINGS=s.val()||{}; if(listingId()!==old) loadListing(false).then(()=>{ srcPill(); render(); }).catch(e=>{ SRC_ERR.push('listing: '+(e.message||e)); srcPill(); }); });
+  bindDay(); loadSources(false);
+  $$('#tabs [data-t]').forEach(b=>b.onclick=()=>{ tab=b.dataset.t; $$('#tabs button').forEach(x=>x.classList.toggle('on',x===b)); render(); });
+  $('#day').onchange=e=>{ DAY=e.target.value||dayOf(Date.now()); bindDay(); loadDailySOH(DAY).then(render); };
+  $('#reloadSrc').onclick=()=>loadSources(true); $('#settingsBtn').onclick=openSettings; $('#xlsxBtn').onclick=exportImportFile;
+}
+function bindDay(){ if(dayRef) dayRef.off(); ROWS={}; dayRef=R.child('days/'+DAY); dayRef.on('value',s=>{ ROWS=s.val()||{}; if(!typing) render(); else renderChips(); }); }
+let typing=false;
+function render(){ if(!R) return; if(_m&&_m.dataset&&_m.dataset.keep) return; if(tab==='orders') renderOrders(); else if(tab==='rules') renderRules(); else if(tab==='items') renderItems(); else renderSoh(); }
+
+/* ---------------- ORDERS ---------------- */
+const FIELDS=[['t','Tracking ID'],['pn','Product Name'],['pv','Variation'],['q','Quantity'],['o','Order Number']];
+function chipsHTML(){ return platList(showHidden).map(p=>{ const c=convOf(p.id); const bad=c.filter(x=>x.status==='bad').length; return '<button class="chip'+(p.id===curP?' on':'')+(bad?' haserr':'')+(p.hidden?' hid':'')+'" data-p="'+p.id+'">'+esc(p.name)+'<span class="c">'+c.length+(bad?' · <span style="color:var(--err)">'+bad+'⚠</span>':'')+'</span></button>'; }).join('')+'<button class="chip" id="toggleHidden" style="border-style:dashed;color:var(--muted)">'+(showHidden?'hide hidden':'show hidden')+'</button>'; }
+function renderChips(){ const h=$('#pchips'); if(!h) return; h.innerHTML=chipsHTML(); wireChips(); }
+function wireChips(){ $$('#pchips [data-p]').forEach(b=>b.onclick=()=>{ curP=b.dataset.p; typing=false; render(); }); const th=$('#toggleHidden'); if(th) th.onclick=()=>{ showHidden=!showHidden; render(); }; }
+function renderOrders(){ const p=PLATFORMS[curP]; const body=$('#body');
+  if(!p){ body.innerHTML='<div class="card">No platforms — add one in ⚙ Platforms & sources.</div>'; return; }
+  const rows=rowsOf(curP);
+  body.innerHTML='<div class="card"><div class="chips" id="pchips">'+chipsHTML()+'</div></div>'+
+    '<div class="card"><div class="row"><h2 style="margin:0;font-family:var(--disp)">'+esc(p.name)+' · '+esc(usDate(DAY))+'</h2><span class="mini">Paste the columns from the platform order report. Row N of every field is one order line. A multi-column block pasted into a field spreads to the right.</span><div class="spacer"></div><button class="btn sm danger" id="clearP" '+(rows.length?'':'disabled')+'>✕ Clear '+esc(p.name)+'</button></div>'+
+    '<div class="grid5" style="margin-top:12px">'+FIELDS.map(([f,l])=>'<div class="col"><label>'+l+'</label><textarea class="tinput" data-f="'+f+'" spellcheck="false" wrap="off">'+esc(rows.map(r=>r[f]==null?'':r[f]).join('\n'))+'</textarea></div>').join('')+'</div></div>'+
+    '<div id="conv"></div>';
+  wireChips();
+  const tas=$$('#body textarea[data-f]');
+  const collect=()=>{ const cols={}; let n=0; tas.forEach(ta=>{ const v=ta.value.replace(/\r/g,'').split('\n'); cols[ta.dataset.f]=v; n=Math.max(n,v.length); }); const out=[]; for(let i=0;i<n;i++){ const r={}; let any=false; FIELDS.forEach(([f])=>{ const v=(cols[f][i]||'').trim(); r[f]=v; if(v) any=true; }); if(any) out.push(r); } return out; };
+  let saveT=null; const save=()=>{ typing=true; const out=collect(); ROWS[curP]={rows:out}; renderConv(); renderChips(); clearTimeout(saveT); saveT=setTimeout(async()=>{ await R.child('days/'+DAY+'/'+curP).set(out.length?{rows:out,at:Date.now(),by:CPAuth.user.name}:null); typing=false; },700); };
+  tas.forEach(ta=>{ ta.addEventListener('input',save); ta.addEventListener('blur',()=>{ setTimeout(()=>{ if(!document.activeElement||document.activeElement.tagName!=='TEXTAREA') typing=false; },900); });
+    ta.addEventListener('paste',e=>{ const txt=(e.clipboardData||window.clipboardData).getData('text'); if(!txt||txt.indexOf('\t')<0) return; e.preventDefault(); const lines=txt.replace(/\r/g,'').replace(/\n+$/,'').split('\n'); const start=FIELDS.findIndex(x=>x[0]===ta.dataset.f); const ncol=Math.max(...lines.map(r=>r.split('\t').length));
+      let body2=lines; const h0=lines[0].split('\t').map(norm); if(h0.some(x=>/tracking|product|item name|quantity|order/.test(x))&&!h0.some(x=>/^\d+$/.test(x))) body2=lines.slice(1);
+      for(let c=0;c<ncol&&start+c<FIELDS.length;c++){ const t=tas[start+c]; t.value=body2.map(r=>(r.split('\t')[c]||'')).join('\n'); } save(); }); });
+  $('#clearP').onclick=async()=>{ if(!confirm('Clear everything pasted for '+p.name+' on '+usDate(DAY)+'?')) return; typing=false; await R.child('days/'+DAY+'/'+curP).remove(); };
+  renderConv();
+}
+function renderConv(){ const host=$('#conv'); if(!host) return; const p=PLATFORMS[curP]; const conv=convOf(curP); if(!conv.length){ host.innerHTML='<div class="card"><p class="mini" style="margin:0">Nothing pasted for '+esc(p.name)+' yet.</p></div>'; return; }
+  const bad=conv.filter(c=>c.status==='bad'), auto=conv.filter(c=>c.status==='auto'); const units=conv.reduce((a,c)=>a+(c.status==='bad'?0:c.qty),0); const orders=new Set(conv.map(c=>c.t).filter(Boolean)).size;
+  host.innerHTML='<div class="card"><div class="row"><div class="kvs"><div class="kv"><div class="n">'+conv.length+'</div><div class="l">lines</div></div><div class="kv"><div class="n">'+orders+'</div><div class="l">labels</div></div><div class="kv"><div class="n">'+fmt(units)+'</div><div class="l">units</div></div><div class="kv '+(bad.length?'err':'ok')+'"><div class="n">'+bad.length+'</div><div class="l">need a fix</div></div></div><div class="spacer"></div>'+(auto.length?'<span class="badge info">'+auto.length+' matched by exact inventory name</span>':'')+'<button class="btn" id="copyImp" '+(bad.length?'title="Fix the highlighted lines first"':'')+'>📋 Copy for import</button></div>'+
+    (bad.length?'<div class="note err">'+bad.length+' line(s) could not be converted. Press <b>Fix</b> — what you choose is saved as a rule for '+esc(p.name)+' and applied to every matching line from now on.</div>':'')+
+    '<div class="tscroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>Tracking ID</th><th>Platform product · variation</th><th class="num">Qty</th><th>→ Item Name</th><th>Variation</th><th class="num">Quantity</th><th>Order ID</th><th></th></tr></thead><tbody>'+
+    conv.map((c,i)=>'<tr class="'+(c.status==='bad'?'bad':c.status==='auto'?'auto':'')+'"><td class="mini">'+(i+1)+'</td><td class="mono">'+esc(c.t)+'</td><td>'+esc(c.pn)+(c.pv?' <span class="mini">· '+esc(c.pv)+'</span>':'')+'</td><td class="num mono">'+esc(c.rq)+'</td><td>'+(c.item?'<b>'+esc(c.item)+'</b>':'<span style="color:var(--err)">'+esc(c.why)+'</span>')+(c.item&&c.why?' <span class="badge err">'+esc(c.why)+'</span>':'')+'</td><td>'+esc(c.variation)+'</td><td class="num mono"><b>'+(c.item?fmt(c.qty):'')+'</b>'+(c.per>1?' <span class="mini">×'+c.per+'</span>':'')+'</td><td class="mono">'+esc(c.o)+'</td><td><button class="btn sm '+(c.status==='bad'&&!c.item?'warn':'ghost')+'" data-fix="'+i+'">'+(c.item?'✎':'Fix')+'</button></td></tr>').join('')+'</tbody></table></div></div>';
+  $$('#conv [data-fix]').forEach(b=>b.onclick=()=>{ const c=conv[+b.dataset.fix]; openRule(curP,c.pn,c.pv,c.rule||(c.item?{item:c.item,var:c.variation,soh:c.soh,qty:c.per}:null)); });
+  $('#copyImp').onclick=()=>{ if(bad.length&&!confirm(bad.length+' line(s) are not converted and will be left out. Copy anyway?')) return; copyText(importRows(curP).map(r=>r.join('\t')).join('\n'),'Copied '+importRows(curP).length+' rows for '+p.name+' (without the header)'); };
+}
+function importRows(pid){ return convOf(pid).filter(c=>c.status!=='bad'&&c.item).map(c=>[c.t,c.item,c.variation||'Default',c.qty,c.o]); }
+
+/* ---------------- RULE editor ---------------- */
+function searchItems(q,limit){ const n=norm(q); if(!n) return []; const out=[]; const bk=INV.bc[n]; if(bk) bk.forEach(x=>{ if(!out.includes(x.k)) out.push(x.k); }); const words=n.split(' '); for(const k of INV.names){ if(out.length>=(limit||12)) break; if(out.includes(k)) continue; if(words.every(w=>k.includes(w))) out.push(k); } return out; }
+function openRule(pid,pn,pv,existing,after){ pid=rk(pid); const p=PLATFORMS[pid]; const r=Object.assign({pn:pn||'',pv:pv||'',soh:'',item:'',var:'Default',sku:'',upc:'',qty:1},existing||{}); let qtyTouched=!!(existing&&existing.qty&&existing.pn!==undefined), sohTouched=!!(existing&&existing.soh&&existing.soh!==existing.item);
+  const isNew=!pn;
+  const d=modal('<h2>📐 Rule · '+esc(p.name)+'</h2><p class="mini">How this platform product is written in our system. Saved for '+esc(p.name)+' and applied to every line with the same product name and variation.</p>'+
+    '<div class="row" style="align-items:flex-start"><div class="fld" style="flex:2;min-width:240px"><label>Product name on the platform</label><input id="rPn" class="tinput" value="'+esc(r.pn)+'" '+(isNew?'':'readonly style="opacity:.75"')+'></div><div class="fld" style="flex:1;min-width:140px"><label>Variation on the platform</label><input id="rPv" class="tinput" value="'+esc(r.pv)+'" '+(isNew?'':'readonly style="opacity:.75"')+' placeholder="(any / default)"></div></div>'+
+    '<div class="fld"><label>Item Name (our system) — type, pick from the list or scan the barcode</label><div style="position:relative"><input id="rItem" class="tinput" value="'+esc(r.item)+'" autocomplete="off" placeholder="Start typing or scan…"><div class="sugg hide" id="rSugg"></div></div><div class="mini" id="rItemInfo" style="margin-top:6px"></div></div>'+
+    '<div class="row" style="align-items:flex-start"><div class="fld" style="flex:1;min-width:160px"><label>Variation (our system)</label><select id="rVar" class="sel"></select></div><div class="fld" style="width:130px"><label>Quantity per 1 sold</label><input id="rQty" class="tinput" type="number" min="1" value="'+(int(r.qty)||1)+'"></div></div>'+
+    '<div class="fld"><label>SOH name (row in Daily SOH)</label><input id="rSoh" class="tinput" value="'+esc(r.soh)+'" list="sohList" autocomplete="off"><datalist id="sohList">'+((DS&&DS.rows)||[]).slice(0,3000).map(x=>'<option value="'+esc(x[0])+'">').join('')+'</datalist><div class="mini" id="rSohInfo" style="margin-top:6px"></div></div>'+
+    '<div class="row"><div class="fld" style="flex:1"><label>SKU (listing sheet)</label><input id="rSku" class="tinput mono" readonly style="opacity:.75"></div><div class="fld" style="flex:1"><label>UPC (inventory, column E)</label><input id="rUpc" class="tinput mono" readonly style="opacity:.75"></div></div>'+
+    '<div class="row" style="margin-top:16px"><button class="btn primary" id="rSave" style="flex:1;padding:12px">Save rule</button>'+(existing&&existing.at?'<button class="btn danger" id="rDel">Delete</button>':'')+'<button class="btn ghost" id="rX">Cancel</button></div>');
+  d.dataset.keep='1';
+  const inp=d.querySelector('#rItem'), sg=d.querySelector('#rSugg'), vs=d.querySelector('#rVar'), qi=d.querySelector('#rQty'), so=d.querySelector('#rSoh');
+  const sohSet=new Set(((DS&&DS.rows)||[]).map(x=>norm(x[0])));
+  const refresh=(keepVar)=>{ const it=INV.items[norm(inp.value)]; const info=d.querySelector('#rItemInfo');
+    if(it){ const vars=Object.values(it.vars); const cur=keepVar&&vs.value?vs.value:(r.var||'Default'); vs.innerHTML=vars.map(v=>'<option value="'+esc(v.v)+'"'+(norm(v.v)===norm(cur)?' selected':'')+'>'+esc(v.v)+(v.qty>1?' (×'+v.qty+')':'')+'</option>').join(''); if(!vars.some(v=>norm(v.v)===norm(cur))&&vars.some(v=>norm(v.v)==='default')) vs.value=vars.find(v=>norm(v.v)==='default').v;
+      const v=it.vars[norm(vs.value)]||vars[0]; if(!qtyTouched) qi.value=v.qty||1; d.querySelector('#rUpc').value=v.upc||''; if(!sohTouched) so.value=it.name; d.querySelector('#rSku').value=skuOf(it.name,so.value); info.innerHTML='<span class="badge ok">in inventory</span> '+vars.length+' variation(s) · stock '+fmt(v.stock); }
+    else { vs.innerHTML='<option value="Default">Default</option>'; d.querySelector('#rUpc').value=''; d.querySelector('#rSku').value=skuOf(inp.value,so.value); info.innerHTML=inp.value.trim()?'<span class="badge warn">not in the inventory sheet</span> the name is saved as typed':''; }
+    const si=d.querySelector('#rSohInfo'); si.innerHTML=!so.value.trim()?'':(sohSet.size?(sohSet.has(norm(so.value))?'<span class="badge ok">found in Daily SOH</span>':'<span class="badge warn">not a row in Daily SOH (tab '+esc(DS.tab)+')</span> the report will flag it'):''); };
+  const sugg=()=>{ const ks=searchItems(inp.value,12); if(!ks.length){ sg.classList.add('hide'); return; } sg.innerHTML=ks.map(k=>{ const it=INV.items[k]; return '<button data-k="'+esc(k)+'">'+(it.image?'<img src="'+esc(it.image)+'" loading="lazy">':'<span style="width:34px"></span>')+'<span style="flex:1">'+esc(it.name)+'</span><span class="mini">'+Object.keys(it.vars).length+' var</span></button>'; }).join(''); sg.classList.remove('hide'); sg.querySelectorAll('button').forEach(b=>b.onmousedown=e=>{ e.preventDefault(); pick(b.dataset.k); }); };
+  const pick=(k,v)=>{ inp.value=INV.items[k].name; sg.classList.add('hide'); if(v){ r.var=v; } refresh(false); };
+  inp.addEventListener('input',()=>{ sugg(); refresh(false); }); inp.addEventListener('focus',sugg); inp.addEventListener('blur',()=>setTimeout(()=>sg.classList.add('hide'),150));
+  inp.addEventListener('keydown',e=>{ if(e.key!=='Enter') return; e.preventDefault(); const bk=INV.bc[norm(inp.value)]; if(bk&&bk.length){ pick(bk[0].k,bk.length===1?bk[0].v:null); return; } const ks=searchItems(inp.value,2); if(ks.length===1) pick(ks[0]); });
+  vs.onchange=()=>{ r.var=vs.value; refresh(true); }; qi.addEventListener('input',()=>{ qtyTouched=true; }); so.addEventListener('input',()=>{ sohTouched=true; refresh(true); });
+  if(!r.item&&!isNew){ /* suggest by the platform name */ const ks=searchItems(r.pn,1); if(ks.length&&norm(r.pn)===ks[0]) inp.value=INV.items[ks[0]].name; }
+  refresh(false); if(existing&&existing.var) vs.value=[...vs.options].some(o=>o.value===existing.var)?existing.var:vs.value;
+  d.querySelector('#rX').onclick=()=>{ closeModal(); render(); };
+  const del=d.querySelector('#rDel'); if(del) del.onclick=async()=>{ if(!confirm('Delete this rule?')) return; await R.child('rules/'+pid+'/'+ruleKey(r.pn,r.pv)).remove(); closeModal(); render(); };
+  d.querySelector('#rSave').onclick=async()=>{ const pn2=d.querySelector('#rPn').value.trim(), pv2=d.querySelector('#rPv').value.trim(), item=inp.value.trim(); if(!pn2){ toast('Product name on the platform?','err'); return; } if(!item){ toast('Choose the Item Name','err'); return; }
+    const it=INV.items[norm(item)]; const rec={pn:pn2,pv:isDefault(pv2)?'':pv2,soh:so.value.trim()||(it?it.name:item),item:it?it.name:item,var:vs.value||'Default',sku:d.querySelector('#rSku').value||'',upc:d.querySelector('#rUpc').value||'',qty:Math.max(1,int(qi.value)||1),by:CPAuth.user.name,at:Date.now()};
+    await R.child('rules/'+pid+'/'+ruleKey(pn2,pv2)).set(rec); CPAuth.log('order_prep_rule',{text:p.name+': '+pn2+(pv2?' · '+pv2:'')+' → '+rec.item+' · '+rec.var+' ×'+rec.qty,item:rec.item}); closeModal(); toast('Rule saved','ok'); if(after) after(); render(); };
+  setTimeout(()=>{ (isNew?d.querySelector('#rPn'):inp).focus(); if(!isNew) inp.select(); },60);
+}
+
+/* ---------------- RULES tab ---------------- */
+let rulesQ='';
+function renderRules(){ const p0=PLATFORMS[curP]; const body=$('#body'); if(!p0){ body.innerHTML=''; return; } const RP=rk(curP); const p=PLATFORMS[RP]; const rs=Object.keys(RULES[RP]||{}).map(k=>Object.assign({k},RULES[RP][k])).sort((a,b)=>String(a.pn).localeCompare(String(b.pn))||String(a.pv).localeCompare(String(b.pv)));
+  const q=norm(rulesQ); const list=rs.filter(r=>!q||norm(r.pn+' '+r.pv+' '+r.item+' '+r.soh+' '+r.sku).includes(q));
+  body.innerHTML='<div class="card"><div class="chips" id="pchips">'+platList(showHidden).map(x=>'<button class="chip'+(x.id===curP?' on':'')+(x.hidden?' hid':'')+'" data-p="'+x.id+'">'+esc(x.name)+'<span class="c">'+Object.keys(RULES[rk(x.id)]||{}).length+'</span></button>').join('')+'</div></div>'+
+    '<div class="card"><div class="row"><h2 style="margin:0;font-family:var(--disp)">Rules · '+esc(p.name)+'</h2>'+(RP!==curP?'<span class="badge info">'+esc(p0.name)+' uses the rules of '+esc(p.name)+'</span>':'')+'<input id="rq" class="tinput" placeholder="Search…" value="'+esc(rulesQ)+'" style="min-width:220px"><span class="mini">'+list.length+' of '+rs.length+'</span><div class="spacer"></div><button class="btn" id="rBook">📚 Import from a Report workbook</button><button class="btn" id="rPaste">📋 Paste rules from a table</button><button class="btn" id="rCopyFrom">⧉ Copy from another platform</button><button class="btn" id="rCsv">⬇ CSV</button><button class="btn primary" id="rAdd">＋ Add rule</button></div>'+
+    '<div class="tscroll" style="margin-top:12px"><table><thead><tr><th>Product Name</th><th>Variation</th><th>SOH</th><th>Item Name</th><th>Variation</th><th>SKU</th><th>UPC</th><th class="num">Quantity</th><th></th></tr></thead><tbody>'+(list.length?list.map(r=>{ const iv=invVar(r.item,r.var); const sku=skuOf(r.item,r.soh)||r.sku||''; const upc=(iv&&iv.upc)||r.upc||''; return '<tr class="'+(INV.names.length&&!iv?'bad':'')+'"><td>'+esc(r.pn)+'</td><td>'+esc(r.pv||'')+'</td><td>'+esc(r.soh||'')+'</td><td><b>'+esc(r.item)+'</b>'+(INV.names.length&&!iv?' <span class="badge err">not in inventory</span>':'')+'</td><td>'+esc(r.var||'Default')+'</td><td class="mono">'+esc(sku)+'</td><td class="mono">'+esc(upc)+'</td><td class="num mono">'+esc(r.qty||1)+'</td><td><button class="btn sm ghost" data-edit="'+esc(r.k)+'">✎</button></td></tr>'; }).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No rules for '+esc(p.name)+' yet. They appear as you fix lines on the Orders tab — or paste your existing table.</td></tr>')+'</tbody></table></div><p class="mini" style="margin-top:8px">SKU and UPC are looked up live from the listing and inventory sheets. A product whose name on the platform equals an inventory name needs no rule.</p></div>';
+  $$('#pchips [data-p]').forEach(b=>b.onclick=()=>{ curP=b.dataset.p; render(); });
+  const rq=$('#rq'); rq.addEventListener('input',()=>{ rulesQ=rq.value; const pos=rq.selectionStart; renderRules(); const n=$('#rq'); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} });
+  $$('[data-edit]').forEach(b=>b.onclick=()=>{ const r=RULES[RP][b.dataset.edit]; openRule(RP,r.pn,r.pv,r); });
+  $('#rAdd').onclick=()=>openRule(curP,'','',null);
+  $('#rCsv').onclick=()=>{ const rows=[['Product Name','Variation','SOH','Item Name','Variation','SKU','UPC','Quantity']].concat(rs.map(r=>{ const iv=invVar(r.item,r.var); return [r.pn,r.pv||'',r.soh||'',r.item,r.var||'Default',skuOf(r.item,r.soh)||r.sku||'',(iv&&iv.upc)||r.upc||'',r.qty||1]; })); download(rows.map(x=>x.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n'),'rules_'+p.name.replace(/[^\w]+/g,'_')+'.csv','text/csv'); };
+  $('#rPaste').onclick=()=>openPasteRules(curP); $('#rBook').onclick=openBookImport;
+  $('#rCopyFrom').onclick=()=>{ const others=platList(true).filter(x=>x.id!==RP&&rk(x.id)===x.id&&Object.keys(RULES[x.id]||{}).length); if(!others.length){ toast('No other platform has rules yet','warn'); return; }
+    const d=modal('<h2>Copy rules into '+esc(p.name)+'</h2><p class="mini">Rules that '+esc(p.name)+' already has are kept; only missing ones are added.</p><div class="fld"><label>From</label><select id="cfSel" class="sel">'+others.map(x=>'<option value="'+x.id+'">'+esc(x.name)+' ('+Object.keys(RULES[x.id]).length+')</option>').join('')+'</select></div><div class="row" style="margin-top:16px"><button class="btn primary" id="cfGo" style="flex:1">Copy</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>');
+    d.querySelector('#cfGo').onclick=async()=>{ const src=RULES[d.querySelector('#cfSel').value]||{}; const up={}; let n=0; for(const k in src) if(!(RULES[RP]||{})[k]){ up[k]=src[k]; n++; } if(n) await R.child('rules/'+RP).update(up); closeModal(); toast(n+' rule(s) copied','ok'); }; };
+}
+/* rows of a rules table → rules. Understands the Report workbook layout
+   (Product Name · VARIATION · SOH · name+var · item name · variation · SKU · UPC · QTY, bilingual headers, #N/A cells)
+   and the plain 8-column layout (Product Name · Variation · SOH · Item Name · Variation · SKU · UPC · Quantity). */
+function parseRuleRows(lines){ const out=[]; if(!lines.length) return out; const clean=v=>{ v=String(v==null?'':v).trim(); return /^#(N\/A|REF!|VALUE!|NAME\?)$/i.test(v)?'':v; };
+  let idx={pn:0,pv:1,soh:2,item:3,var:4,sku:5,upc:6,qty:7}; let body=lines; const h=lines[0].map(x=>norm(x).split('/')[0].trim());
+  if(h.some(x=>x.startsWith('product name'))||h.includes('item name')||h.includes('soh')){ body=lines.slice(1); const vi=h.map((x,i)=>x==='variation'?i:-1).filter(i=>i>=0); const f=n=>h.findIndex(x=>x===n||x.startsWith(n)); const fi=f('item name');
+    idx={pn:f('product name'),pv:vi.length&&(fi<0||vi[0]<fi)?vi[0]:(h[1]===''?1:-1),soh:f('soh'),item:fi,var:vi.find(i=>fi>=0&&i>fi)??-1,sku:f('sku'),upc:f('upc'),qty:Math.max(f('quantity'),f('qty'))}; }
+  const g=(r,i)=>i>=0?clean(r[i]):''; body.forEach(r=>{ const pn=g(r,idx.pn), item=g(r,idx.item)||g(r,idx.soh); if(!pn||!item) return; const it=INV.items[norm(item)]; const v=g(r,idx.var)||'Default'; const iv=invVar(item,v);
+    out.push({pn,pv:isDefault(g(r,idx.pv))?'':g(r,idx.pv),soh:g(r,idx.soh)||item,item:it?it.name:item,var:iv?iv.v:v,sku:g(r,idx.sku),upc:g(r,idx.upc)||(iv?iv.upc:''),qty:Math.max(1,int(g(r,idx.qty))||(iv?iv.qty:1))}); });
+  return out; }
+function openBookImport(){ const d=modal('<h2>📚 Import rules from a Report workbook</h2><p class="mini">Reads the rule tabs of a "Pack Station Report" workbook (the tabs named like the platforms: Tiktok, Tiktok 2, DollDrop, Walmart…) and loads them into the matching platforms. Existing rules with the same product + variation are replaced, others are kept. The workbook must be shared as "Anyone with the link — Viewer".</p><div class="fld"><label>Report workbook link</label><input id="bkUrl" class="tinput" placeholder="https://docs.google.com/spreadsheets/d/…"></div><div id="bkInfo" class="mini" style="margin-top:10px"></div><div class="row" style="margin-top:14px"><button class="btn" id="bkRead">Read the workbook</button><button class="btn primary" id="bkGo" style="flex:1" disabled>Save rules</button><button class="btn ghost" onclick="closeModal();render()">Cancel</button></div>',true);
+  d.dataset.keep='1'; let found={};
+  d.querySelector('#bkRead').onclick=async()=>{ const m=d.querySelector('#bkUrl').value.match(/\/spreadsheets\/d\/([A-Za-z0-9-_]+)/); const info=d.querySelector('#bkInfo'); if(!m){ info.textContent='Paste the link to the workbook.'; return; } info.textContent='Reading… (a large workbook takes a few seconds)'; found={};
+    try{ const wb=await fetchXlsx(m[1]); platList(true).forEach(p=>{ if(rk(p.id)!==p.id) return; const sn=wb.SheetNames.find(n=>norm(n)===norm(p.name)); if(!sn) return; const lines=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''}).map(r=>r.map(cellStr)).filter(r=>r.some(x=>x)); const rules=parseRuleRows(lines); if(rules.length) found[p.id]=rules; });
+      const ids=Object.keys(found); info.innerHTML=ids.length?ids.map(id=>'<div><b>'+esc(PLATFORMS[id].name)+'</b>: '+found[id].length+' rule(s)'+(found[id].filter(x=>!invVar(x.item,x.var)).length?' · <span style="color:var(--warn)">'+found[id].filter(x=>!invVar(x.item,x.var)).length+' not in the inventory sheet</span>':'')+'</div>').join(''):'No rule tabs named like the platforms were found.'; d.querySelector('#bkGo').disabled=!ids.length; }
+    catch(e){ info.innerHTML='<span style="color:var(--err)">Could not read the workbook ('+esc(e.message||e)+'). Share it as "Anyone with the link — Viewer", or use Paste rules for one platform at a time.</span>'; } };
+  d.querySelector('#bkGo').onclick=async()=>{ const up={}; let n=0; for(const id in found) found[id].forEach(x=>{ up['rules/'+id+'/'+ruleKey(x.pn,x.pv)]=Object.assign({by:CPAuth.user.name,at:Date.now()},x); n++; }); await R.update(up); CPAuth.log('order_prep_rules_import',{text:n+' rule(s) from a Report workbook'}); closeModal(); toast(n+' rule(s) saved','ok'); render(); }; }
+function openPasteRules(pid){ pid=rk(pid); const p=PLATFORMS[pid]; const d=modal('<h2>📋 Paste rules · '+esc(p.name)+'</h2><p class="mini">Copy the rows from your rules table and paste them here. Copy them together with the header row — both your Report layout (Product Name · VARIATION · SOH · name+var · item name · variation · SKU · UPC · QTY) and the plain 8-column layout are recognised; #N/A cells are treated as empty. Existing rules with the same product + variation are replaced.</p><textarea id="prT" class="tinput" style="width:100%;min-height:220px;font-family:var(--mono);font-size:12px;white-space:pre" wrap="off" spellcheck="false"></textarea><div id="prInfo" class="mini" style="margin-top:8px"></div><div class="row" style="margin-top:14px"><button class="btn primary" id="prGo" style="flex:1" disabled>Save rules</button><button class="btn ghost" onclick="closeModal()">Cancel</button></div>',true);
+  d.dataset.keep='1'; let parsed=[];
+  const parse=()=>{ const lines=d.querySelector('#prT').value.replace(/\r/g,'').split('\n').map(l=>l.split('\t').map(x=>x.trim())).filter(r=>r.some(x=>x)); parsed=parseRuleRows(lines); if(!lines.length){ d.querySelector('#prInfo').textContent=''; d.querySelector('#prGo').disabled=true; return; }
+    const miss=parsed.filter(x=>!invVar(x.item,x.var)).length; d.querySelector('#prInfo').innerHTML=parsed.length+' rule(s) recognised'+(miss?' · <span style="color:var(--warn)">'+miss+' with an item / variation that is not in the inventory sheet (saved anyway, shown red in the list)</span>':''); d.querySelector('#prGo').disabled=!parsed.length; };
+  d.querySelector('#prT').addEventListener('input',parse);
+  d.querySelector('#prGo').onclick=async()=>{ const up={}; parsed.forEach(x=>{ up[ruleKey(x.pn,x.pv)]=Object.assign({by:CPAuth.user.name,at:Date.now()},x); }); await R.child('rules/'+pid).update(up); CPAuth.log('order_prep_rules_import',{text:p.name+': '+parsed.length+' rule(s) pasted'}); closeModal(); toast(parsed.length+' rule(s) saved','ok'); render(); };
+  setTimeout(()=>d.querySelector('#prT').focus(),60); }
+
+/* ---------------- ITEMS today ---------------- */
+function aggregate(pid){ const m={}; let bad=0, units=0; convOf(pid).forEach(c=>{ if(c.status==='bad'||!c.item){ bad++; return; } const k=c.item+(isDefault(c.variation)?'':' · '+c.variation); m[k]=(m[k]||0)+c.qty; units+=c.qty; }); return {m,bad,units}; }
+function renderItems(){ const ps=platList().map(p=>Object.assign({p},aggregate(p.id))).filter(x=>Object.keys(x.m).length||x.bad); const grand=ps.reduce((a,x)=>a+x.units,0); const badAll=ps.reduce((a,x)=>a+x.bad,0);
+  const all={}; ps.forEach(x=>{ for(const k in x.m) all[k]=(all[k]||0)+x.m[k]; });
+  $('#body').innerHTML='<div class="card"><div class="row"><h2 style="margin:0;font-family:var(--disp)">Items in the orders · '+esc(usDate(DAY))+'</h2><div class="spacer"></div><div class="kvs"><div class="kv"><div class="n">'+ps.length+'</div><div class="l">platforms</div></div><div class="kv ok"><div class="n">'+fmt(grand)+'</div><div class="l">units, all platforms</div></div>'+(badAll?'<div class="kv err"><div class="n">'+badAll+'</div><div class="l">lines not converted</div></div>':'')+'</div><button class="btn" id="itCopy">📋 Copy</button></div></div>'+
+    (ps.length?'<div class="pcards">'+ps.map(x=>'<div class="pcard"><h3>'+esc(x.p.name)+(x.bad?' <span class="badge err">'+x.bad+' not converted</span>':'')+'</h3>'+Object.keys(x.m).sort().map(k=>'<div class="li"><span>'+esc(k)+'</span><b>'+fmt(x.m[k])+'</b></div>').join('')+'<div class="tot"><span>Total</span><span class="mono">'+fmt(x.units)+'</span></div></div>').join('')+
+      '<div class="pcard" style="border-color:var(--accent)"><h3>All platforms</h3>'+Object.keys(all).sort().map(k=>'<div class="li"><span>'+esc(k)+'</span><b>'+fmt(all[k])+'</b></div>').join('')+'<div class="tot"><span>Total</span><span class="mono">'+fmt(grand)+'</span></div></div></div>':'<div class="card"><p class="mini" style="margin:0">Nothing pasted for this day yet.</p></div>');
+  $('#itCopy').onclick=()=>{ const lines=[]; ps.forEach(x=>{ lines.push(x.p.name); Object.keys(x.m).sort().forEach(k=>lines.push(k+'\t'+x.m[k])); lines.push('Total\t'+x.units,''); }); lines.push('All platforms\t'+grand); copyText(lines.join('\n'),'Copied'); };
+}
+
+/* ---------------- DAILY SOH report (A–R) ---------------- */
+let sohAll=false;
+function buildSoh(){ if(!DS) return null; const H=DS.header; const colOf={}; H.forEach((h,i)=>{ if(i>=6) colOf[norm(h)]=i; });
+  const want={}, unmapped=[], perCol={}; let badLines=0;       // want[sohNorm][col] = units
+  const names={};
+  platList().forEach(p=>{ const conv=convOf(p.id); if(!conv.length) return; const ci=colOf[norm(p.sohCol||'')]; let u=0;
+    conv.forEach(c=>{ if(c.status==='bad'||!c.item){ badLines++; return; } u+=c.qty; if(ci==null) return; const k=norm(c.soh||c.item); names[k]=c.soh||c.item; (want[k]=want[k]||{})[ci]=((want[k]||{})[ci]||0)+c.qty; });
+    if(ci==null){ if(u) unmapped.push({name:p.name,units:u}); } else perCol[ci]=(perCol[ci]||0)+u; });
+  const idx={}; DS.rows.forEach((r,i)=>{ const k=norm(r[0]); if(!(k in idx)) idx[k]=i; });
+  const missing=Object.keys(want).filter(k=>!(k in idx)).map(k=>({name:names[k],units:Object.values(want[k]).reduce((a,b)=>a+b,0)}));
+  const rows=DS.rows.map(r=>{ const k=norm(r[0]); const w=want[k]||{}; const out=r.slice(0,18); while(out.length<18) out.push(''); const cells=[]; let any=false, diff=false, total=0; for(let c=6;c<18;c++){ const nv=w[c]||0; const old=int(out[c]); cells.push({nv,old}); total+=nv; if(nv) any=true; if(nv!==old) diff=true; } const wh=out[5]===''?null:int(out[5]); return {name:r[0],base:out,cells,any,diff,total,wh,short:wh!=null&&total>wh?total-wh:0}; });
+  const placed={}; rows.forEach(r=>r.cells.forEach((c,i)=>{ placed[i+6]=(placed[i+6]||0)+c.nv; }));
+  return {H,rows,perCol,placed,missing,unmapped,badLines}; }
+function renderSoh(){ const body=$('#body'); if(!DS){ body.innerHTML='<div class="card"><div class="note '+(DS_ERR?'err':'')+'">'+(DS_ERR?'Daily SOH could not be read: '+esc(DS_ERR):'Reading Daily SOH…')+'</div><button class="btn" style="margin-top:12px" onclick="loadDailySOH(DAY).then(render)">⟳ Try again</button></div>'; return; }
+  const S=buildSoh(); const H=S.H; const tot=Object.values(S.perCol).reduce((a,b)=>a+b,0), placed=Object.values(S.placed).reduce((a,b)=>a+b,0); const okAll=tot===placed&&!S.missing.length&&!S.badLines;
+  const shortRows=S.rows.filter(r=>r.short>0); const show=S.rows.filter(r=>sohAll||r.any||r.diff); const diffRows=S.rows.filter(r=>r.diff).length;
+  body.innerHTML='<div class="card"><div class="row"><h2 style="margin:0;font-family:var(--disp)">Daily SOH · '+esc(usDate(DAY))+'</h2><span class="badge '+(DS.exact?'ok':'warn')+'">tab '+esc(DS.tab)+(DS.exact?'':' · block for this day not found — item order taken from '+esc(usDate(DS.date)))+'</span><span class="mini">read-only · '+S.rows.length+' rows · read '+new Date(DS.at).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+'</span><button class="btn sm ghost" id="sohRe">⟳ Re-read</button><div class="spacer"></div><label class="mini"><input type="checkbox" id="sohAll" '+(sohAll?'checked':'')+'> show all rows</label><button class="btn primary" id="cpGR">📋 Copy G–R</button></div>'+
+    '<div class="kvs" style="margin-top:12px"><div class="kv"><div class="n">'+fmt(tot)+'</div><div class="l">units in orders</div></div><div class="kv '+(tot===placed?'ok':'err')+'"><div class="n">'+fmt(placed)+'</div><div class="l">units placed in the table</div></div><div class="kv '+(S.missing.length?'err':'ok')+'"><div class="n">'+S.missing.length+'</div><div class="l">items missing in Daily SOH</div></div><div class="kv '+(S.badLines?'err':'ok')+'"><div class="n">'+S.badLines+'</div><div class="l">lines not converted</div></div><div class="kv '+(shortRows.length?'err':'ok')+'"><div class="n">'+shortRows.length+'</div><div class="l">items short in the warehouse</div></div><div class="kv"><div class="n">'+diffRows+'</div><div class="l">rows that differ from the sheet now</div></div></div>'+
+    (okAll?'<div class="note" style="border-color:#2a4a36;background:#11211a;color:var(--ok)">✓ Check passed: every unit from the orders is in the table, per platform and in total.</div>':'<div class="note err">✗ The table does not match the orders yet — see below. Fix it before pasting into Daily SOH.</div>')+
+    (S.missing.length?'<div class="note err"><b>Not found as a row in Daily SOH</b> (fix the SOH name in the rule, or add the row to the sheet): '+S.missing.map(m=>esc(m.name)+' × '+fmt(m.units)).join(' · ')+'</div>':'')+
+    (S.unmapped.length?'<div class="note warn"><b>Platforms without a column in G–R</b> (not in this table; set the column in ⚙ Platforms): '+S.unmapped.map(m=>esc(m.name)+' × '+fmt(m.units)).join(' · ')+'</div>':'')+
+    (shortRows.length?'<div class="note warn"><div class="row"><b>Not enough in the warehouse (WH SOH, column F) — request a transfer:</b><div class="spacer"></div><button class="btn sm" id="cpShort">📋 Copy the list</button></div>'+shortRows.map(r=>esc(r.name)+': need '+fmt(r.total)+', WH has '+fmt(r.wh)+' → <b>short '+fmt(r.short)+'</b>').join(' · ')+'</div>':'')+
+    '<div class="tscroll" style="margin-top:12px"><table><thead><tr><th>'+esc(H[0])+'</th><th class="num">'+esc(H[5]||'WH SOH')+'</th>'+H.slice(6).map(h=>'<th class="num">'+esc(h)+'</th>').join('')+'<th class="num">Total</th><th class="num">Short</th></tr><tr><th style="top:33px"><span style="color:var(--muted)">orders → placed</span></th><th style="top:33px"></th>'+H.slice(6).map((h,k)=>{ const i=k+6; return '<th class="num" style="top:33px;color:'+((S.perCol[i]||0)!==(S.placed[i]||0)?'var(--err)':'var(--ok)')+'">'+(S.perCol[i]||S.placed[i]?fmt(S.perCol[i]||0)+' → '+fmt(S.placed[i]||0):'')+'</th>'; }).join('')+'<th class="num" style="top:33px">'+fmt(placed)+'</th><th style="top:33px"></th></tr></thead><tbody>'+
+    (show.length?show.slice(0,1500).map(r=>'<tr><td>'+esc(r.name)+'</td><td class="num mono"'+(r.short?' style="color:var(--err);font-weight:700"':'')+'>'+(r.wh==null?'':fmt(r.wh))+'</td>'+r.cells.map(c=>'<td class="num mono'+(c.nv!==c.old?(c.old?' diff':' newv'):'')+'" title="'+(c.nv!==c.old?'sheet now: '+(c.old||'blank'):'')+'">'+(c.nv||'')+(c.nv!==c.old&&c.old?' <span class="mini">('+c.old+')</span>':'')+'</td>').join('')+'<td class="num mono"><b>'+(r.total||'')+'</b></td><td class="num mono" style="color:var(--err);font-weight:700">'+(r.short?'−'+fmt(r.short):'')+'</td></tr>').join(''):'<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:24px">No orders for this day.</td></tr>')+'</tbody></table></div>'+
+    '<p class="mini" style="margin-top:8px"><b>Copy G–R</b> copies the 12 platform columns for all '+S.rows.length+' rows in sheet order — click cell <b>G</b> of the first item row of '+esc(usDate(DS.exact?DAY:DS.date))+' in Daily SOH and paste; columns A–F are not touched. WH SOH is column F as the sheet shows it at the moment of reading (press Re-read after a transfer is entered). Green = new value, yellow = differs from what the sheet has now (old value in brackets). Daily SOH is only read here, never written.</p></div>';
+  $('#sohAll').onchange=e=>{ sohAll=e.target.checked; renderSoh(); }; $('#sohRe').onclick=()=>loadDailySOH(DAY).then(render);
+  const cs=$('#cpShort'); if(cs) cs.onclick=()=>copyText(shortRows.map(r=>r.name+'\t'+r.short).join('\n'),'Copied '+shortRows.length+' item(s): name + quantity to transfer');
+  $('#cpGR').onclick=()=>{ if(!okAll&&!confirm('The check has not passed — copy anyway?')) return; copyText(S.rows.map(r=>r.cells.map(c=>c.nv||'').join('\t')).join('\n'),'Copied G–R for '+S.rows.length+' rows — paste at G of the first item row'); CPAuth.log('order_prep_soh_copy',{text:usDate(DAY)+' · G–R · '+placed+' units'}); };
+}
+
+/* ---------------- import file ---------------- */
+function download(content,name,type){ const bl=content instanceof Blob?content:new Blob(['﻿'+content],{type:type||'text/plain'}); const u=URL.createObjectURL(bl); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),3000); }
+function exportImportFile(){ const ps=platList(); let bad=0, n=0; ps.forEach(p=>{ convOf(p.id).forEach(c=>{ if(c.status==='bad'||!c.item) bad++; else n++; }); });
+  if(!n){ toast('Nothing to export for '+usDate(DAY),'warn'); return; } if(bad&&!confirm(bad+' line(s) are not converted and will be left out of the file. Export anyway?')) return;
+  const wb=XLSX.utils.book_new(); ps.forEach(p=>{ const rows=[IMPORT_HEADER].concat(importRows(p.id)); const ws=XLSX.utils.aoa_to_sheet(rows); for(let r=1;r<rows.length;r++){ [0,4].forEach(c=>{ const a=XLSX.utils.encode_cell({r,c}); if(ws[a]){ ws[a].t='s'; ws[a].v=String(rows[r][c]); ws[a].z='@'; } }); } ws['!cols']=[{wch:28},{wch:44},{wch:18},{wch:9},{wch:26}]; XLSX.utils.book_append_sheet(wb,ws,p.name.replace(/[\\/?*\[\]:]/g,' ').slice(0,31)); });
+  const [y,m,d]=DAY.split('-'); XLSX.writeFile(wb,m+'-'+d+'-'+y+' Pack Station Import.xlsx'); CPAuth.log('order_prep_import',{text:usDate(DAY)+' · '+n+' line(s)'+(bad?' · '+bad+' left out':'')}); toast('Import file saved · '+n+' line(s)','ok'); }
+
+/* ---------------- settings: platforms & sources ---------------- */
+function openSettings(){ const draw=()=>{ const list=platList(true); const cols=DS?DS.header.slice(6):[];
+  const d=modal('<h2>⚙ Platforms & sources</h2><p class="mini">Order = the order of the chips and of the tabs in the import file. Hidden platforms keep their rules but are left out of the day. "Daily SOH column" is where the platform\'s units go in the A–R report.</p>'+
+    '<div class="tscroll" style="max-height:46vh;margin-top:10px"><table><thead><tr><th style="width:70px">Order</th><th>Platform</th><th>Daily SOH column</th><th>Rule set</th><th></th></tr></thead><tbody>'+list.map(p=>'<tr'+(p.hidden?' style="opacity:.55"':'')+'><td><input class="tinput" data-ord="'+p.id+'" type="number" value="'+(p.order||0)+'" style="width:64px;padding:5px 7px"></td><td><input class="tinput" data-nm="'+p.id+'" value="'+esc(p.name)+'" style="width:100%;padding:5px 8px"></td><td><select class="sel" data-col="'+p.id+'" style="padding:5px 8px"><option value="">— not in A–R —</option>'+cols.map(c=>'<option'+(norm(c)===norm(p.sohCol||'')?' selected':'')+'>'+esc(c)+'</option>').join('')+(p.sohCol&&!cols.some(c=>norm(c)===norm(p.sohCol))?'<option selected>'+esc(p.sohCol)+'</option>':'')+'</select></td><td><select class="sel" data-rf="'+p.id+'" style="padding:5px 8px"><option value="">own ('+Object.keys(RULES[p.id]||{}).length+')</option>'+list.filter(x=>x.id!==p.id&&!x.rulesFrom).map(x=>'<option value="'+x.id+'"'+(p.rulesFrom===x.id?' selected':'')+'>same as '+esc(x.name)+'</option>').join('')+'</select></td><td style="white-space:nowrap"><button class="btn sm" data-hide="'+p.id+'">'+(p.hidden?'Show':'Hide')+'</button> <button class="btn sm danger" data-del="'+p.id+'">Delete</button></td></tr>').join('')+'</tbody></table></div>'+
+    '<div class="row" style="margin-top:10px"><input id="npName" class="tinput" placeholder="New platform name" style="flex:1"><button class="btn primary" id="npAdd">＋ Add platform</button></div>'+
+    '<div class="fld"><label>Listing sheet (tab "'+LISTING_TAB+'": A = product name, B = SKU) — link or id</label><div class="row"><input id="lsUrl" class="tinput" style="flex:1" value="'+esc(SETTINGS.listingUrl||DEFAULT_LISTING_URL)+'" placeholder="https://docs.google.com/spreadsheets/d/…"><button class="btn" id="lsSave">Save</button></div><div class="mini" style="margin-top:6px">The sheet must be shared as "Anyone with the link — Viewer", like the inventory sheet. '+(listingId()?Object.keys(SKU).length+' SKUs loaded.':'Not set — SKUs stay empty.')+'</div></div>'+
+    '<div class="row" style="margin-top:16px"><div class="spacer"></div><button class="btn primary" id="stX">Done</button></div>',true);
+  d.dataset.keep='1'; d.querySelector('#stX').onclick=()=>{ closeModal(); render(); };
+  d.querySelectorAll('[data-ord]').forEach(i=>i.onchange=()=>R.child('platforms/'+i.dataset.ord+'/order').set(+i.value||0).then(draw));
+  d.querySelectorAll('[data-nm]').forEach(i=>i.onchange=()=>{ const v=i.value.trim(); if(v) R.child('platforms/'+i.dataset.nm+'/name').set(v); });
+  d.querySelectorAll('[data-col]').forEach(s=>s.onchange=()=>R.child('platforms/'+s.dataset.col+'/sohCol').set(s.value||''));
+  d.querySelectorAll('[data-rf]').forEach(sl=>sl.onchange=async()=>{ await R.child('platforms/'+sl.dataset.rf+'/rulesFrom').set(sl.value||null); draw(); });
+  d.querySelectorAll('[data-hide]').forEach(b=>b.onclick=async()=>{ await R.child('platforms/'+b.dataset.hide+'/hidden').set(!PLATFORMS[b.dataset.hide].hidden); draw(); });
+  d.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const p=PLATFORMS[b.dataset.del]; const n=Object.keys(RULES[b.dataset.del]||{}).length; if(!confirm('Delete "'+p.name+'"'+(n?' and its '+n+' rule(s)':'')+'? Use Hide if you only want it out of the way.')) return; await R.update({['platforms/'+b.dataset.del]:null,['rules/'+b.dataset.del]:null}); if(curP===b.dataset.del) curP=null; draw(); });
+  d.querySelector('#npAdd').onclick=async()=>{ const n=d.querySelector('#npName').value.trim(); if(!n) return; if(Object.values(PLATFORMS).some(p=>norm(p.name)===norm(n))){ toast('This platform already exists','warn'); return; } const ord=Math.max(0,...Object.values(PLATFORMS).map(p=>+p.order||0))+1; const col=cols.find(c=>norm(c)===norm(n))||(/^dolldrop/i.test(n)?'DollDrop':''); const dd=/^dolldrop\s*\(/i.test(n)?Object.keys(PLATFORMS).find(k=>PLATFORMS[k].name==='DollDrop'):null; await R.child('platforms').push({name:n,order:ord,hidden:false,sohCol:col,rulesFrom:dd||null}); draw(); };
+  d.querySelector('#lsSave').onclick=async()=>{ await R.child('settings/listingUrl').set(d.querySelector('#lsUrl').value.trim()); toast('Saved — reading the listing sheet…','ok'); setTimeout(()=>loadListing(true).then(()=>{ loadSources(false); draw(); }).catch(e=>toast('Listing: '+(e.message||e),'err',5000)),300); }; };
+  draw(); }
+</script>
+</body>
+</html>
