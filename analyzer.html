@@ -713,12 +713,21 @@ let USER = '', COST_OK = false;
 /* package size / weight / estimated shipment cost of new products, entered by the
    admin in New Shipment → New items (packstation/receiving/pkgInfo). Read-only here. */
 const PKG = new Map();
+/* a product that has package info but is not in the inventory / sales sheets yet
+   still gets a card, so the values can be looked up */
+function addPkgNames() {
+  if (!DATA.itemNames) return;
+  const have = new Set(DATA.itemNames.map(n => n.key)); let added = false;
+  PKG.forEach((r, k) => { if (!have.has(k) && ['l', 'w', 'h', 'wt', 'ship'].some(f => r[f] != null)) { DATA.itemNames.push({key: k, name: r.name}); added = true; } });
+  if (added) DATA.itemNames.sort((a, b) => a.name.localeCompare(b.name));
+}
 function watchPackageInfo() {
   try {
     CPAuth.db.ref(CPAuth.ROOT + '/receiving/pkgInfo').on('value', snap => {
       PKG.clear(); const v = snap.val() || {};
       Object.keys(v).forEach(k => { const r = v[k]; if (r && r.name) PKG.set(norm(r.name), r); });
-      if (DATA.loadedAt && UI.view === 'item' && UI.item) render();
+      addPkgNames();
+      if (DATA.loadedAt && UI.view === 'item') render();
     }, () => {});
   } catch (e) {}
 }
@@ -878,6 +887,7 @@ function rebuildIndex() {
   DATA.days.forEach(r => { for (const nm in r.day.items) { const k = norm(nm); if (!set.has(k)) set.set(k, nm); } });
   DATA.itemNames = Array.from(set.entries()).map(([k, name]) => ({key: k, name}))
     .sort((a, b) => a.name.localeCompare(b.name));
+  addPkgNames();
 }
 
 function indexInventory(inv) {
@@ -1449,6 +1459,7 @@ function viewItem(root) {
   k.appendChild(kpi('Received', fmt(it.receipts), 'Returns ' + fmt(it.returns)));
   k.appendChild(kpi('Cannot pack', fmt(it.cannotPack), 'Discrepancy ' + fmt(it.disc) + ' · For packs ' + fmt(it.forPacks)));
   const pk = PKG.get(key);
+  if (pk && !inv && !AGG.byItem.get(key)) info.appendChild(el('div', {class: 'note', text: 'Not in the inventory or sales sheets under this name — only the package info from New Shipment → New items is known.'}));
   if (pk) {
     const dv = v => v == null ? '?' : String(v), who = pk.by ? 'entered by ' + esc(pk.by) : 'from New Shipment · New items';
     if (pk.l != null || pk.w != null || pk.h != null) k.appendChild(kpi('Package size', dv(pk.l) + ' × ' + dv(pk.w) + ' × ' + dv(pk.h), 'L × W × H, inches', '', true));

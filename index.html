@@ -1001,7 +1001,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-12d · New items';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-13a · New items · catalog name';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -4799,14 +4799,17 @@ function rcPrintPalletLabel(s, code, n, copies){
    ============================================================ */
 const RC_PKG_F=['l','w','h','wt','ship'];
 let rcNiFilter='all';
+let rcNiLink=null;                // row being renamed to its catalog name
 let rcNiExtra={};               // norm(name) -> name, products added to the list by hand in this tab
 function rcPkgKey(name){ return safeKey(norm(name)); }
 function rcPkgNum(v){ const n=parseFloat(String(v==null?'':v).replace(',','.')); return (isFinite(n)&&n>0) ? Math.round(n*100)/100 : null; }
 function rcPkgHas(p){ return !!p && RC_PKG_F.some(f=>p[f]!=null && p[f]!==''); }
-function rcPkgSave(name, vals){
-  const k=rcPkgKey(name), rec={name:name};
+function rcPkgSave(name, vals, aka){
+  const k=rcPkgKey(name), old=(RC.pkg||{})[k]||{}, rec={name:name};
   RC_PKG_F.forEach(f=>{ const n=rcPkgNum(vals&&vals[f]); if(n!=null) rec[f]=n; });
-  if(rcPkgHas(rec)){
+  const names=[]; rcArr(old.aka).concat(aka||[]).forEach(a=>{ a=String(a||'').trim(); if(a && norm(a)!==norm(name) && !names.some(x=>norm(x)===norm(a))) names.push(a); });
+  if(names.length) rec.aka=names;                       // names it was received under before it got its catalog name
+  if(rcPkgHas(rec) || names.length){
     rec.by=MY_NAME||''; rec.at=Date.now(); RC.pkg[k]=rec;
     if(rcRef) rcRef.child('pkgInfo/'+k).set(rec).catch(e=>toast('Not saved: '+((e&&e.message)||e),'err',4000));
   } else {
@@ -4814,16 +4817,28 @@ function rcPkgSave(name, vals){
     if(rcRef) rcRef.child('pkgInfo/'+k).remove().catch(()=>{});
   }
 }
+/* give a row the product's catalog name, so the Analyzer card finds the values */
+function rcPkgRename(oldName, newName){
+  if(norm(oldName)===norm(newName)) return;
+  const ok=rcPkgKey(oldName), o=(RC.pkg||{})[ok]||{}, n=(RC.pkg||{})[rcPkgKey(newName)]||{};
+  const vals={}; RC_PKG_F.forEach(f=>{ vals[f]=(o[f]!=null?o[f]:n[f]); });
+  rcPkgSave(newName, vals, [oldName].concat(rcArr(o.aka)));
+  delete RC.pkg[ok]; if(rcRef) rcRef.child('pkgInfo/'+ok).remove().catch(()=>{});
+  delete rcNiExtra[norm(oldName)];
+}
+function rcCatHas(name){ const nk=norm(name); return RCCAT.main.some(e=>norm(e.name)===nk); }
 /* products without a listing: flagged by the bot when the receiving was posted
    ("new product" / "no listing"), or typed in by hand as a new product */
 function rcNewItems(){
   const m=new Map();
+  const akaOf={}; for(const k in (RC.pkg||{})){ const r=RC.pkg[k]; if(r&&r.name) rcArr(r.aka).forEach(a=>{ akaOf[norm(a)]=r.name; }); }
   for(const s of (RC.sessions||[])){
     const fl={}; rcArr(s.slack&&s.slack.flagged).forEach(f=>{ if(f&&f.name) fl[norm(f.name)]=(f.status==='new'?'new':'nolisting'); });
     const t=s.finishedAt||s.startedAt||0;
     for(const u of (s.units||[])) for(const it of (u.items||[])){
-      const nk=norm(it.name); const st=fl[nk] || (it.isNew?'new':''); if(!st) continue;
-      let r=m.get(nk); if(!r){ r={k:rcPkgKey(it.name), name:it.name, qty:0, status:st, at:0, dateStr:'', supplier:''}; m.set(nk,r); }
+      const st=fl[norm(it.name)] || (it.isNew?'new':''); if(!st) continue;
+      const nm=akaOf[norm(it.name)]||it.name, nk=norm(nm);          // renamed to its catalog name
+      let r=m.get(nk); if(!r){ r={k:rcPkgKey(nm), name:nm, qty:0, status:st, at:0, dateStr:'', supplier:''}; m.set(nk,r); }
       r.qty+=(+it.qty||0); if(st==='new') r.status='new';
       if(t>=r.at){ r.at=t; r.dateStr=s.dateStr||''; r.supplier=s.supplier||''; }
     }
@@ -4840,19 +4855,24 @@ function rcViewNewItems(){
   const filled=all.filter(x=>rcPkgHas(x.p)).length;
   const list=all.filter(x=> rcNiFilter==='all' || (rcNiFilter==='filled')===rcPkgHas(x.p));
   const inp=(x,f,ph)=>'<input class="tinput rcpk" id="rcpk_'+esc(x.k)+'_'+f+'" data-k="'+esc(x.k)+'" data-f="'+f+'" type="number" inputmode="decimal" min="0" step="0.01" placeholder="'+ph+'" value="'+((x.p&&x.p[f]!=null)?x.p[f]:'')+'">';
+  const cat=RCCAT.main.length>0;
   const fb=(v,t,n)=>'<button class="rcchoice'+(rcNiFilter===v?' sel':'')+'" data-nif="'+v+'">'+t+' <b>'+n+'</b></button>';
   let h='<div class="rcrow"><h1 style="margin:0">🆕 New items</h1><div class="spacer" style="flex:1"></div>'+
     '<div class="pill">Products <b>'+all.length+'</b></div><div class="pill">Filled in <b>'+filled+'</b></div></div>'+
     '<p class="sub" style="margin:8px 0 0">Recently received products that are not in the listings. Size, weight and estimated shipment cost are optional — they are kept in the system and shown on the product card in the Analyzer. Changes save as you type them in.</p>'+
     '<div class="rcrow" style="margin-top:12px">'+fb('all','All',all.length)+fb('empty','Not filled',all.length-filled)+fb('filled','Filled',filled)+'</div>'+
-    '<div class="card" style="margin-top:14px"><div class="eyebrow">Add another product</div>'+
-    '<div class="rcrow" style="margin-top:8px"><input id="rcNiAdd" class="tinput" placeholder="Product that is not in the list — type a name or pick from the catalog" autocomplete="off">'+
-    '<button class="btn primary" id="rcNiAddBtn">+ Add</button></div><div class="rclist" id="rcNiSug" style="max-height:260px"></div></div>';
+    '<div class="card" style="margin-top:14px'+(rcNiLink?';border-color:var(--accent)':'')+'"><div class="eyebrow">'+(rcNiLink?'Catalog name for “'+esc(rcNiLink)+'”':'Add another product')+'</div>'+
+    (rcNiLink?'<p class="sub" style="margin:6px 0 0;font-size:13px">Pick the product from the catalog — the values move to that name and show on its card in the Analyzer.</p>':'')+
+    '<div class="rcrow" style="margin-top:8px"><input id="rcNiAdd" class="tinput" placeholder="'+(rcNiLink?'Type a few letters of the catalog name':'Product that is not in the list — type a name or pick from the catalog')+'" autocomplete="off">'+
+    '<button class="btn primary" id="rcNiAddBtn">'+(rcNiLink?'Use this name':'+ Add')+'</button>'+(rcNiLink?'<button class="btn ghost" id="rcNiLinkCancel">Cancel</button>':'')+'</div><div class="rclist" id="rcNiSug" style="max-height:260px"></div></div>';
   if(!list.length){
     h+='<div class="empty" style="margin-top:14px">'+(all.length?'Nothing in this filter.':'No new products yet.<br><span style="font-size:13px">A product appears here when a receiving is posted and the bot finds no listing for it, or when it was typed in as a new product.</span>')+'</div>';
   } else {
     h+='<div class="card" style="margin-top:14px"><div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Last received</th><th>L (in)</th><th>W (in)</th><th>H (in)</th><th>Weight (lb)</th><th>Est. shipment ($)</th></tr></thead><tbody>'+
-      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':(x.status==='added'?'added by hand':'no listing')))+'</span></td>'+
+      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':(x.status==='added'?'added by hand':'no listing')))+'</span>'+
+        (cat && !rcCatHas(x.name) ? ' <span class="chip" style="color:var(--warn);border-color:var(--warn)" title="This name is not in the Inventory tab, so the Analyzer has no product card to show the values on">not a catalog name</span>' : '')+
+        ' <button class="btn ghost rcnilink" data-name="'+esc(x.name)+'" style="padding:4px 9px;font-size:12px" title="Rename this row to the product name from the catalog">✎ catalog name</button>'+
+        (x.p&&x.p.aka ? '<div class="sub" style="font-size:12px">received as: '+esc(rcArr(x.p.aka).join(', '))+'</div>' : '')+'</td>'+
         '<td class="sub" style="white-space:nowrap">'+(x.dateStr?esc(x.dateStr)+(x.supplier?' · '+esc(x.supplier):'')+' · '+x.qty+' pcs':'—')+'</td>'+
         '<td>'+inp(x,'l','L')+'</td><td>'+inp(x,'w','W')+'</td><td>'+inp(x,'h','H')+'</td><td>'+inp(x,'wt','lb')+'</td><td>'+inp(x,'ship','$')+'</td></tr>').join('')+
       '</tbody></table></div></div>';
@@ -4868,9 +4888,11 @@ function rcWireNewItems(){
     rcPkgSave(tr.dataset.name, vals);
   }));
   const hm=$('#rcNiHome'); if(hm) hm.onclick=()=>rcGo('home');
+  $$('#rcArea .rcnilink').forEach(b=>b.onclick=()=>{ rcNiLink=b.dataset.name; rcRender(); });
   const ai=$('#rcNiAdd'), sg=$('#rcNiSug'), ab=$('#rcNiAddBtn');
   if(ai && sg && ab){
     const add=name=>{ name=String(name||'').trim(); if(name.length<2){ toast('Enter the product name','warn'); ai.focus(); return; }
+      if(rcNiLink){ const from=rcNiLink; rcNiLink=null; rcPkgRename(from, name); rcNiFilter='all'; ai.value=''; rcRender(); toast('Renamed to '+name,'ok'); return; }
       const nk=norm(name); const have=rcNewItems().find(x=>norm(x.name)===nk);
       if(!have) rcNiExtra[nk]=name;
       rcNiFilter='all'; ai.value=''; rcRender();
@@ -4883,6 +4905,8 @@ function rcWireNewItems(){
     ai.addEventListener('input',draw);
     ai.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add(ai.value); } });
     ab.onclick=()=>add(ai.value);
+    const lc=$('#rcNiLinkCancel'); if(lc) lc.onclick=()=>{ rcNiLink=null; rcRender(); };
+    if(rcNiLink){ ai.scrollIntoView({block:'center'}); ai.focus(); }
     draw();
   }
 }
