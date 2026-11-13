@@ -117,6 +117,9 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 .ctbl tbody tr[data-k]{cursor:pointer}
 .ctbl td.cdiff{color:var(--err); font-weight:700; background:#2a1519}
 .ctbl td.cok{color:var(--ok)}
+.ctbl td.cexp{color:var(--warn,#e0a53a)}
+.ctbl td.cpend{color:var(--info); font-weight:700}
+.ctbl th.grp{border-left:1px solid var(--border)} .ctbl td.grp{border-left:1px solid var(--border)}
 .ctbl tr.cst-onlyeod td, .ctbl tr.cst-noeod td{color:var(--muted)}
 
 /* ---------- gate ---------- */
@@ -456,7 +459,8 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
       <button class="btn sm" id="cmpCsv">⬇ CSV</button>
       <button class="btn sm primary" id="cmpUpd">↻ Update</button>
     </div>
-    <div class="mini" style="margin-bottom:10px"><b>WH · counted</b> = every counted location except the store, compared with <b>WH EOD SOH</b> of the Daily SOH workbook (latest filled day). The shop is not counted here — its <b>LS EOD SOH</b> is shown for reference only.</div>
+    <div class="mini" style="margin-bottom:10px">Daily SOH often gets the day's sales before they are packed, so the count is compared twice: <b>now</b> (WH counted, with the orders packed so far) and <b>after packing</b> (WH counted minus the units of the orders still Pending in Pick &amp; Pack). Expected: <b>Δ now</b> = the units left to pack, <b>Δ after packing</b> = 0. The shop is not counted here — its <b>LS EOD SOH</b> is shown for reference only.</div>
+    <div class="rcrow" style="margin-bottom:10px;gap:6px;align-items:center"><span class="mini">Pending orders from shifts:</span><div class="chipbar" id="cmpShifts"></div><span class="mini" id="cmpPendInfo"></span></div>
     <div class="chipbar" id="cmpChips"></div>
     <div class="rcrow" style="margin-top:10px">
       <input id="cmpQ" class="tinput" style="max-width:420px" placeholder="Filter by item…" autocomplete="off">
@@ -523,7 +527,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px}
 const COUNT_SHEET_ID = '1DvKRxE1TwQ4TdOUPy7Va5dTOfpJ48fCDkKLqq9yKTAU';     // counting workbook — always this one
 const INVENTORY_SHEET_ID = '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw'; // company inventory (images, barcodes)
 const DB_PATH = 'packstation/stockCount';
-const BUILD = '2026-10-29a · Store = Daily SOH everywhere (Total, Locations, Compare, shelf list) · Finish all · Damaged & Confirmed';
+const BUILD = '2026-11-13a · Compare: now / after packing the pending orders';
 const LS = { mirror:'cpsInv3.mirror', cat:'cpsInv3.cat', view:'cpsInv3.view', shelf:'cpsInv3.shelf' };
 const STATION_LOGO = 'https://i.postimg.cc/VkfXDqWf/images.jpg';
 const STATION_FILE = 'index.html';
@@ -1549,26 +1553,98 @@ async function refreshDSOH(force){
   try{ DSOH=await loadDailySOH({force:!!force}); }catch(e){ DSOH_ERR=e.message||String(e); }
   DSOH_BUSY=false; _dsohCleanAt=0; renderAll();
 }
-function cmpRows(){
+/* ---------- orders still to be packed (Pick & Pack) ----------
+   Units of the orders that have not left the shelves in the count yet:
+   · orders with status Pending in the chosen shifts (every line),
+   · orders packed but not deducted yet (their packed lines),
+   · orders packed while the count was frozen — still queued for Sync.
+   Read-only: nothing is written to the shifts. */
+const PK_ROOT='packstation';
+let PK_SHIFTS={}, PK_SEL=null, PK_ORD={}, PK_REFS={}, PK_ON=false, _pkT=null;
+function pkKeyFor(name, variation){
+  const va=(variation && norm(variation)!=='default') ? variation : '';
+  const tries=[clean(name)]; if(va){ tries.push(clean(name+va)); tries.push(clean(name+' '+va)); }
+  for(const t of tries){ if(!t) continue; if(BASE && BASE.items && BASE.items[t]) return t; if(IDX.nameKey && IDX.nameKey[t]) return IDX.nameKey[t]; }
+  return null;
+}
+function pkDefaultSel(){
+  try{ const v=JSON.parse(localStorage.getItem('inv.cmp.shifts')||'null'); if(v && v.day===new Date().toDateString() && Array.isArray(v.ids)) return v.ids.filter(id=>PK_SHIFTS[id]); }catch(e){}
+  const since=Date.now()-36*3600*1000;                       // by default: the shifts opened in the last day and a half
+  return Object.keys(PK_SHIFTS).filter(id=>(PK_SHIFTS[id].createdAt||0)>=since);
+}
+function pkSaveSel(){ try{ localStorage.setItem('inv.cmp.shifts', JSON.stringify({day:new Date().toDateString(), ids:PK_SEL||[]})); }catch(e){} }
+function pkRerender(){ clearTimeout(_pkT); _pkT=setTimeout(()=>{ if(VIEW==='compare') renderCompare(); }, 250); }
+function pkWatch(){
+  if(!db) return;
+  if(!PK_ON){ PK_ON=true;
+    db.ref(PK_ROOT+'/shiftIndex').on('value', snap=>{ PK_SHIFTS=snap.val()||{};
+      if(PK_SEL===null) PK_SEL=pkDefaultSel(); else PK_SEL=PK_SEL.filter(id=>PK_SHIFTS[id]);
+      pkSync(); pkRerender(); }, ()=>{}); }
+  else pkSync();
+}
+function pkSync(){
+  const want=new Set(PK_SEL||[]);
+  Object.keys(PK_REFS).forEach(id=>{ if(!want.has(id)){ PK_REFS[id].off(); delete PK_REFS[id]; delete PK_ORD[id]; } });
+  want.forEach(id=>{ if(PK_REFS[id]) return;
+    const ref=db.ref(PK_ROOT+'/shifts/'+id+'/orders'); PK_REFS[id]=ref;
+    ref.on('value', snap=>{ PK_ORD[id]=snap.val()||{}; pkRerender(); }, ()=>{ PK_ORD[id]={}; pkRerender(); }); });
+}
+/* {byKey:{k:units}, orders, lines, unmatched:[{name,qty}], loading} */
+function pkPending(){
+  const out={byKey:{}, orders:0, units:0, unmatched:[], loading:(PK_SEL||[]).some(id=>!PK_ORD[id])};
+  const add=(k,q)=>{ out.byKey[k]=(out.byKey[k]||0)+q; out.units+=q; };
+  (PK_SEL||[]).forEach(id=>{ const O=PK_ORD[id]||{};
+    for(const ok in O){ const o=O[ok]; if(!o || o.deducted) continue;                  // already off the shelves (or queued — see below)
+      const st=o.status||'pending'; if(st!=='pending' && st!=='packed' && st!=='partial') continue;
+      let any=false;
+      for(const it of arr(o.items)){
+        if(st!=='pending' && (it.packed===false || (it.status && it.status!=='ok'))) continue;
+        const q=Math.max(0, +it.qty||1); if(!q) continue; any=true;
+        const k=pkKeyFor(it.name, it.variation);
+        if(k) add(k,q); else out.unmatched.push({name:it.name+(it.variation&&norm(it.variation)!=='default'?' · '+it.variation:''), qty:q});
+      }
+      if(any) out.orders++;
+    } });
+  PENDING.forEach(p=>{ if(p.type!=='pack') return; let any=false;                       // packed during a frozen count, not applied yet
+    arr(p.lines).forEach(l=>{ const q=+l.qty||0; if(l.k && q){ add(l.k,q); any=true; } }); if(any) out.orders++; });
+  return out;
+}
+function renderCmpShifts(P){
+  const box=$('#cmpShifts'); if(!box) return;
+  const ids=Object.keys(PK_SHIFTS).sort((a,b)=>(PK_SHIFTS[b].createdAt||0)-(PK_SHIFTS[a].createdAt||0)).slice(0,12);
+  box.innerHTML=ids.length ? ids.map(id=>'<button class="chip'+((PK_SEL||[]).includes(id)?' on':'')+'" data-sh="'+esc(id)+'" title="Count the Pending orders of this shift">'+esc(PK_SHIFTS[id].name||id)+'</button>').join('')
+    : '<span class="mini">no shifts found</span>';
+  $$('#cmpShifts [data-sh]').forEach(b=>b.onclick=()=>{ const id=b.dataset.sh; PK_SEL=PK_SEL||[];
+    PK_SEL = PK_SEL.includes(id) ? PK_SEL.filter(x=>x!==id) : PK_SEL.concat(id); pkSaveSel(); pkSync(); renderCompare(); });
+  const um=P.unmatched.reduce((a,x)=>a+x.qty,0);
+  $('#cmpPendInfo').innerHTML = P.loading ? 'reading orders…' :
+    (!(PK_SEL||[]).length ? 'no shift chosen — “after packing” equals “now”' :
+      fmt(P.orders)+' order(s) to pack · '+fmt(P.units)+' unit(s)'+(um?' · <span style="color:var(--warn,#e0a53a)" title="'+esc(P.unmatched.slice(0,25).map(x=>x.name+' × '+x.qty).join('\n'))+'">⚠ '+fmt(um)+' unit(s) not matched to a counted item</span>':''));
+}
+function cmpRows(P){
+  P=P||pkPending();
   const rows=[]; const used=new Set(); const D=(DSOH&&DSOH.items)||{};
   const byClean={}; Object.keys(D).forEach(k=>{ byClean[clean(D[k].n)]=k; });
   Object.keys(BASE.items||{}).forEach(k=>{
     const n=nameOf(k), a=agg(k);
     let dk=norm(n); if(!D[dk]) dk=byClean[clean(n)]||null;
     const d=dk?D[dk]:null; if(dk) used.add(dk);
-    rows.push({k, n, sysWh:a.wh, eodWh:d?d.wh:null, eodLs:d?d.ls:null, inEod:!!d});
+    rows.push({k, n, sysWh:a.wh, pend:P.byKey[k]||0, eodWh:d?d.wh:null, eodLs:d?d.ls:null, inEod:!!d});
   });
-  Object.keys(D).forEach(dk=>{ if(used.has(dk)) return; const d=D[dk]; rows.push({k:null, n:d.n, sysWh:0, eodWh:d.wh, eodLs:d.ls, inEod:true, onlyEod:true}); });
-  rows.forEach(r=>{ r.dWh=r.inEod?r.sysWh-(r.eodWh||0):null;
+  Object.keys(D).forEach(dk=>{ if(used.has(dk)) return; const d=D[dk]; rows.push({k:null, n:d.n, sysWh:0, pend:0, eodWh:d.wh, eodLs:d.ls, inEod:true, onlyEod:true}); });
+  rows.forEach(r=>{ r.aftWh=r.sysWh-r.pend;
+    r.dNow=r.inEod?r.sysWh-(r.eodWh||0):null;            // expected = units left to pack
+    r.dWh =r.inEod?r.aftWh-(r.eodWh||0):null;            // after packing — expected 0
     r.state = r.onlyEod?'onlyeod' : !r.inEod?'noeod' : r.dWh?'diff':'ok'; });
-  rows.sort((a,b)=>Math.abs((b.dWh||0)) - Math.abs((a.dWh||0)) || a.n.localeCompare(b.n));
+  rows.sort((a,b)=>Math.abs((b.dWh||0)) - Math.abs((a.dWh||0)) || (b.pend-a.pend) || a.n.localeCompare(b.n));
   return rows;
 }
 function cmpFiltered(all){
   let list=all;
   if(cmpMode==='diff') list=list.filter(r=>r.state==='diff');
+  else if(cmpMode==='pend') list=list.filter(r=>r.pend>0);
   else if(cmpMode!=='all') list=list.filter(r=>r.state===cmpMode);
-  if($('#cmpHideZero').checked) list=list.filter(r=>r.sysWh||r.eodWh||r.eodLs);
+  if($('#cmpHideZero').checked) list=list.filter(r=>r.sysWh||r.pend||r.eodWh||r.eodLs);
   const q=norm(cmpQ); if(q) list=list.filter(r=>norm(r.n).includes(q));
   return list;
 }
@@ -1577,34 +1653,45 @@ function renderCompare(){
   if(editing()) return;
   if(!DSOH && !DSOH_ERR && !DSOH_BUSY){ refreshDSOH(false); return; }
   if(!DSOH){ $('#cmpTbl').innerHTML=''; $('#cmpChips').innerHTML=''; $('#cmpInfo').textContent=DSOH_BUSY?'Reading Daily SOH…':('Daily SOH not available: '+DSOH_ERR); return; }
-  const all=cmpRows();
-  const cnt={all:all.length}; all.forEach(r=>cnt[r.state]=(cnt[r.state]||0)+1);
-  const C=[['all','All'],['diff','WH mismatch'],['ok','Match'],['noeod','Not in Daily SOH'],['onlyeod','Only in Daily SOH']];
+  pkWatch(); const P=pkPending(); renderCmpShifts(P);
+  const all=cmpRows(P);
+  const cnt={all:all.length, pend:0}; all.forEach(r=>{ cnt[r.state]=(cnt[r.state]||0)+1; if(r.pend>0) cnt.pend++; });
+  const C=[['all','All'],['diff','Mismatch after packing'],['pend','To pack'],['ok','Match'],['noeod','Not in Daily SOH'],['onlyeod','Only in Daily SOH']];
   $('#cmpChips').innerHTML=C.map(([k,l])=>'<button class="chip'+(cmpMode===k?' on':'')+'" data-c="'+k+'">'+l+'<span class="cnt">'+(cnt[k]||0)+'</span></button>').join('');
   $$('#cmpChips [data-c]').forEach(b=>b.onclick=()=>{ cmpMode=b.dataset.c; renderCompare(); });
   const list=cmpFiltered(all);
-  let h='<thead><tr><th style="text-align:left">Item</th><th>WH · counted</th><th>WH EOD SOH</th><th>Δ WH</th><th title="The shop is not counted here — this is the Daily SOH figure">Store · LS EOD SOH</th></tr></thead><tbody>';
-  if(!list.length) h+='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
+  let h='<thead><tr><th style="text-align:left">Item</th>'+
+    '<th title="Counted in the warehouse right now — the orders packed so far are already taken off">WH · counted now</th>'+
+    '<th title="Units of the orders that are still Pending in Pick &amp; Pack (chosen shifts)">Left to pack</th>'+
+    '<th title="WH counted now minus the units left to pack">WH · after packing</th>'+
+    '<th class="grp" title="WH EOD SOH of the Daily SOH workbook">WH EOD SOH</th>'+
+    '<th class="grp" title="WH counted now − WH EOD SOH. Expected to equal Left to pack">Δ now</th>'+
+    '<th title="WH after packing − WH EOD SOH. Expected 0">Δ after packing</th>'+
+    '<th class="grp" title="The shop is not counted here — this is the Daily SOH figure">Store · LS EOD SOH</th></tr></thead><tbody>';
+  if(!list.length) h+='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">Nothing here.</td></tr>';
   list.forEach(r=>{
     const cls=v=>v==null?'':(v?' class="cdiff"':' class="cok"');
+    /* Δ now: fine when it is exactly the units still to pack */
+    const nowCls = r.dNow==null ? ' class="grp"' : (r.dNow===r.pend ? (r.dNow?' class="grp cexp"':' class="grp cok"') : ' class="grp cdiff"');
     h+='<tr class="cst-'+r.state+'"'+(r.k?' data-k="'+esc(r.k)+'"':'')+'><td style="text-align:left" class="hname">'+esc(r.n)+(r.onlyEod?' <span class="mini">· not in the counting workbook</span>':'')+(!r.inEod?' <span class="mini">· no row in Daily SOH</span>':'')+'</td>'+
-      '<td>'+fmt(r.sysWh)+'</td><td>'+(r.inEod?fmt(r.eodWh):'—')+'</td><td'+cls(r.dWh)+'>'+sgn(r.dWh)+'</td>'+
-      '<td style="color:var(--info)">'+(r.inEod?fmt(r.eodLs):'—')+'</td></tr>';
+      '<td>'+fmt(r.sysWh)+'</td><td'+(r.pend?' class="cpend"':'')+'>'+(r.pend?fmt(r.pend):'<span style="color:var(--muted)">0</span>')+'</td><td>'+fmt(r.aftWh)+'</td>'+
+      '<td class="grp">'+(r.inEod?fmt(r.eodWh):'—')+'</td><td'+nowCls+'>'+sgn(r.dNow)+'</td><td'+cls(r.dWh)+'>'+sgn(r.dWh)+'</td>'+
+      '<td class="grp" style="color:var(--info)">'+(r.inEod?fmt(r.eodLs):'—')+'</td></tr>';
   });
   $('#cmpTbl').innerHTML=h+'</tbody>';
   $$('#cmpTbl tbody tr[data-k]').forEach(tr=>tr.onclick=()=>{
     const nx=tr.nextElementSibling; if(nx && nx.classList.contains('brkrow')){ nx.remove(); OPEN_EDIT=null; return; }
     $$('#cmpTbl .brkrow').forEach(x=>x.remove());
-    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 5, renderCompare);
+    OPEN_EDIT=tr.dataset.k; mountEditor(tr, tr.dataset.k, 8, renderCompare);
   });
-  if(OPEN_EDIT){ const tr=document.querySelector('#cmpTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 5, renderCompare); }
+  if(OPEN_EDIT){ const tr=document.querySelector('#cmpTbl tbody tr[data-k="'+CSS.escape(OPEN_EDIT)+'"]'); if(tr) mountEditor(tr, OPEN_EDIT, 8, renderCompare); }
   const d=new Date(DSOH.date+'T12:00:00');
-  $('#cmpInfo').textContent='Daily SOH for '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (tab '+DSOH.tab+') · '+fmt(DSOH.n)+' items · read '+hhmm(DSOH.at)+(DSOH.stale?' · ⚠ could not refresh: '+DSOH.stale:'')+' · '+(cnt.diff||0)+' mismatch';
+  $('#cmpInfo').textContent='Daily SOH for '+d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' (tab '+DSOH.tab+') · '+fmt(DSOH.n)+' items · read '+hhmm(DSOH.at)+(DSOH.stale?' · ⚠ could not refresh: '+DSOH.stale:'')+' · '+(cnt.diff||0)+' mismatch after packing';
 }
 function exportCompare(){
   if(!DSOH) return;
-  const rows=[['Item','WH counted','WH EOD SOH','Diff WH','Store (LS EOD SOH)','Status']];
-  cmpFiltered(cmpRows()).forEach(r=>rows.push([r.n,r.sysWh,r.eodWh==null?'':r.eodWh,r.dWh==null?'':r.dWh,r.eodLs==null?'':r.eodLs,r.state]));
+  const rows=[['Item','WH counted now','Left to pack','WH after packing','WH EOD SOH','Diff now','Diff after packing','Store (LS EOD SOH)','Status']];
+  cmpFiltered(cmpRows()).forEach(r=>rows.push([r.n,r.sysWh,r.pend,r.aftWh,r.eodWh==null?'':r.eodWh,r.dNow==null?'':r.dNow,r.dWh==null?'':r.dWh,r.eodLs==null?'':r.eodLs,r.state]));
   const csv=rows.map(r=>r.map(c=>{ const s=String(c==null?'':c); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
   a.download='compare daily soh '+DSOH.date+' '+fileStamp()+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
