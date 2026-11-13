@@ -1001,7 +1001,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-12c · New items';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-12d · New items';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -4799,6 +4799,7 @@ function rcPrintPalletLabel(s, code, n, copies){
    ============================================================ */
 const RC_PKG_F=['l','w','h','wt','ship'];
 let rcNiFilter='all';
+let rcNiExtra={};               // norm(name) -> name, products added to the list by hand in this tab
 function rcPkgKey(name){ return safeKey(norm(name)); }
 function rcPkgNum(v){ const n=parseFloat(String(v==null?'':v).replace(',','.')); return (isFinite(n)&&n>0) ? Math.round(n*100)/100 : null; }
 function rcPkgHas(p){ return !!p && RC_PKG_F.some(f=>p[f]!=null && p[f]!==''); }
@@ -4829,6 +4830,7 @@ function rcNewItems(){
   }
   for(const k in (RC.pkg||{})){ const rec=RC.pkg[k]; if(!rec||!rec.name) continue;        // filled in earlier, receiving already archived
     if(!m.has(norm(rec.name))) m.set(norm(rec.name),{k:rcPkgKey(rec.name), name:rec.name, qty:0, status:'saved', at:0, dateStr:'', supplier:''}); }
+  for(const nk in rcNiExtra){ if(!m.has(nk)) m.set(nk,{k:rcPkgKey(rcNiExtra[nk]), name:rcNiExtra[nk], qty:0, status:'added', at:Date.now(), dateStr:'', supplier:''}); }
   return [...m.values()].map(r=>Object.assign(r,{p:(RC.pkg||{})[r.k]||null}))
     .sort((a,b)=>(b.at-a.at) || a.name.localeCompare(b.name));
 }
@@ -4842,12 +4844,15 @@ function rcViewNewItems(){
   let h='<div class="rcrow"><h1 style="margin:0">🆕 New items</h1><div class="spacer" style="flex:1"></div>'+
     '<div class="pill">Products <b>'+all.length+'</b></div><div class="pill">Filled in <b>'+filled+'</b></div></div>'+
     '<p class="sub" style="margin:8px 0 0">Recently received products that are not in the listings. Size, weight and estimated shipment cost are optional — they are kept in the system and shown on the product card in the Analyzer. Changes save as you type them in.</p>'+
-    '<div class="rcrow" style="margin-top:12px">'+fb('all','All',all.length)+fb('empty','Not filled',all.length-filled)+fb('filled','Filled',filled)+'</div>';
+    '<div class="rcrow" style="margin-top:12px">'+fb('all','All',all.length)+fb('empty','Not filled',all.length-filled)+fb('filled','Filled',filled)+'</div>'+
+    '<div class="card" style="margin-top:14px"><div class="eyebrow">Add another product</div>'+
+    '<div class="rcrow" style="margin-top:8px"><input id="rcNiAdd" class="tinput" placeholder="Product that is not in the list — type a name or pick from the catalog" autocomplete="off">'+
+    '<button class="btn primary" id="rcNiAddBtn">+ Add</button></div><div class="rclist" id="rcNiSug" style="max-height:260px"></div></div>';
   if(!list.length){
     h+='<div class="empty" style="margin-top:14px">'+(all.length?'Nothing in this filter.':'No new products yet.<br><span style="font-size:13px">A product appears here when a receiving is posted and the bot finds no listing for it, or when it was typed in as a new product.</span>')+'</div>';
   } else {
     h+='<div class="card" style="margin-top:14px"><div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Last received</th><th>L (in)</th><th>W (in)</th><th>H (in)</th><th>Weight (lb)</th><th>Est. shipment ($)</th></tr></thead><tbody>'+
-      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':'no listing'))+'</span></td>'+
+      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':(x.status==='added'?'added by hand':'no listing')))+'</span></td>'+
         '<td class="sub" style="white-space:nowrap">'+(x.dateStr?esc(x.dateStr)+(x.supplier?' · '+esc(x.supplier):'')+' · '+x.qty+' pcs':'—')+'</td>'+
         '<td>'+inp(x,'l','L')+'</td><td>'+inp(x,'w','W')+'</td><td>'+inp(x,'h','H')+'</td><td>'+inp(x,'wt','lb')+'</td><td>'+inp(x,'ship','$')+'</td></tr>').join('')+
       '</tbody></table></div></div>';
@@ -4863,6 +4868,23 @@ function rcWireNewItems(){
     rcPkgSave(tr.dataset.name, vals);
   }));
   const hm=$('#rcNiHome'); if(hm) hm.onclick=()=>rcGo('home');
+  const ai=$('#rcNiAdd'), sg=$('#rcNiSug'), ab=$('#rcNiAddBtn');
+  if(ai && sg && ab){
+    const add=name=>{ name=String(name||'').trim(); if(name.length<2){ toast('Enter the product name','warn'); ai.focus(); return; }
+      const nk=norm(name); const have=rcNewItems().find(x=>norm(x.name)===nk);
+      if(!have) rcNiExtra[nk]=name;
+      rcNiFilter='all'; ai.value=''; rcRender();
+      const el=document.getElementById('rcpk_'+rcPkgKey(have?have.name:name)+'_l'); if(el){ el.scrollIntoView({block:'center'}); el.focus(); } };
+    const draw=()=>{ const q=norm(ai.value); if(q.length<2){ sg.innerHTML=''; return; }
+      const seen={}, rows=[];
+      for(const e of RCCAT.main.concat(RCCAT.pending)){ const nk=norm(e.name); if(!nk||seen[nk]||nk.indexOf(q)<0) continue; seen[nk]=1; rows.push(e); if(rows.length>=40) break; }
+      sg.innerHTML=rows.map((e,i)=>'<button class="rcpick" data-i="'+i+'">'+rcImg(e.image,e.name)+'<div><div class="pn">'+esc(e.name)+'</div></div></button>').join('');
+      sg.querySelectorAll('.rcpick').forEach(b=>b.onclick=()=>add(rows[+b.dataset.i].name)); };
+    ai.addEventListener('input',draw);
+    ai.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); add(ai.value); } });
+    ab.onclick=()=>add(ai.value);
+    draw();
+  }
 }
 
 function rcSlackReport(s){
