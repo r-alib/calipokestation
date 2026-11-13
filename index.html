@@ -1001,7 +1001,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-13a · New items · catalog name';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-13b · New items';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -4540,10 +4540,10 @@ function rcAttachFeed(){
     if(!_rcSuppressRender && curScreen==='recv' && (rcView==='catalog'||rcView==='home')) rcRenderKeepingFocus();
   });
   /* package info of new products (admin · New items) — read by the Analyzer product card */
-  rcRef.child('pkgInfo').on('value', snap=>{
-    RC.pkg=snap.val()||{};
+  rcRef.child('newItems').on('value', snap=>{
+    RC.pkg=snap.val()||{}; rcPkgMigrate();
     const ae=document.activeElement;                        // do not redraw the table under someone typing in it
-    if(!_rcSuppressRender && curScreen==='recv' && rcView==='newitems' && !(ae && ae.classList && ae.classList.contains('rcpk'))) rcRenderKeepingFocus();
+    if(!_rcSuppressRender && curScreen==='recv' && rcView==='newitems' && !(ae && (ae.id==='rcNiAdd' || (ae.classList && ae.classList.contains('rcpk'))))) rcRenderKeepingFocus();
   });
   /* the product catalog (inventory + Pending) is shared too, so a second person
      does not have to load the workbook on their own device before they can scan */
@@ -4794,37 +4794,55 @@ function rcPrintPalletLabel(s, code, n, copies){
    Recently received products that have no listing yet. The admin can fill in
    the package size (L × W × H, inches), weight (lb) and an estimated shipment
    cost ($). All optional. Nothing here goes to Slack or into the receiving
-   report — the values stay in the system (receiving/pkgInfo, one record per
+   report — the values stay in the system (receiving/newItems, one record per
    product name) and show on the product card in the Analyzer.
    ============================================================ */
-const RC_PKG_F=['l','w','h','wt','ship'];
+const RC_PKG_F=['l','w','h','wt','cost'];
 let rcNiFilter='all';
 let rcNiLink=null;                // row being renamed to its catalog name
-let rcNiExtra={};               // norm(name) -> name, products added to the list by hand in this tab
 function rcPkgKey(name){ return safeKey(norm(name)); }
 function rcPkgNum(v){ const n=parseFloat(String(v==null?'':v).replace(',','.')); return (isFinite(n)&&n>0) ? Math.round(n*100)/100 : null; }
 function rcPkgHas(p){ return !!p && RC_PKG_F.some(f=>p[f]!=null && p[f]!==''); }
-function rcPkgSave(name, vals, aka){
-  const k=rcPkgKey(name), old=(RC.pkg||{})[k]||{}, rec={name:name};
-  RC_PKG_F.forEach(f=>{ const n=rcPkgNum(vals&&vals[f]); if(n!=null) rec[f]=n; });
+/* one record per product at receiving/newItems/<key>: name, key, qty, dateStr, supplier,
+   addedAt, by + the optional l, w, h, wt, cost. The Analyzer reads the same records. */
+function rcPkgSave(name, vals, aka, extra){
+  const k=rcPkgKey(name), old=(RC.pkg||{})[k]||{}, rec=Object.assign({}, extra||{}, old);
+  rec.name=old.name||name; rec.key=norm(rec.name); delete rec.hidden;
+  if(vals) RC_PKG_F.forEach(f=>{ const n=rcPkgNum(vals[f]); if(n!=null) rec[f]=n; else delete rec[f]; });
   const names=[]; rcArr(old.aka).concat(aka||[]).forEach(a=>{ a=String(a||'').trim(); if(a && norm(a)!==norm(name) && !names.some(x=>norm(x)===norm(a))) names.push(a); });
   if(names.length) rec.aka=names;                       // names it was received under before it got its catalog name
-  if(rcPkgHas(rec) || names.length){
-    rec.by=MY_NAME||''; rec.at=Date.now(); RC.pkg[k]=rec;
-    if(rcRef) rcRef.child('pkgInfo/'+k).set(rec).catch(e=>toast('Not saved: '+((e&&e.message)||e),'err',4000));
-  } else {
-    delete RC.pkg[k];
-    if(rcRef) rcRef.child('pkgInfo/'+k).remove().catch(()=>{});
-  }
+  if(!rec.addedAt){ rec.addedAt=Date.now(); rec.by=MY_NAME||''; }
+  if(vals){ rec.editedAt=Date.now(); rec.editedBy=MY_NAME||''; }
+  Object.keys(rec).forEach(f=>{ if(rec[f]===undefined||rec[f]===null) delete rec[f]; });
+  RC.pkg[k]=rec;
+  if(rcRef) rcRef.child('newItems/'+k).set(rec).catch(e=>toast('Not saved: '+((e&&e.message)||e),'err',4000));
 }
 /* give a row the product's catalog name, so the Analyzer card finds the values */
-function rcPkgRename(oldName, newName){
+function rcPkgRename(oldName, newName, row){
   if(norm(oldName)===norm(newName)) return;
   const ok=rcPkgKey(oldName), o=(RC.pkg||{})[ok]||{}, n=(RC.pkg||{})[rcPkgKey(newName)]||{};
   const vals={}; RC_PKG_F.forEach(f=>{ vals[f]=(o[f]!=null?o[f]:n[f]); });
-  rcPkgSave(newName, vals, [oldName].concat(rcArr(o.aka)));
-  delete RC.pkg[ok]; if(rcRef) rcRef.child('pkgInfo/'+ok).remove().catch(()=>{});
-  delete rcNiExtra[norm(oldName)];
+  const extra={}; ['qty','dateStr','supplier','sid','addedAt','by'].forEach(f=>{ const v=(o[f]!=null?o[f]:(row?row[f]:null)); if(v!=null&&v!=='') extra[f]=v; });
+  rcPkgSave(newName, vals, [oldName].concat(rcArr(o.aka)), extra);
+  delete RC.pkg[ok]; if(rcRef) rcRef.child('newItems/'+ok).remove().catch(()=>{});
+}
+function rcPkgHide(name, row){
+  const k=rcPkgKey(name), old=(RC.pkg||{})[k];
+  if(!old) rcPkgSave(name, null, null, row);
+  RC.pkg[k].hidden=true; if(rcRef) rcRef.child('newItems/'+k+'/hidden').set(true).catch(()=>{});
+}
+/* values typed into the 11/12 build were kept under receiving/pkgInfo — move them over once */
+let _rcPkgMigrated=false;
+function rcPkgMigrate(){
+  if(_rcPkgMigrated || !rcRef || !IS_ADMIN) return; _rcPkgMigrated=true;
+  rcRef.child('pkgInfo').once('value').then(snap=>{ const v=snap.val()||{};
+    Object.keys(v).forEach(k=>{ const r=v[k]; if(!r||!r.name) return;
+      const cur=(RC.pkg||{})[rcPkgKey(r.name)]||{};
+      const vals={l:cur.l!=null?cur.l:r.l, w:cur.w!=null?cur.w:r.w, h:cur.h!=null?cur.h:r.h, wt:cur.wt!=null?cur.wt:r.wt, cost:cur.cost!=null?cur.cost:r.ship};
+      rcPkgSave(r.name, vals, rcArr(r.aka));
+      rcRef.child('pkgInfo/'+k).remove().catch(()=>{}); });
+    if(Object.keys(v).length && curScreen==='recv' && rcView==='newitems') rcRender();
+  }).catch(()=>{ _rcPkgMigrated=false; });
 }
 function rcCatHas(name){ const nk=norm(name); return RCCAT.main.some(e=>norm(e.name)===nk); }
 /* products without a listing: flagged by the bot when the receiving was posted
@@ -4843,9 +4861,10 @@ function rcNewItems(){
       if(t>=r.at){ r.at=t; r.dateStr=s.dateStr||''; r.supplier=s.supplier||''; }
     }
   }
-  for(const k in (RC.pkg||{})){ const rec=RC.pkg[k]; if(!rec||!rec.name) continue;        // filled in earlier, receiving already archived
-    if(!m.has(norm(rec.name))) m.set(norm(rec.name),{k:rcPkgKey(rec.name), name:rec.name, qty:0, status:'saved', at:0, dateStr:'', supplier:''}); }
-  for(const nk in rcNiExtra){ if(!m.has(nk)) m.set(nk,{k:rcPkgKey(rcNiExtra[nk]), name:rcNiExtra[nk], qty:0, status:'added', at:Date.now(), dateStr:'', supplier:''}); }
+  for(const k in (RC.pkg||{})){ const rec=RC.pkg[k]; if(!rec||!rec.name) continue;        // the saved list
+    const nk=norm(rec.name);
+    if(rec.hidden){ m.delete(nk); continue; }
+    if(!m.has(nk)) m.set(nk,{k:rcPkgKey(rec.name), name:rec.name, qty:+rec.qty||0, status:'saved', at:+rec.addedAt||0, dateStr:rec.dateStr||'', supplier:rec.supplier||''}); }
   return [...m.values()].map(r=>Object.assign(r,{p:(RC.pkg||{})[r.k]||null}))
     .sort((a,b)=>(b.at-a.at) || a.name.localeCompare(b.name));
 }
@@ -4869,12 +4888,13 @@ function rcViewNewItems(){
     h+='<div class="empty" style="margin-top:14px">'+(all.length?'Nothing in this filter.':'No new products yet.<br><span style="font-size:13px">A product appears here when a receiving is posted and the bot finds no listing for it, or when it was typed in as a new product.</span>')+'</div>';
   } else {
     h+='<div class="card" style="margin-top:14px"><div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Last received</th><th>L (in)</th><th>W (in)</th><th>H (in)</th><th>Weight (lb)</th><th>Est. shipment ($)</th></tr></thead><tbody>'+
-      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':(x.status==='added'?'added by hand':'no listing')))+'</span>'+
+      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'new item':'no listing'))+'</span>'+
         (cat && !rcCatHas(x.name) ? ' <span class="chip" style="color:var(--warn);border-color:var(--warn)" title="This name is not in the Inventory tab, so the Analyzer has no product card to show the values on">not a catalog name</span>' : '')+
         ' <button class="btn ghost rcnilink" data-name="'+esc(x.name)+'" style="padding:4px 9px;font-size:12px" title="Rename this row to the product name from the catalog">✎ catalog name</button>'+
+        ' <button class="btn ghost rcnihide" data-name="'+esc(x.name)+'" style="padding:4px 8px;font-size:12px" title="Remove this product from the New items list">✕</button>'+
         (x.p&&x.p.aka ? '<div class="sub" style="font-size:12px">received as: '+esc(rcArr(x.p.aka).join(', '))+'</div>' : '')+'</td>'+
-        '<td class="sub" style="white-space:nowrap">'+(x.dateStr?esc(x.dateStr)+(x.supplier?' · '+esc(x.supplier):'')+' · '+x.qty+' pcs':'—')+'</td>'+
-        '<td>'+inp(x,'l','L')+'</td><td>'+inp(x,'w','W')+'</td><td>'+inp(x,'h','H')+'</td><td>'+inp(x,'wt','lb')+'</td><td>'+inp(x,'ship','$')+'</td></tr>').join('')+
+        '<td class="sub" style="white-space:nowrap">'+(x.dateStr?esc(x.dateStr)+(x.supplier?' · '+esc(x.supplier):'')+(x.qty?' · '+x.qty+' pcs':''):'—')+'</td>'+
+        '<td>'+inp(x,'l','L')+'</td><td>'+inp(x,'w','W')+'</td><td>'+inp(x,'h','H')+'</td><td>'+inp(x,'wt','lb')+'</td><td>'+inp(x,'cost','$')+'</td></tr>').join('')+
       '</tbody></table></div></div>';
   }
   h+='<div class="rcrow" style="margin-top:14px"><button class="btn ghost" id="rcNiHome">← Receiving home</button></div>';
@@ -4885,16 +4905,19 @@ function rcWireNewItems(){
   $$('#rcArea .rcpk').forEach(el=>el.addEventListener('change',()=>{
     const tr=el.closest('tr'); if(!tr) return;
     const vals={}; tr.querySelectorAll('.rcpk').forEach(i=>{ vals[i.dataset.f]=i.value; });
-    rcPkgSave(tr.dataset.name, vals);
+    const x=rcNewItems().find(y=>y.name===tr.dataset.name)||{};
+    rcPkgSave(tr.dataset.name, vals, null, {qty:x.qty||null, dateStr:x.dateStr||null, supplier:x.supplier||null});
   }));
+  $$('#rcArea .rcnihide').forEach(b=>b.onclick=()=>{ const nm=b.dataset.name; if(!confirm('Remove “'+nm+'” from the New items list?\nIts size / weight / shipment values stay saved.')) return;
+    const x=rcNewItems().find(y=>y.name===nm)||{}; rcPkgHide(nm, {qty:x.qty||null, dateStr:x.dateStr||null, supplier:x.supplier||null}); rcRender(); });
   const hm=$('#rcNiHome'); if(hm) hm.onclick=()=>rcGo('home');
   $$('#rcArea .rcnilink').forEach(b=>b.onclick=()=>{ rcNiLink=b.dataset.name; rcRender(); });
   const ai=$('#rcNiAdd'), sg=$('#rcNiSug'), ab=$('#rcNiAddBtn');
   if(ai && sg && ab){
     const add=name=>{ name=String(name||'').trim(); if(name.length<2){ toast('Enter the product name','warn'); ai.focus(); return; }
-      if(rcNiLink){ const from=rcNiLink; rcNiLink=null; rcPkgRename(from, name); rcNiFilter='all'; ai.value=''; rcRender(); toast('Renamed to '+name,'ok'); return; }
+      if(rcNiLink){ const from=rcNiLink; rcNiLink=null; rcPkgRename(from, name, rcNewItems().find(y=>y.name===from)); rcNiFilter='all'; ai.value=''; rcRender(); toast('Renamed to '+name,'ok'); return; }
       const nk=norm(name); const have=rcNewItems().find(x=>norm(x.name)===nk);
-      if(!have) rcNiExtra[nk]=name;
+      if(!have) rcPkgSave(name, null);                    // also brings back a product removed from the list
       rcNiFilter='all'; ai.value=''; rcRender();
       const el=document.getElementById('rcpk_'+rcPkgKey(have?have.name:name)+'_l'); if(el){ el.scrollIntoView({block:'center'}); el.focus(); } };
     const draw=()=>{ const q=norm(ai.value); if(q.length<2){ sg.innerHTML=''; return; }
