@@ -138,93 +138,7 @@ main{max-width:1560px;margin:0 auto;padding:20px 16px 90px}
 .chip.off{color:var(--err);border-color:#4a2128;background:#311518;font-weight:600}
 .chip.on{color:var(--ok);border-color:#1d4530;background:#13301f;font-weight:600}
 
-/* password gate */
-.gate{position:fixed;inset:0;z-index:400;background:var(--bg);display:grid;place-items:center;padding:20px}
-.gatebox{width:min(380px,94vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:26px;text-align:center;display:flex;flex-direction:column;gap:10px}
-.gatebox h2{font-family:var(--disp);margin:0;font-size:22px}
-.gatebox p{margin:0 0 6px;color:var(--muted);font-size:13px}
-.gatebox input{padding:12px 14px;font-size:15px;border-radius:10px;text-align:center;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);outline:none}
-.gatebox input:focus{border-color:var(--accent)}
-.gatebox button{padding:12px;border-radius:10px;font-weight:700;font-size:15px;border:1px solid var(--accent);background:var(--accent);color:#06210F;cursor:pointer}
-.gateerr{color:var(--err);font-size:13px;min-height:18px}
-.gatebox.shake{animation:gshake .35s}
-@keyframes gshake{25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-4px)}}
-
-/* product photos in lists + enlarged view */
-.namecell{display:inline-flex;align-items:center;gap:10px;min-width:0}
-.thumb{width:38px;height:38px;object-fit:contain;background:var(--raised);border-radius:7px;border:1px solid var(--border);flex:none;display:inline-block}
-.thumb.sm{width:26px;height:26px;border-radius:6px}
-.thumb.none{visibility:hidden}
-img.zoomable{cursor:zoom-in;transition:transform .12s}
-img.zoomable:hover{transform:scale(1.08);border-color:var(--accent)}
-.lightbox{position:fixed;inset:0;z-index:300;background:rgba(4,6,10,.86);display:grid;place-items:center;padding:20px;cursor:zoom-out}
-.lightbox img{width:500px;height:500px;max-width:92vw;max-height:82vh;object-fit:contain;background:#0e1116;border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.lightbox .lbcap{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:var(--muted);font-size:13px;pointer-events:none;padding:0 20px}
-.lightbox .lbclose{position:absolute;top:16px;right:20px;font-size:30px;color:var(--muted);line-height:1}
-
-/* search */
-.searchwrap{position:relative;max-width:660px}
-.searchwrap input{width:100%;padding:15px 16px 15px 44px;font-family:var(--mono);font-weight:700;
-  font-size:18px;border-radius:11px}
-.searchwrap input::placeholder{color:var(--faint);font-weight:500;font-family:var(--body)}
-.searchwrap .ico{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);
-  pointer-events:none;font-size:18px}
-.results{position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:70;max-height:400px;overflow:auto;
-  background:var(--raised);border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 40px -14px #000;padding:6px}
-.results .r{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;cursor:pointer}
-.results .r:hover,.results .r.sel{background:#11211a;box-shadow:inset 0 0 0 1px var(--accent)}
-.results .r img{width:34px;height:34px;object-fit:contain;background:var(--panel2);border-radius:7px;flex:none}
-.results .r .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
-.results .r .mt{font-size:12px;color:var(--muted);white-space:nowrap;font-family:var(--mono)}
-
-/* tables */
-.tablewrap{overflow:auto;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--panel2)}
-table{border-collapse:collapse;width:100%;font-size:13.5px}
-th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
-thead th{background:var(--raised);position:sticky;top:0;z-index:2;font-size:11px;text-transform:uppercase;
-  letter-spacing:.09em;color:var(--muted);font-weight:600;cursor:pointer;user-select:none}
-thead th:hover{color:var(--ink)}
-thead th.nosort{cursor:default}
-tbody tr:hover{background:var(--raised)}
-tbody tr:last-child td{border-bottom:0}
-td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
-td.name{white-space:normal;min-width:210px}
-.zero{color:var(--faint)}
-.rowlink{cursor:pointer;color:var(--accent);font-weight:500}
-.rowlink:hover{text-decoration:underline}
-
-/* legend */
-.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12.5px;color:var(--muted)}
-.legend .li{display:inline-flex;align-items:center;gap:7px}
-.legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
-
-/* charts */
-.chartbox{position:relative;width:100%}
-svg.chart{display:block;width:100%;overflow:visible}
-.tip{position:fixed;z-index:200;pointer-events:none;background:var(--raised);border:1px solid var(--line);
-  border-radius:11px;box-shadow:0 18px 40px -14px #000;padding:11px 13px;font-size:13px;max-width:290px}
-.tip .t{font-family:var(--disp);font-weight:600;margin-bottom:7px}
-.tip .l{display:flex;justify-content:space-between;gap:16px;padding:2px 0;color:var(--muted)}
-.tip .l .sw{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:7px}
-.tip .l b{font-family:var(--mono);color:var(--ink)}
-
-/* misc */
-.empty{text-align:center;color:var(--muted);padding:36px 20px;border:1px dashed var(--line);border-radius:var(--r)}
-.loadwrap{padding:60px 20px;text-align:center;color:var(--muted)}
-.progress{height:6px;background:var(--raised);border-radius:99px;overflow:hidden;margin:16px auto 0;max-width:400px}
-.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
-.note{font-size:12.5px;color:var(--faint);margin-top:10px}
-.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-.toolbar .spacer{flex:1}
-.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;background:var(--panel);
-  border:1px solid var(--border);border-radius:99px;font-size:12.5px;color:var(--muted);font-family:var(--mono)}
-.errbox{background:#1f1417;border:1px solid #4a2128;color:var(--err);padding:13px 15px;border-radius:var(--r-sm);
-  margin-bottom:14px;font-size:13.5px}
-@media print{.topbar,.filterbar,.nav,.toolbar{display:none}.card{break-inside:avoid}}
-@media(max-width:700px){
-  .nav button{padding:12px 11px;font-size:12.5px}
-  .itemhead{flex-wrap:wrap}
-}
+#hdrUser{display:flex;align-items:center}
 </style>
 </head>
 <body>
@@ -236,6 +150,7 @@ svg.chart{display:block;width:100%;overflow:visible}
   <div class="status" id="status"><span class="led" id="led"></span><span id="statusTxt">Starting…</span></div>
   <button class="iconbtn" id="btnMenu" title="Back to the CALIPOKE STATION menu">← Menu</button>
   <button class="iconbtn" id="btnReload" title="Re-download the sheets (ignores cache)">⟳ Refresh data</button>
+  <div id="hdrUser"></div>
 </div>
 
 <div class="filterbar">
@@ -282,17 +197,6 @@ svg.chart{display:block;width:100%;overflow:visible}
 </div>
 
 <main id="main">
-  <div class="gate hide" id="gate">
-    <form class="gatebox" id="gateForm" autocomplete="off">
-      <div class="dot" style="margin:0 auto 12px"></div>
-      <h2>Analyzer</h2>
-      <p>This mode is password protected.</p>
-      <input type="text" id="gateName" placeholder="Your name" autocomplete="off" spellcheck="false">
-      <input type="password" id="gatePass" placeholder="Password" autocomplete="off">
-      <button type="submit" class="primary" id="gateGo">Open</button>
-      <div class="gateerr" id="gateErr"></div>
-    </form>
-  </div>
   <div class="loadwrap" id="boot">
     <div id="bootMsg">Loading data from Google Sheets…</div>
     <div class="progress"><i id="bootBar"></i></div>
@@ -303,6 +207,10 @@ svg.chart{display:block;width:100%;overflow:visible}
 
 <div class="tip hide" id="tip"></div>
 
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <script>
 /* ============================================================================
    CALIPOKE STATION — ANALYZER
@@ -322,9 +230,6 @@ const CFG = {
   INV_ID : '13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw',
   INV_TAB: 'Inventory',
   DEFAULT_WEEKS: 3,
-  /* new-item shipping data (size, weight, estimated shipment cost) — entered by the admin in
-     CALIPOKE STATION → New Shipment → New items; read-only here, straight from the station database */
-  NI_URL : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/receiving/newItems.json',
   CACHE_VERSION: 4,
   /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
   SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
@@ -714,38 +619,6 @@ function indexListings(d) {
     tab.names.forEach(n => { if (!DATA.lstByItem.has(n)) DATA.lstByItem.set(n, []); DATA.lstByItem.get(n).push(t); });
   });
 }
-/* ------------------------- new-item shipping data ------------------------- */
-async function loadShipInfo(force) {
-  const key = 'ship1';
-  if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
-  try {
-    const r = await fetch(CFG.NI_URL + '?_=' + Date.now(), {cache: 'no-store', credentials: 'omit'});
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = {rows: (await r.json()) || {}, at: Date.now()};
-    await IDB.set(key, {ts: Date.now(), data});
-    return data;
-  } catch (e) { const stale = await IDB.get(key); if (stale) return stale.data; throw e; }
-}
-function indexShipInfo(d) {
-  DATA.ship.clear();
-  const rows = d.rows || {}, num = v => (v == null || v === '' || !isFinite(+v)) ? null : +v;
-  for (const id in rows) {
-    const r = rows[id]; if (!r || !r.name) continue;
-    const o = {l: num(r.l), w: num(r.w), h: num(r.h), wt: num(r.wt), cost: num(r.cost)};
-    if (o.l == null && o.w == null && o.h == null && o.wt == null && o.cost == null) continue;
-    DATA.ship.set(norm(r.name), o);
-  }
-}
-function shipChipsHTML(key) {
-  const s = DATA.ship.get(key); if (!s) return '';
-  const n = v => Number(v).toLocaleString('en-US', {maximumFractionDigits: 2});
-  const out = [];
-  if (s.l != null || s.w != null || s.h != null)
-    out.push('<span class="chip" title="Length × width × height, inches">📐 ' + [s.l, s.w, s.h].map(v => v == null ? '?' : n(v)).join(' × ') + ' in</span>');
-  if (s.wt != null) out.push('<span class="chip" title="Weight">⚖ ' + n(s.wt) + ' lb</span>');
-  if (s.cost != null) out.push('<span class="chip b" title="Estimated shipment cost">🚚 est. shipping ' + money(s.cost) + '</span>');
-  return out.join('');
-}
 /* short tags for one item, in CFG order; [] when it is listed nowhere */
 const listingTags = key => CFG.LST_TABS.filter(t => DATA.lstByTab.has(t.tab) && DATA.lstByTab.get(t.tab).has(key));
 function listingTagsHTML(key) {
@@ -756,67 +629,28 @@ function listingTagsHTML(key) {
 }
 
 /* ------------------------------- access ----------------------------------- */
-/* The mode opens with a password. Cost (Supabase) is shown only to the names
-   below — for everyone else the screen looks exactly as before and the cost
+/* Sign-in is the shared CALIPOKE account (calipoke-auth.js) — no separate password.
+   The mode opens for the roles that have "analyzer" in Roles & access (admin by
+   default). Cost (Supabase) is shown to admins only — for everyone else the cost
    table is never even requested. */
-const ACCESS = {
-  PASS_SHA256: 'e3f3edb3404c7032303f5f190f71db33af3907f643abea045334f60c19463b62',   // sha256('calipoke-analyzer:' + password)
-  COST_USERS : ['admin', 'celina'],
-  KEEP_MS    : 12 * 60 * 60 * 1000,                                                    // stay unlocked on this device for 12 h
-  LS_KEY     : 'cps.analyzer.unlock'
-};
 let USER = '', COST_OK = false;
-async function sha256hex(s) {
-  if (window.crypto && crypto.subtle) {
-    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
-  }
-  /* fallback for browsers without crypto.subtle (plain http) */
-  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
-  const bytes = Array.from(new TextEncoder().encode(s)); const l = bytes.length * 8;
-  bytes.push(0x80); while (bytes.length % 64 !== 56) bytes.push(0);
-  for (let i = 7; i >= 0; i--) bytes.push(i > 3 ? 0 : (l >>> (i * 8)) & 255);
-  let H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
-  const r = (x, n) => (x >>> n) | (x << (32 - n));
-  for (let o = 0; o < bytes.length; o += 64) {
-    const w = []; for (let i = 0; i < 16; i++) w[i] = (bytes[o+4*i] << 24) | (bytes[o+4*i+1] << 16) | (bytes[o+4*i+2] << 8) | bytes[o+4*i+3];
-    for (let i = 16; i < 64; i++) { const s0 = r(w[i-15],7) ^ r(w[i-15],18) ^ (w[i-15] >>> 3), s1 = r(w[i-2],17) ^ r(w[i-2],19) ^ (w[i-2] >>> 10); w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0; }
-    let [a,b,c,d,e,f,g,hh] = H;
-    for (let i = 0; i < 64; i++) { const t1 = (hh + (r(e,6) ^ r(e,11) ^ r(e,25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0, t2 = ((r(a,2) ^ r(a,13) ^ r(a,22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
-      hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0; }
-    H = H.map((x, i) => (x + [a,b,c,d,e,f,g,hh][i]) | 0);
-  }
-  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+/* package size / weight / estimated shipment cost of new products, entered by the
+   admin in New Shipment → New items (packstation/receiving/pkgInfo). Read-only here. */
+const PKG = new Map();
+function watchPackageInfo() {
+  try {
+    CPAuth.db.ref(CPAuth.ROOT + '/receiving/pkgInfo').on('value', snap => {
+      PKG.clear(); const v = snap.val() || {};
+      Object.keys(v).forEach(k => { const r = v[k]; if (r && r.name) PKG.set(norm(r.name), r); });
+      if (DATA.loadedAt && UI.view === 'item' && UI.item) render();
+    }, () => {});
+  } catch (e) {}
 }
-function setUser(name) {
-  USER = String(name || '').trim();
-  COST_OK = ACCESS.COST_USERS.includes(USER.toLowerCase());
-  const w = $('#whoLbl'); if (w) w.textContent = 'Analyzer · ' + USER + (COST_OK ? ' · cost' : '');
-}
-function savedUnlock() {
-  try { const o = JSON.parse(localStorage.getItem(ACCESS.LS_KEY) || 'null');
-    if (o && o.h === ACCESS.PASS_SHA256 && Date.now() - o.at < ACCESS.KEEP_MS && o.name) return o; } catch (e) {}
-  return null;
-}
-function lockAnalyzer() { try { localStorage.removeItem(ACCESS.LS_KEY); } catch (e) {} location.reload(); }
-function askPassword() {
-  return new Promise(resolve => {
-    const g = $('#gate'); g.classList.remove('hide');
-    let nm = ''; try { nm = localStorage.getItem('ps_name') || ''; } catch (e) {}
-    $('#gateName').value = nm;
-    setTimeout(() => (nm ? $('#gatePass') : $('#gateName')).focus(), 50);
-    $('#gateForm').addEventListener('submit', async e => {
-      e.preventDefault();
-      const name = $('#gateName').value.trim(), pass = $('#gatePass').value;
-      if (!name){ $('#gateErr').textContent = 'Enter your name'; $('#gateName').focus(); return; }
-      if (await sha256hex('calipoke-analyzer:' + pass) !== ACCESS.PASS_SHA256) {
-        $('#gateErr').textContent = 'Wrong password'; $('#gatePass').value = ''; $('#gatePass').focus();
-        const b = $('#gateForm'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); return;
-      }
-      try { localStorage.setItem(ACCESS.LS_KEY, JSON.stringify({name, at: Date.now(), h: ACCESS.PASS_SHA256})); localStorage.setItem('ps_name', name); } catch (e) {}
-      g.classList.add('hide'); resolve(name);
-    });
-  });
+function setUser(u) {
+  USER = String((u && u.name) || '').trim();
+  COST_OK = !!u && u.role === 'admin';
+  const w = $('#whoLbl'); if (w) w.textContent = 'Analyzer' + (COST_OK ? ' · cost' : '');
+  try { localStorage.removeItem('cps.analyzer.unlock'); } catch (e) {}     // old password unlock — no longer used
 }
 
 /* ------------------------------- average cost ----------------------------- */
@@ -895,8 +729,6 @@ const DATA = {
   platToTab: new Map(),  // norm(Daily SOH platform) -> listing tab config
   costInfo: null, costErr: '',
   wm      : null, wmErr: '',  // Walmart catalog snapshot
-  ship    : new Map(),   // norm(item name) -> {l, w, h, wt, cost}  (New Shipment → New items)
-  shipErr : '',
   loadedAt: 0
 };
 const FILTER = {
@@ -1518,13 +1350,6 @@ function viewItem(root) {
     lc.insertAdjacentHTML('beforeend', listingTagsHTML(key));
     info.appendChild(lc);
   }
-  const shipHTML = shipChipsHTML(key);
-  if (shipHTML) {
-    const sc = el('div', {class: 'chips', style: 'margin-top:7px'});
-    sc.appendChild(el('span', {class: 'chiplbl', text: 'Shipping'}));
-    sc.insertAdjacentHTML('beforeend', shipHTML);
-    info.appendChild(sc);
-  }
   hb.appendChild(info);
   const back = el('button', {class: 'iconbtn', onclick: () => { UI.item = null; render(); }}, ['← All items']);
   hb.appendChild(back);
@@ -1547,6 +1372,13 @@ function viewItem(root) {
   k.appendChild(kpi('Best day', best ? fmt(best[1]) : '—', best ? prettyFull(best[0]) : ''));
   k.appendChild(kpi('Received', fmt(it.receipts), 'Returns ' + fmt(it.returns)));
   k.appendChild(kpi('Cannot pack', fmt(it.cannotPack), 'Discrepancy ' + fmt(it.disc) + ' · For packs ' + fmt(it.forPacks)));
+  const pk = PKG.get(key);
+  if (pk) {
+    const dv = v => v == null ? '?' : String(v), who = pk.by ? 'entered by ' + esc(pk.by) : 'from New Shipment · New items';
+    if (pk.l != null || pk.w != null || pk.h != null) k.appendChild(kpi('Package size', dv(pk.l) + ' × ' + dv(pk.w) + ' × ' + dv(pk.h), 'L × W × H, inches', '', true));
+    if (pk.wt != null) k.appendChild(kpi('Weight', fmt(pk.wt, 2) + ' lb', who));
+    if (pk.ship != null) k.appendChild(kpi('Est. shipment cost', money(pk.ship), 'estimate · ' + who));
+  }
   const uc = costOf(key);
   if (COST_OK) k.appendChild(kpi('Avg cost', uc == null ? '—' : money(uc), uc == null ? (DATA.cost.size ? 'not in the cost table' : costNote(0, 0)) :
     'per unit' + (DATA.costDate.get(key) ? ' · since ' + esc(DATA.costDate.get(key)) : '')));
@@ -2447,14 +2279,11 @@ async function reload(force) {
     .catch(e => { DATA.wmErr = e.message; });
   const lstP = loadListings(force).then(d => { indexListings(d); DATA.lstErr = d.stale || ''; })
     .catch(e => { DATA.lstErr = e.message; });
-  const shipP = loadShipInfo(force).then(d => { indexShipInfo(d); DATA.shipErr = ''; })
-    .catch(e => { DATA.shipErr = e.message; });
   const failed = await ensureWeeks(force);
-  await Promise.race([Promise.all([costP, lstP, wmP, shipP]), new Promise(r => setTimeout(r, 6000))]);
+  await Promise.race([Promise.all([costP, lstP, wmP]), new Promise(r => setTimeout(r, 6000))]);
   lstP.then(() => { if (DATA.lst) refresh(true); });
   wmP.then(() => { if (DATA.wm && UI.view === 'wm') refresh(true); });   // do not hold the screen for a slow cost table
   costP.then(() => { if (DATA.cost.size) refresh(true); });
-  shipP.then(() => { if (DATA.ship.size && UI.view === 'item' && UI.item) refresh(true); });
   $('#bootBar').style.width = '100%';
   DATA.loadedAt = Date.now();
   $('#boot').classList.add('hide'); $('#views').classList.remove('hide');
@@ -2562,16 +2391,17 @@ function wire() {
   $('#dTo').value = iso(today);
   $('#dFrom').value = iso(addDays(today, -21));
   wire();
-  const un = savedUnlock();
-  (un ? Promise.resolve(un.name) : askPassword()).then(name => {
-    setUser(name);
-    const w = $('#whoLbl'); if (w){ w.style.cursor = 'pointer'; w.title = 'Click to lock the Analyzer'; w.addEventListener('click', () => { if (confirm('Lock the Analyzer on this device?')) lockAnalyzer(); }); }
-    return reload(false);
-  }).catch(err => {
-    $('#bootMsg').textContent = '';
-    $('#bootNote').innerHTML = '<div class="errbox">' + esc(err.message) + '</div>';
-    setStatus('Load failed', 'err');
-  });
+  CPAuth.init({app: 'station', header: '#hdrUser', onReady: u => {
+    const allowed = (CPAuth.ACCESS.station && CPAuth.ACCESS.station.analyzer) ? CPAuth.can('analyzer', 'station') : u.role === 'admin';
+    if (!allowed) { $('.filterbar') && $('.filterbar').classList.add('hide'); CPAuth.denied('#main', 'Analyzer'); setStatus('No access', 'err'); return; }
+    setUser(u); watchPackageInfo();
+    try { CPAuth.log('analyzer_open', {text: 'Opened the Analyzer'}); } catch (e) {}
+    reload(false).catch(err => {
+      $('#bootMsg').textContent = '';
+      $('#bootNote').innerHTML = '<div class="errbox">' + esc(err.message) + '</div>';
+      setStatus('Load failed', 'err');
+    });
+  }});
 })();
 </script>
 </body>

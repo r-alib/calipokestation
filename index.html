@@ -98,6 +98,7 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 .kvs{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:18px}
 .tinput{flex:1; min-width:240px; background:var(--bg); border:1.5px solid var(--line); border-radius:11px; color:var(--ink); font-family:var(--mono); font-size:14px; padding:12px 14px; outline:none; transition:.15s}
 .tinput:focus{border-color:var(--accent)}
+.tinput.rcpk{flex:none; min-width:0; width:86px; padding:8px 9px}
 .kv{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 14px}
 .kv .n{font-family:var(--mono); font-weight:700; font-size:22px}
 .kv .l{font-size:12px; color:var(--muted); margin-top:2px}
@@ -907,6 +908,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <h1 style="margin:0">📥 Receiving System</h1>
       <div class="spacer"></div>
       <div class="pill" id="rcCatPill" title="Catalog cached locally">📚 <b id="rcCatCount">0</b> catalog</div>
+      <button class="btn ghost hide" id="rcNewItemsBtn" title="Admin: package size, weight and shipment cost of products without a listing">🆕 New items</button>
       <button class="btn ghost" id="rcList">☰ Receivings</button>
       <button class="btn ghost" id="rcCatBtn">⚙ Catalog</button>
     </div>
@@ -999,7 +1001,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-12a · Order Prep';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-12c · New items';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -4336,7 +4338,7 @@ const RC_ARCHIVE_MAX = 30;
 const RC_SLACK_URL = 'https://script.google.com/macros/s/AKfycbxFbfpn7ZtQwfF8I4p-WXr-A7uNcGl_ENyJSDZ1dh4TRpY_XOSkg-rA4KGQkRGUWNk1/exec';
 const RC_SLACK_SECRET = 'POKE';
 
-let RC = { sessions:[], learned:{} };   // every receiving, open and finished, newest first
+let RC = { sessions:[], learned:{}, pkg:{} };   // every receiving, open and finished, newest first
 let RCCAT = { main:[], pending:[], at:0, sharedAt:0, source:'' };
 let rcIdx = {};                 // barcode -> [catalog entries]
 let rcView = 'home';
@@ -4536,6 +4538,12 @@ function rcAttachFeed(){
     if(!Object.keys(m).length && Object.keys(RC.learned||{}).length) return;   // nothing shared yet — keep ours
     RC.learned=m; rcSaveLocal(); rcBuildIdx();
     if(!_rcSuppressRender && curScreen==='recv' && (rcView==='catalog'||rcView==='home')) rcRenderKeepingFocus();
+  });
+  /* package info of new products (admin · New items) — read by the Analyzer product card */
+  rcRef.child('pkgInfo').on('value', snap=>{
+    RC.pkg=snap.val()||{};
+    const ae=document.activeElement;                        // do not redraw the table under someone typing in it
+    if(!_rcSuppressRender && curScreen==='recv' && rcView==='newitems' && !(ae && ae.classList && ae.classList.contains('rcpk'))) rcRenderKeepingFocus();
   });
   /* the product catalog (inventory + Pending) is shared too, so a second person
      does not have to load the workbook on their own device before they can scan */
@@ -4781,6 +4789,82 @@ function rcPrintPalletLabel(s, code, n, copies){
 /* ============================================================
    REPORTS
    ============================================================ */
+/* ============================================================
+   NEW ITEMS  (admin only)
+   Recently received products that have no listing yet. The admin can fill in
+   the package size (L × W × H, inches), weight (lb) and an estimated shipment
+   cost ($). All optional. Nothing here goes to Slack or into the receiving
+   report — the values stay in the system (receiving/pkgInfo, one record per
+   product name) and show on the product card in the Analyzer.
+   ============================================================ */
+const RC_PKG_F=['l','w','h','wt','ship'];
+let rcNiFilter='all';
+function rcPkgKey(name){ return safeKey(norm(name)); }
+function rcPkgNum(v){ const n=parseFloat(String(v==null?'':v).replace(',','.')); return (isFinite(n)&&n>0) ? Math.round(n*100)/100 : null; }
+function rcPkgHas(p){ return !!p && RC_PKG_F.some(f=>p[f]!=null && p[f]!==''); }
+function rcPkgSave(name, vals){
+  const k=rcPkgKey(name), rec={name:name};
+  RC_PKG_F.forEach(f=>{ const n=rcPkgNum(vals&&vals[f]); if(n!=null) rec[f]=n; });
+  if(rcPkgHas(rec)){
+    rec.by=MY_NAME||''; rec.at=Date.now(); RC.pkg[k]=rec;
+    if(rcRef) rcRef.child('pkgInfo/'+k).set(rec).catch(e=>toast('Not saved: '+((e&&e.message)||e),'err',4000));
+  } else {
+    delete RC.pkg[k];
+    if(rcRef) rcRef.child('pkgInfo/'+k).remove().catch(()=>{});
+  }
+}
+/* products without a listing: flagged by the bot when the receiving was posted
+   ("new product" / "no listing"), or typed in by hand as a new product */
+function rcNewItems(){
+  const m=new Map();
+  for(const s of (RC.sessions||[])){
+    const fl={}; rcArr(s.slack&&s.slack.flagged).forEach(f=>{ if(f&&f.name) fl[norm(f.name)]=(f.status==='new'?'new':'nolisting'); });
+    const t=s.finishedAt||s.startedAt||0;
+    for(const u of (s.units||[])) for(const it of (u.items||[])){
+      const nk=norm(it.name); const st=fl[nk] || (it.isNew?'new':''); if(!st) continue;
+      let r=m.get(nk); if(!r){ r={k:rcPkgKey(it.name), name:it.name, qty:0, status:st, at:0, dateStr:'', supplier:''}; m.set(nk,r); }
+      r.qty+=(+it.qty||0); if(st==='new') r.status='new';
+      if(t>=r.at){ r.at=t; r.dateStr=s.dateStr||''; r.supplier=s.supplier||''; }
+    }
+  }
+  for(const k in (RC.pkg||{})){ const rec=RC.pkg[k]; if(!rec||!rec.name) continue;        // filled in earlier, receiving already archived
+    if(!m.has(norm(rec.name))) m.set(norm(rec.name),{k:rcPkgKey(rec.name), name:rec.name, qty:0, status:'saved', at:0, dateStr:'', supplier:''}); }
+  return [...m.values()].map(r=>Object.assign(r,{p:(RC.pkg||{})[r.k]||null}))
+    .sort((a,b)=>(b.at-a.at) || a.name.localeCompare(b.name));
+}
+function rcViewNewItems(){
+  if(!IS_ADMIN) return '<div class="empty">New items is an admin page.</div>';
+  const all=rcNewItems();
+  const filled=all.filter(x=>rcPkgHas(x.p)).length;
+  const list=all.filter(x=> rcNiFilter==='all' || (rcNiFilter==='filled')===rcPkgHas(x.p));
+  const inp=(x,f,ph)=>'<input class="tinput rcpk" id="rcpk_'+esc(x.k)+'_'+f+'" data-k="'+esc(x.k)+'" data-f="'+f+'" type="number" inputmode="decimal" min="0" step="0.01" placeholder="'+ph+'" value="'+((x.p&&x.p[f]!=null)?x.p[f]:'')+'">';
+  const fb=(v,t,n)=>'<button class="rcchoice'+(rcNiFilter===v?' sel':'')+'" data-nif="'+v+'">'+t+' <b>'+n+'</b></button>';
+  let h='<div class="rcrow"><h1 style="margin:0">🆕 New items</h1><div class="spacer" style="flex:1"></div>'+
+    '<div class="pill">Products <b>'+all.length+'</b></div><div class="pill">Filled in <b>'+filled+'</b></div></div>'+
+    '<p class="sub" style="margin:8px 0 0">Recently received products that are not in the listings. Size, weight and estimated shipment cost are optional — they are kept in the system and shown on the product card in the Analyzer. Changes save as you type them in.</p>'+
+    '<div class="rcrow" style="margin-top:12px">'+fb('all','All',all.length)+fb('empty','Not filled',all.length-filled)+fb('filled','Filled',filled)+'</div>';
+  if(!list.length){
+    h+='<div class="empty" style="margin-top:14px">'+(all.length?'Nothing in this filter.':'No new products yet.<br><span style="font-size:13px">A product appears here when a receiving is posted and the bot finds no listing for it, or when it was typed in as a new product.</span>')+'</div>';
+  } else {
+    h+='<div class="card" style="margin-top:14px"><div style="overflow-x:auto"><table><thead><tr><th>Item</th><th>Last received</th><th>L (in)</th><th>W (in)</th><th>H (in)</th><th>Weight (lb)</th><th>Est. shipment ($)</th></tr></thead><tbody>'+
+      list.map(x=>'<tr data-name="'+esc(x.name)+'"><td>'+esc(x.name)+' <span class="chip loc">'+(x.status==='new'?'new product':(x.status==='saved'?'saved earlier':'no listing'))+'</span></td>'+
+        '<td class="sub" style="white-space:nowrap">'+(x.dateStr?esc(x.dateStr)+(x.supplier?' · '+esc(x.supplier):'')+' · '+x.qty+' pcs':'—')+'</td>'+
+        '<td>'+inp(x,'l','L')+'</td><td>'+inp(x,'w','W')+'</td><td>'+inp(x,'h','H')+'</td><td>'+inp(x,'wt','lb')+'</td><td>'+inp(x,'ship','$')+'</td></tr>').join('')+
+      '</tbody></table></div></div>';
+  }
+  h+='<div class="rcrow" style="margin-top:14px"><button class="btn ghost" id="rcNiHome">← Receiving home</button></div>';
+  return h;
+}
+function rcWireNewItems(){
+  $$('#rcArea [data-nif]').forEach(b=>b.onclick=()=>{ rcNiFilter=b.dataset.nif; rcRender(); });
+  $$('#rcArea .rcpk').forEach(el=>el.addEventListener('change',()=>{
+    const tr=el.closest('tr'); if(!tr) return;
+    const vals={}; tr.querySelectorAll('.rcpk').forEach(i=>{ vals[i.dataset.f]=i.value; });
+    rcPkgSave(tr.dataset.name, vals);
+  }));
+  const hm=$('#rcNiHome'); if(hm) hm.onclick=()=>rcGo('home');
+}
+
 function rcSlackReport(s){
   const L=[];
   L.push('New shipment. '+RC_WAREHOUSE+'. '+s.dateStr);
@@ -5046,6 +5130,7 @@ function rcAutoLoadCatalog(){
 }
 function enterReceiving(){
   rcMirrorLive(); rcBuildIdx(); rcAutoLoadCatalog(); show('recv');
+  $('#rcNewItemsBtn').classList.toggle('hide', !IS_ADMIN);
   const s=rcCur();
   if(s && !s.finished) rcOpenSession(s.id);        // still mid-count in this tab → straight back into it
   else { rcDraft=null; rcActiveId=null; rcGo('home'); }
@@ -5103,6 +5188,7 @@ function rcRenderInner(){
     case 'pallets':   a.innerHTML=rcViewPallets(); rcWirePallets(); break;
     case 'pallet':    a.innerHTML=rcViewPallet(); rcWirePallet(); break;
     case 'report':    a.innerHTML=rcViewReport(); rcWireReport(); break;
+    case 'newitems':  a.innerHTML=rcViewNewItems(); rcWireNewItems(); break;
     default:          a.innerHTML=rcViewHome(); rcWireHome();
   }
 }
@@ -5736,6 +5822,7 @@ async function rcPostSlack(s){
 /* ---------- wiring ---------- */
 $('#rcBack').onclick=goMenu;
 $('#rcCatBtn').onclick=()=>{ rcBcFilter=''; rcGo('catalog'); };
+$('#rcNewItemsBtn').onclick=()=>{ if(!IS_ADMIN) return; if(rcDraft){ rcDraft=null; } rcActiveId=null; rcGo('newitems'); };
 /* leave the current receiving at any moment — everything is already saved */
 $('#rcList').onclick=()=>{ if(rcDraft){ rcDraft=null; } rcActiveId=null; rcGo('home'); };
 $('#packMenuBtn').onclick=goMenu;
