@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WH Surprise Set · Calipoke Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--panel2:#171d2b;--raised:#1a2235;--border:#243049;--ink:#e8ecf3;--muted:#8b96ab;--faint:#5a6578;--accent:#4fd18b;--ok:#4fd18b;--warn:#f2c15f;--err:#ff7b8a;--info:#7fb4f2;--sub:#a98bf5;--disp:'Space Grotesk',Inter,sans-serif;--body:Inter,system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--r:14px}
+*{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.brand{font-family:var(--disp);font-weight:800;letter-spacing:.04em;font-size:16px} .brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.08em}
+.spacer{flex:1} main{padding:18px 20px 60px;max-width:1400px;margin:0 auto}
+h1{font-family:var(--disp);font-size:22px;margin:0} h2{font-family:var(--disp);font-size:17px;margin:0}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap} .seg button{background:none;border:0;color:var(--muted);padding:9px 15px;border-radius:9px;font:600 14px var(--body);cursor:pointer} .seg button.on{background:var(--raised);color:var(--ink)}
+.btn{background:var(--raised);border:1px solid var(--border);color:var(--ink);border-radius:11px;padding:9px 14px;font:600 13.5px var(--body);cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block} .btn:hover{border-color:var(--accent)} .btn.primary{background:var(--accent);color:#06110b;border-color:var(--accent)} .btn.ghost{background:none} .btn.sm{padding:6px 10px;font-size:12.5px} .btn.danger{color:var(--err)} .btn.danger:hover{border-color:var(--err)} .btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.big{padding:13px 22px;font-size:15.5px;border-radius:13px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-top:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tinput,.sel{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--ink);font:500 14px var(--body);padding:9px 11px;outline:none} .tinput:focus,.sel:focus{border-color:var(--accent)}
+input.q{width:74px;text-align:right;font-family:var(--mono)}
+table{width:100%;border-collapse:collapse;font-size:13.5px} th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 9px;border-bottom:1px solid var(--border);white-space:nowrap} th.num,td.num{text-align:right} td{padding:7px 9px;border-bottom:1px solid #1b2232;vertical-align:middle}
+td.num{font-family:var(--mono)}
+tr.bad td{background:#2a1116} tr.bad td:first-child{box-shadow:inset 3px 0 0 var(--err)} tr.sub td{background:#0f141e} tr.sub td:first-child{padding-left:34px} tr.done td{opacity:.5}
+.tscroll{overflow:auto;border:1px solid var(--border);border-radius:12px}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;background:var(--raised);color:var(--muted);white-space:nowrap} .badge.ok{background:#13301f;color:var(--ok)} .badge.err{background:#2a1116;color:var(--err)} .badge.warn{background:#2b2410;color:var(--warn)} .badge.info{background:#15233a;color:var(--info)} .badge.sub{background:#221a3a;color:var(--sub)}
+.mono{font-family:var(--mono);font-size:12px} .mini{font-size:12px;color:var(--muted)} .low{color:var(--err);font-weight:700}
+.kvs{display:flex;gap:10px;flex-wrap:wrap} .kv{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;min-width:110px} .kv .n{font-family:var(--mono);font-size:22px;font-weight:700} .kv .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.modalbg{position:fixed;inset:0;background:rgba(5,8,14,.72);z-index:100;display:grid;place-items:center;padding:16px} .modal{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:22px 24px;width:min(640px,96vw);max-height:92vh;overflow:auto} .modal.wide{width:min(900px,96vw)} .modal h2{margin:0 0 6px}
+.fld{margin-top:12px} .fld label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.plist{max-height:320px;overflow:auto;margin-top:8px;border:1px solid var(--border);border-radius:12px;padding:4px} .plist button{display:flex;gap:10px;align-items:center;width:100%;background:none;border:0;color:var(--ink);padding:8px 10px;border-radius:8px;cursor:pointer;text-align:left;font:500 13.5px var(--body)} .plist button:hover,.plist button.hot{background:var(--raised)} .plist img,.thumb{width:34px;height:34px;border-radius:7px;object-fit:cover;background:var(--panel2);flex:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:10px 16px;z-index:200;font-weight:600;max-width:90vw} .toast.ok{border-color:var(--ok)} .toast.err{border-color:var(--err);color:var(--err)} .toast.warn{border-color:var(--warn);color:var(--warn)}
+.hide{display:none!important} .note{background:#15233a;border:1px solid #2b4d73;border-radius:12px;padding:11px 14px;font-size:13px;margin-top:12px} .note.warn{background:#2b2410;border-color:#4a3d16;color:var(--warn)} .note.err{background:#2a1116;border-color:#4a1f28;color:var(--err)}
+.scards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;margin-top:14px}
+.rcard{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-top:10px}
+.bar{height:8px;border-radius:99px;background:var(--bg);overflow:hidden;margin-top:8px} .bar i{display:block;height:100%;background:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:40px 10px}
+.drop{border:2px dashed var(--border);border-radius:16px;padding:30px;text-align:center;color:var(--muted);cursor:pointer} .drop:hover,.drop.over{border-color:var(--accent);color:var(--ink)}
+.chk{width:26px;height:26px;accent-color:var(--accent);cursor:pointer}
+/* ---------- live round ---------- */
+.live{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin-top:14px} @media (max-width:980px){ .live{grid-template-columns:1fr} }
+.count{font-family:var(--mono);font-weight:700;font-size:64px;line-height:1;letter-spacing:-.02em} .count small{font-size:26px;color:var(--muted)}
+#scan{width:100%;font-size:22px;padding:16px 18px;border-radius:14px;border-width:2px}
+.msg{margin-top:14px;border-radius:18px;padding:22px 24px;min-height:170px;border:2px solid var(--border);background:var(--panel2);display:flex;flex-direction:column;justify-content:center}
+.msg .what{font-family:var(--disp);font-weight:800;font-size:44px;line-height:1.05;letter-spacing:.01em} .msg .item{font-size:24px;font-weight:700;margin-top:10px} .msg .more{font-size:16px;color:var(--muted);margin-top:8px}
+.msg.back{background:#0f2a1c;border-color:var(--ok)} .msg.back .what{color:var(--ok)}
+.msg.remove{background:#33230c;border-color:var(--warn)} .msg.remove .what{color:var(--warn)}
+.msg.info{background:#13233a;border-color:var(--info)} .msg.info .what{color:var(--info)}
+.msg.err{background:#2e1218;border-color:var(--err)} .msg.err .what{color:var(--err)}
+.msg.idle .what{color:var(--faint);font-size:28px}
+.msg.pop{animation:pop .28s ease-out} @keyframes pop{0%{transform:scale(.97);filter:brightness(1.6)}100%{transform:none;filter:none}}
+.choose{display:grid;gap:8px;margin-top:12px} .choose button{display:flex;gap:12px;align-items:center;text-align:left;background:var(--raised);border:1.5px solid var(--border);color:var(--ink);border-radius:12px;padding:12px 14px;font:600 17px var(--body);cursor:pointer} .choose button:hover{border-color:var(--accent)} .choose kbd{font-family:var(--mono);background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:3px 9px;font-size:16px}
+.litem{display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #1b2232} .litem:last-child{border-bottom:0} .litem .nm{flex:1;min-width:0} .litem .nm b{font-weight:600} .litem .left{font-family:var(--mono);font-weight:700;font-size:16px;white-space:nowrap} .litem.out{opacity:.4}
+.lscroll{max-height:62vh;overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px}
+.prev{display:inline-block;padding:8px;border-radius:10px;background:var(--raised);border:1px solid var(--border)}
+/* set barcode labels — 2.25 × 1.25 in, the same layout as LABEL PRINT */
+#printArea{position:fixed;left:-10000px;top:0;visibility:hidden;z-index:-1}
+.plabel{background:#fff;color:#000;display:flex;flex-direction:column;overflow:hidden;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;width:2.25in;height:1.25in;padding:.09in}
+.plabel:last-child{page-break-after:auto;break-after:auto}
+.plabel .top{font-family:'Inter',system-ui,sans-serif;font-size:.115in;font-weight:700;line-height:1.2;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:.03in}
+.plabel .bars{flex:1 1 60%;min-height:0;display:flex;align-items:center} .plabel .bars svg{display:block;width:100%;height:100%}
+.plabel .hr{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:.125in;font-weight:600;line-height:1.15;letter-spacing:.05em;text-align:center;margin-top:.035in;white-space:nowrap;overflow:hidden}
+@media print{ @page{size:2.25in 1.25in;margin:0}
+  html,body{background:#fff!important;color:#000!important;margin:0!important;padding:0!important}
+  header,main,.modalbg,.toast{display:none!important}
+  #printArea{position:static!important;left:auto!important;visibility:visible!important;z-index:auto!important} }
+.hrow{display:flex;gap:10px;align-items:center;padding:7px 10px;border-bottom:1px solid #1b2232;font-size:13px} .hrow.un{opacity:.45;text-decoration:line-through}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">WH SURPRISE SET<small>CALIPOKE STATION</small></div>
+  <a class="btn ghost sm" href="index.html">← Station</a>
+  <div class="spacer"></div>
+  <span class="badge" id="srcPill">loading…</span>
+  <button class="btn sm" id="reloadSrc" title="Re-read the inventory sheet and the warehouse count">⟳ Inventory</button>
+  <span class="mini">v2026-11-16b</span>
+  <div id="hdrUser"></div>
+</header>
+<main id="app" class="hide">
+  <div class="row" id="topTabs"><div class="seg" id="tabs">
+    <button data-t="home" class="on">🎁 Streams</button><button data-t="sets">🧩 Sets</button><button data-t="rules">🧺 Picker rules</button><button data-t="history">🕘 History</button></div></div>
+  <div id="body"></div>
+</main>
+<div id="printArea"></div>
+<script>
+'use strict';
+/* ============================================================
+   WH SURPRISE SET — streams that sell surprise sets from the warehouse.
+   One stream = two rounds (Set A, Set B) loaded from the prepared Excel file.
+
+   Data (Firebase, calipoke-packstation → packstation/whSurprise):
+     sets/{key}        {name, tag, items:[{name, qty}], by, at}      bundles ("… 3 pack", "… set of 3") — set up once
+     aliases/{key}     {name, by, at}                                 a file name linked by hand to a product
+     settings          {pickAll:[product names]}                      products the picker takes in full, not one sample
+     streams/{id}      {name, date, file, createdAt, createdBy,
+                        rounds:{A|B:{label, sheet, status:'ready'|'live'|'done', startedAt, startedBy, endedAt, endedBy,
+                                     lines:[{id, kind:'item'|'set', name, src, qty, tags:[], pick:'sample'|'all', comps:[{name,qty}]}]}},
+                        sales:{A|B:{pushId:{l, at, by, via, u, uby, uat}}},      u = undone
+                        picks:{scope:{key:true}}}
+   Read-only sources: the inventory sheet (names, barcodes, images, location) and the
+   warehouse count (packstation/stockCount) for "in stock now". Nothing is written to them.
+   ============================================================ */
+const INVENTORY_SHEET_ID='13vYpuca93GKyRDcQJA3R6DFoP-MrAm_idEnBNgpKpTw';
+const DEFAULT_ROLES=['admin','wh_backend','streamer','ls_backend'];
+const DEFAULT_PICK_ALL=['fuggler collectible figure','fuggler mini backpack','fuggler mini backpack series 2','fuggler mini taba envelope','fuggler taba heads','fuggler taba heads 2'];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=v=>String(v==null?'':v).trim().toLowerCase().replace(/\s+/g,' ');
+const clean=v=>String(v==null?'':v).toLowerCase().replace(/[^a-z0-9]/g,'');
+const fbKey=k=>encodeURIComponent(String(k)).replace(/\./g,'%2E').replace(/[!'()*~]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase());
+const fmt=n=>(+n||0).toLocaleString('en-US');
+const int=v=>{ const n=parseInt(String(v==null?'':v).replace(/[, ]/g,''),10); return isFinite(n)?n:0; };
+const arr=x=>Array.isArray(x)?x:(x&&typeof x==='object'?Object.keys(x).sort((a,b)=>a-b).map(k=>x[k]):[]);
+const dayOf=ts=>{ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const usDate=day=>{ const [y,m,d]=String(day).split('-'); return m+'/'+d+'/'+y; };
+const hhmm=ts=>ts?new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
+const dur=ms=>{ const m=Math.max(0,Math.round(ms/60000)); return m>=60?Math.floor(m/60)+' h '+(m%60)+' min':m+' min'; };
+let toastT=null; function toast(m,k,ms){ let t=$('.toast'); if(!t){ t=document.createElement('div'); document.body.appendChild(t); } t.textContent=m; t.className='toast '+(k||''); clearTimeout(toastT); toastT=setTimeout(()=>t.remove(),ms||3200); }
+let _m=null; function modal(h,wide){ closeModal(); const bg=document.createElement('div'); bg.className='modalbg'; bg.innerHTML='<div class="modal'+(wide?' wide':'')+'">'+h+'</div>'; bg.addEventListener('mousedown',e=>{ if(e.target===bg) closeModal(); }); document.body.appendChild(bg); _m=bg; return bg; } function closeModal(){ if(_m){ const m=_m; _m=null; try{ m.remove(); }catch(e){} } }
+
+/* ---------------- state ---------------- */
+let DB=null, R=null, ME='', IS_ADMIN=false;
+let INV={items:{},names:[],bc:{},at:0}, STOCK=null, SRC_ERR=[];
+let SETS={}, ALIASES={}, SETTINGS={}, STREAMS={};
+let VIEW={name:'home'};            // home | review | check | live | report | sets | rules | history
+let DRAFT=null;                    // the file being reviewed before it becomes a stream
+
+/* ---------------- sources (read only) ---------------- */
+function csvParse(text){ const rows=[]; let row=[], cur='', q=false; for(let i=0;i<text.length;i++){ const c=text[i]; if(q){ if(c==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=c; } else if(c==='"') q=true; else if(c===','){ row.push(cur); cur=''; } else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; } else if(c!=='\r') cur+=c; } if(cur!==''||row.length){ row.push(cur); rows.push(row); } return rows; }
+async function loadInventory(force){
+  if(!force){ try{ const c=JSON.parse(localStorage.getItem('cps.whss.inv')||'null'); if(c&&Date.now()-c.at<3*3600e3){ setInv(c.rows,c.at); return; } }catch(e){} }
+  const r=await fetch('https://docs.google.com/spreadsheets/d/'+INVENTORY_SHEET_ID+'/gviz/tq?tqx=out:csv&headers=1&sheet=Inventory&_='+Date.now(),{credentials:'omit',cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const raw=csvParse(await r.text()); const h=(raw[0]||[]).map(norm); const ci=(names,fb)=>{ for(const n of names){ const i=h.indexOf(n); if(i>=0) return i; } return fb; };
+  if(h.indexOf('item name')<0) throw new Error('the Inventory tab was not found');
+  const cN=ci(['item name'],0), cV=ci(['variation'],1), cL=ci(['location'],2), cB=ci(['barcode','upc'],4), cI=ci(['image'],5);
+  const rows=[]; for(let i=1;i<raw.length;i++){ const x=raw[i]; const n=String(x[cN]||'').trim(); if(!n) continue; rows.push([n,String(x[cV]||'').trim(),String(x[cB]||'').trim(),String(x[cI]||'').trim(),String(x[cL]||'').trim()]); }
+  setInv(rows,Date.now()); try{ localStorage.setItem('cps.whss.inv',JSON.stringify({at:Date.now(),rows})); }catch(e){}
+}
+const bcNorm=c=>String(c||'').trim().replace(/\s+/g,'');
+function setInv(rows,at){
+  const items={}, bc={};
+  rows.forEach(([n,v,b,img,loc])=>{ const k=norm(n); const it=items[k]||(items[k]={name:n,image:'',loc:'',bcs:[]});
+    if(!it.image&&img) it.image=img; if(!it.loc&&loc) it.loc=loc;
+    const code=bcNorm(b); if(code){ if(it.bcs.indexOf(code)<0) it.bcs.push(code);
+      [code, code.replace(/^0+/,'')].forEach(c=>{ if(!c) return; (bc[c]=bc[c]||[]); if(bc[c].indexOf(k)<0) bc[c].push(k); }); } });
+  INV={items,bc,names:Object.keys(items).sort(),at};
+}
+/* STOCK[k] = counted in the warehouse now; RES[k] = units of orders that are not packed yet
+   (still Pending in Pick & Pack, or packed but not taken off the count) — the same rule as
+   Inventory → Compare. Available = counted − reserved. */
+let RES={}, RES_INFO={orders:0,shifts:0};
+const RES_HOURS=72;                                   // shifts opened in the last 3 days are looked at
+async function loadStock(){
+  const root=CPAuth.ROOT;
+  const [b,c,pq,si]=await Promise.all([DB.ref(root+'/stockCount/base/items').once('value'), DB.ref(root+'/stockCount/counts').once('value'),
+    DB.ref(root+'/stockCount/pending').once('value'), DB.ref(root+'/shiftIndex').once('value')]);
+  const base=b.val()||{}, counts=c.val()||{}, out={};
+  Object.keys(base).forEach(k=>{ out[k]=0; });
+  Object.keys(counts).forEach(L=>{ if(L==='STORE') return; const sh=counts[L]||{};
+    Object.keys(sh).forEach(k=>{ const v=sh[k]; if(!v||typeof v!=='object') return; const q=(base[k]&&base[k].q>0)?base[k].q:1;
+      out[k]=(out[k]||0)+(+v.s||0)*q+(+v.b||0)+(+v.c||0)+(+v.d||0); }); });
+  const res={}, info={orders:0,shifts:0};
+  const keyFor=(name,variation)=>{ const va=(variation&&norm(variation)!=='default')?variation:''; const tries=[clean(name)]; if(va){ tries.push(clean(name+va)); tries.push(clean(name+' '+va)); }
+    for(const t of tries){ if(t && (t in out)) return t; } return clean(name); };
+  const idx=si.val()||{}, since=Date.now()-RES_HOURS*3600e3;
+  const ids=Object.keys(idx).filter(id=>(idx[id].createdAt||0)>=since);
+  const snaps=await Promise.all(ids.map(id=>DB.ref(root+'/shifts/'+id+'/orders').once('value').catch(()=>null)));
+  snaps.forEach(sn=>{ if(!sn) return; info.shifts++; const O=sn.val()||{};
+    Object.keys(O).forEach(ok=>{ const o=O[ok]; if(!o||o.deducted) return; const st=o.status||'pending'; if(st!=='pending'&&st!=='packed'&&st!=='partial') return; let any=false;
+      arr(o.items).forEach(it=>{ if(!it) return; if(st!=='pending'&&(it.packed===false||(it.status&&it.status!=='ok'))) return;
+        const q=Math.max(0,+it.qty||1); if(!q) return; const k=keyFor(it.name,it.variation); res[k]=(res[k]||0)+q; any=true; });
+      if(any) info.orders++; }); });
+  const P=pq.val()||{}; Object.keys(P).forEach(pk=>{ const x=P[pk]; if(!x||x.type!=='pack') return; let any=false;         // packed while the count was frozen
+    arr(x.lines).forEach(l=>{ const q=+l.qty||0; if(l&&l.k&&q){ res[l.k]=(res[l.k]||0)+q; any=true; } }); if(any) info.orders++; });
+  STOCK=out; RES=res; RES_INFO=info;
+}
+/* units available in the warehouse: counted now minus what unpacked orders will still take; null = not in the count */
+function countedOf(name){ if(!STOCK) return null; const k=clean(name); return (k in STOCK)?STOCK[k]:null; }
+function reservedOf(name){ return RES[clean(name)]||0; }
+function stockOf(name){ const c=countedOf(name); return c==null?null:c-reservedOf(name); }
+/* table cell: the available number, with what it is made of on hover and under it */
+function stockCell(name, need){ const c=countedOf(name); if(c==null) return '<td class="num" title="Not in the warehouse count">—</td>'; const r=reservedOf(name), a=c-r;
+  return '<td class="num'+(need!=null&&a<need?' low':'')+'" title="Counted in the warehouse: '+c+(r?' · in orders not packed yet: '+r:'')+'">'+fmt(a)+(r?'<div class="mini" style="font-family:var(--body)">'+fmt(c)+' − '+fmt(r)+' in orders</div>':'')+'</td>'; }
+function setStock(comps){ let m=null; for(const c of arr(comps)){ const s=stockOf(c.name); if(s==null) return null; const n=Math.floor(Math.max(0,s)/Math.max(1,+c.qty||1)); m=(m==null)?n:Math.min(m,n); } return m; }
+async function loadSources(force){
+  SRC_ERR=[]; $('#srcPill').textContent='reading inventory…'; $('#srcPill').className='badge';
+  await Promise.all([loadInventory(force).catch(e=>SRC_ERR.push('inventory sheet: '+(e.message||e))), loadStock().catch(e=>SRC_ERR.push('warehouse count: '+(e.message||e)))]);
+  const p=$('#srcPill'); if(SRC_ERR.length){ p.textContent='⚠ '+SRC_ERR.join(' · '); p.className='badge err'; } else { p.textContent=INV.names.length+' products · stock '+hhmm(Date.now())+(RES_INFO.orders?' · '+RES_INFO.orders+' unpacked order(s) reserved':''); p.className='badge ok'; p.title='Available = counted in the warehouse − units of orders not packed yet (shifts of the last '+RES_HOURS+' hours)'; }
+  render();
+}
+const invOf=name=>INV.items[norm(name)]||null;
+const imgOf=name=>{ const it=invOf(name); return it&&it.image?'<img class="thumb" loading="lazy" src="'+esc(it.image)+'" alt="">':'<span class="thumb"></span>'; };
+
+/* ---------------- reading the Excel file ---------------- */
+function cleanName(src){ return String(src||'').trim().replace(/^s-\s*/i,'').replace(/_[a-z]{2}\s*$/i,'').replace(/\s+/g,' ').trim(); }
+function parseWorkbook(wb){
+  const out=[];
+  wb.SheetNames.forEach(sn=>{
+    const raw=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''});
+    let hi=-1, cI=-1, cQ=-1;
+    for(let i=0;i<Math.min(raw.length,30)&&hi<0;i++){ const h=raw[i].map(norm); const a=h.indexOf('item'), b=h.findIndex(x=>x==='quantity'||x==='qty'); if(a>=0&&b>=0){ hi=i; cI=a; cQ=b; } }
+    if(hi<0) return;                                           // a sheet without Item / Quantity columns (the notes)
+    const rows=[];
+    for(let i=hi+1;i<raw.length;i++){ const src=String(raw[i][cI]||'').trim(); if(!src) continue; if(/^total$/i.test(src)) break;
+      const qty=int(raw[i][cQ]); if(qty<=0) continue; rows.push({src, clean:cleanName(src), qty}); }
+    if(rows.length) out.push({sheet:sn, rows});
+  });
+  return out;
+}
+function guessDate(fileName){
+  const m=String(fileName||'').match(/(\d{1,2})[-_.](\d{1,2})(?:[-_.](\d{2,4}))?/); const now=new Date();
+  if(m){ const mo=+m[1], d=+m[2]; let y=m[3]?+m[3]:now.getFullYear(); if(y<100) y+=2000; if(mo>=1&&mo<=12&&d>=1&&d<=31) return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+  return dayOf(Date.now());
+}
+async function readFile(file){
+  try{
+    const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}); const sheets=parseWorkbook(wb);
+    if(!sheets.length){ toast('No sheet with “Item” and “Quantity” columns in this file','err',5000); return; }
+    if(sheets.length>2) toast('The file has '+sheets.length+' item sheets — the first two are used','warn',5000);
+    DRAFT={file:file.name, date:guessDate(file.name), cur:0, sets:sheets.slice(0,2).map((s,i)=>({label:'Set '+'AB'[i], sheet:s.sheet, rows:s.rows.map(r=>Object.assign({alloc:{},extra:[],asSet:/(\d+\s*(pack|pc|pcs)|\bset( of \d+)?)$/i.test(r.clean)},r))}))};
+    VIEW={name:'review'}; render();
+  }catch(e){ toast('Could not read the file: '+(e.message||e),'err',5000); }
+}
+
+/* ---------------- what each row of the file is ---------------- */
+const setKey=name=>fbKey(norm(name));
+const randomBase=c=>norm(String(c).replace(/\(\s*random\s*\)/i,' '));
+function rowInfo(r){
+  const c=r.clean, isRandom=/\(\s*random\s*\)/i.test(c)||r.asRandom;
+  if(r.link && invOf(r.link)) return {kind:'item', name:invOf(r.link).name};
+  if(isRandom) return {kind:'random', base:randomBase(c)};
+  if(invOf(c)) return {kind:'item', name:invOf(c).name};
+  const al=ALIASES[setKey(c)]; if(al && invOf(al.name)) return {kind:'item', name:invOf(al.name).name, alias:true};
+  const st=SETS[setKey(c)]; if(st) return {kind:'set', set:st};
+  if(r.asSet) return {kind:'set', set:null};
+  return {kind:'unknown'};
+}
+function randomCands(r){
+  const base=randomBase(r.clean); const names=INV.names.filter(k=>k.indexOf(base+' ')===0).map(k=>INV.items[k].name);
+  arr(r.extra).forEach(n=>{ if(invOf(n) && names.indexOf(invOf(n).name)<0) names.push(invOf(n).name); });
+  Object.keys(r.alloc||{}).forEach(n=>{ if(invOf(n) && names.indexOf(invOf(n).name)<0) names.push(invOf(n).name); });
+  return names;
+}
+const allocSum=r=>Object.keys(r.alloc||{}).reduce((a,k)=>a+(+r.alloc[k]||0),0);
+function guessTag(name){
+  const n=norm(name); const m=n.match(/((?:\S+\s+)?\d+\s*(?:pack|pc|pcs))$/)||n.match(/((?:\S+\s+){1,3}set of \d+)$/)||n.match(/((?:\S+\s+){1,2}set)$/);
+  return (m?m[1]:n).replace(/^fuggler\s+/,'');
+}
+function pickAllList(){ if(SETTINGS&&SETTINGS.pickAllEmpty) return []; const l=arr(SETTINGS&&SETTINGS.pickAll).filter(Boolean); return l.length?l:DEFAULT_PICK_ALL; }
+function savePickAll(l){ SETTINGS.pickAll=l; SETTINGS.pickAllEmpty=!l.length; return R.child('settings').update({pickAll:l.length?l:null, pickAllEmpty:l.length?null:true}).then(()=>toast('Saved','ok')); }
+const isPickAll=name=>pickAllList().some(n=>norm(n)===norm(name));
+
+/* ---------------- product search (modal) ---------------- */
+function pickProduct(title, onPick, hint, onCancel){
+  const m=modal('<h2>'+esc(title)+'</h2>'+(hint?'<div class="mini">'+esc(hint)+'</div>':'')+
+    '<div class="fld"><input id="ppQ" class="tinput" style="width:100%" placeholder="Type a few letters of the product name, or scan its barcode" autocomplete="off"></div>'+
+    '<div class="plist" id="ppL"></div><div class="row" style="margin-top:14px"><div class="spacer"></div><button class="btn ghost" id="ppX">Cancel</button></div>');
+  const q=m.querySelector('#ppQ'), L=m.querySelector('#ppL'); let rows=[];
+  const draw=()=>{ const t=norm(q.value); const code=bcNorm(q.value);
+    if(code&&INV.bc[code]) rows=INV.bc[code].slice(0,40); else { const ws=t.split(' ').filter(Boolean); rows=ws.length?INV.names.filter(k=>ws.every(w=>k.indexOf(w)>=0)).slice(0,60):[]; }
+    L.innerHTML=rows.length?rows.map((k,i)=>{ const it=INV.items[k], s=stockOf(it.name); return '<button data-i="'+i+'"'+(i===0?' class="hot"':'')+'>'+imgOf(it.name)+'<span style="flex:1">'+esc(it.name)+'</span><span class="mini">'+(s==null?'':'WH '+fmt(s))+'</span></button>'; }).join(''):'<div class="mini" style="padding:12px">'+(t?'Nothing found.':'Start typing…')+'</div>';
+    L.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const it=INV.items[rows[+b.dataset.i]]; closeModal(); onPick(it.name); }); };
+  q.oninput=draw; q.onkeydown=e=>{ if(e.key==='Enter'&&rows.length){ const it=INV.items[rows[0]]; closeModal(); onPick(it.name); } if(e.key==='Escape'){ closeModal(); if(onCancel) onCancel(); } };
+  m.querySelector('#ppX').onclick=()=>{ closeModal(); if(onCancel) onCancel(); }; draw(); setTimeout(()=>q.focus(),30);
+}
+
+/* ---------------- Code 128 (the encoder of LABEL PRINT) ---------------- */
+var PATTERNS = ["212222","222122","222221","121223","121322","131222","122213","122312","132212","221213","221312","231212","112232","122132","122231","113222","123122","123221","223211","221132","221231","213212","223112","312131","311222","321122","321221","312212","322112","322211","212123","212321","232121","111323","131123","131321","112313","132113","132311","211313","231113","231311","112133","112331","132131","113123","113321","133121","313121","211331","231131","213113","213311","213131","311123","311321","331121","312113","312311","332111","314111","221411","431111","111224","111422","121124","121421","141122","141221","112214","112412","122114","122411","142112","142211","241211","221114","413111","241112","134111","111242","121142","121241","114212","124112","124211","411212","421112","421211","212141","214121","412121","111143","111341","131141","114113","114311","411113","411311","113141","114131","311141","411131","211412","211214","211232","2331112"];
+var START_B = 104, START_C = 105, CODE_B = 100, CODE_C = 99, STOP = 106;
+
+function digitRun(s, pos){
+  var n = 0;
+  while (pos + n < s.length && s[pos+n] >= "0" && s[pos+n] <= "9") n++;
+  return n;
+}
+
+function encodeValues(data){
+  var codes = [], i = 0, lead = digitRun(data, 0), mode;
+  if (data.length >= 2 && lead === data.length && lead % 2 === 0) mode = "C";
+  else if (lead >= 4) mode = "C";
+  else mode = "B";
+  codes.push(mode === "C" ? START_C : START_B);
+  var usedC = mode === "C", usedB = mode === "B";
+  while (i < data.length){
+    if (mode === "C"){
+      var d = digitRun(data, i);
+      if (d >= 2){
+        var take = d - (d % 2);
+        for (var k = 0; k < take; k += 2) codes.push(parseInt(data.substr(i+k,2),10));
+        i += take;
+        if (i < data.length && digitRun(data,i) < 2){ codes.push(CODE_B); mode = "B"; usedB = true; }
+      } else { codes.push(CODE_B); mode = "B"; usedB = true; }
+    } else {
+      var dd = digitRun(data, i);
+      if ((dd % 2 === 0 && dd >= 4) || dd >= 6){ codes.push(CODE_C); mode = "C"; usedC = true; }
+      else { codes.push(data.charCodeAt(i) - 32); i++; }
+    }
+  }
+  var sum = codes[0];
+  for (var j = 1; j < codes.length; j++) sum += codes[j] * j;
+  codes.push(sum % 103);
+  codes.push(STOP);
+  codes.sets = (usedB && usedC) ? "B+C" : (usedC ? "C" : "B");
+  return codes;
+}
+
+function encodeWidths(data){
+  var codes = encodeValues(data), out = [];
+  for (var i = 0; i < codes.length; i++){
+    var p = PATTERNS[codes[i]];
+    for (var k = 0; k < p.length; k++) out.push(+p[k]);
+  }
+  out.sets = codes.sets;
+  return out;
+}
+
+var QUIET = 10; // quiet-zone modules on each side
+
+function barcodeSvg(data){
+  var w = encodeWidths(data), total = QUIET * 2, i;
+  for (i = 0; i < w.length; i++) total += w[i];
+  var rects = "", x = QUIET;
+  for (i = 0; i < w.length; i++){
+    if (i % 2 === 0) rects += '<rect x="' + x + '" y="0" width="' + w[i] + '" height="100"/>';
+    x += w[i];
+  }
+  return {
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' 100" ' +
+         'preserveAspectRatio="none" shape-rendering="crispEdges" fill="#000">' + rects + '</svg>',
+    modules: total,
+    sets: w.sets
+  };
+}
+
+/* ---------------- set barcodes ----------------
+   Every set gets its own barcode (10 digits, starts with 99 — no product uses such a code).
+   It is printed on a 2.25 × 1.25 in label and scanned when the set is sold. */
+function genSetCode(){ for(let n=0;n<200;n++){ const c='99'+String(Math.floor(Math.random()*1e8)).padStart(8,'0'); if(!INV.bc[c] && !Object.keys(SETS).some(k=>SETS[k].bc===c)) return c; } return '99'+String(Date.now()).slice(-8); }
+function ensureSetCodes(){ Object.keys(SETS).forEach(k=>{ const st=SETS[k]; if(st && !st.bc){ st.bc=genSetCode(); R.child('sets/'+k+'/bc').set(st.bc); } }); }
+const setLabelTop=st=>String(st.tag||st.name||'').toUpperCase();
+function setLabelHTML(st){ return '<div class="top">'+esc(setLabelTop(st))+'</div><div class="bars">'+barcodeSvg(st.bc).svg+'</div><div class="hr">'+esc(st.bc)+'</div>'; }
+function printSetLabels(jobs){            // [{set, copies}]
+  let out='', n=0; jobs.forEach(j=>{ if(!j.set||!j.set.bc) return; const one=setLabelHTML(j.set); for(let i=0;i<Math.max(1,Math.min(200,j.copies||1));i++){ out+='<div class="plabel">'+one+'</div>'; n++; } });
+  if(!n){ toast('Nothing to print','warn'); return; }
+  $('#printArea').innerHTML=out; toast('Paper 2.25 × 1.25 in · margins None · scale 100 %','ok',5000); setTimeout(()=>window.print(),80);
+}
+
+/* ---------------- sets (bundles) ---------------- */
+function openSetEditor(name, after){
+  const key=setKey(name), cur=SETS[key]; const bc=(cur&&cur.bc)||genSetCode(); let tag=cur?cur.tag:guessTag(name); let items=cur?arr(cur.items).map(x=>({name:x.name,qty:+x.qty||1})):[];
+  const m=modal('<h2>🧩 Set</h2><div class="mini">Set once — every file that has this name uses it from then on.</div>'+
+    '<div class="fld"><label>Name in the file</label><input class="tinput" style="width:100%" value="'+esc(name)+'" disabled></div>'+
+    '<div class="fld"><label>Tag shown on its items</label><input id="seTag" class="tinput" style="width:100%" value="'+esc(tag)+'"></div>'+
+    '<div class="fld"><label>Barcode of the set — printed on a 2.25 × 1.25 in label, scanned when the set is sold</label><div class="row">'+
+      '<input id="seBc" class="tinput mono" style="width:150px;font-size:14px" value="'+esc(bc)+'" readonly><div class="prev"><div class="plabel" id="sePrev" style="zoom:.62"></div></div>'+
+      '<span class="mini">Copies</span><input id="seCopies" class="tinput q" type="number" min="1" max="200" value="1"><button class="btn" id="sePrint">🖨 Print</button></div></div>'+
+    '<div class="fld"><label>Products in one set</label><div id="seL"></div><button class="btn sm" id="seAdd" style="margin-top:8px">＋ Add a product</button></div>'+
+    '<div class="row" style="margin-top:18px">'+(cur?'<button class="btn danger" id="seDel">Delete set</button>':'')+'<div class="spacer"></div><button class="btn ghost" id="seX">Cancel</button><button class="btn primary" id="seOk">Save set</button></div>',false);
+  const L=m.querySelector('#seL');
+  const draw=()=>{ L.innerHTML=items.length?'<table><tbody>'+items.map((x,i)=>'<tr><td style="width:44px">'+imgOf(x.name)+'</td><td>'+esc(x.name)+(invOf(x.name)?'':' <span class="badge err">not in inventory</span>')+'</td><td class="num"><input class="tinput q" data-i="'+i+'" type="number" min="1" value="'+x.qty+'"></td><td class="num"><button class="btn sm danger" data-rm="'+i+'">✕</button></td></tr>').join('')+'</tbody></table>':'<div class="mini">No products yet.</div>';
+    L.querySelectorAll('input.q').forEach(e=>e.onchange=()=>{ items[+e.dataset.i].qty=Math.max(1,int(e.value)||1); });
+    L.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ items.splice(+b.dataset.rm,1); draw(); }); };
+  draw();
+  const prev=()=>{ m.querySelector('#sePrev').innerHTML=setLabelHTML({name:name,tag:tag,bc:bc}); }; prev();
+  m.querySelector('#seTag').oninput=e=>{ tag=e.target.value; prev(); };
+  m.querySelector('#sePrint').onclick=()=>printSetLabels([{set:{name:name,tag:tag,bc:bc},copies:int(m.querySelector('#seCopies').value)||1}]);
+  m.querySelector('#seAdd').onclick=()=>{ const keep={tag,items}; pickProduct('Add a product to the set',n=>{ const ex=keep.items.find(x=>norm(x.name)===norm(n)); if(ex) ex.qty++; else keep.items.push({name:n,qty:1}); saveSet(name,keep.tag,keep.items,bc).then(()=>openSetEditor(name,after)); },name,()=>{ if(keep.items.length) saveSet(name,keep.tag,keep.items,bc).then(()=>openSetEditor(name,after)); else openSetEditor(name,after); }); };
+  m.querySelector('#seX').onclick=()=>{ closeModal(); if(after) after(); };
+  const del=m.querySelector('#seDel'); if(del) del.onclick=async()=>{ if(!confirm('Delete the set “'+name+'”?')) return; await R.child('sets/'+key).remove(); closeModal(); toast('Set deleted','ok'); if(after) after(); };
+  m.querySelector('#seOk').onclick=async()=>{ if(!items.length){ toast('Add at least one product','warn'); return; } await saveSet(name,tag,items,bc); closeModal(); toast('Set saved','ok'); if(after) after(); };
+}
+function saveSet(name,tag,items,bc){ const old=SETS[setKey(name)]; const rec={name:cleanName(name), tag:String(tag||'').trim()||guessTag(name), bc:bc||(old&&old.bc)||genSetCode(), items:items.map(x=>({name:x.name,qty:Math.max(1,+x.qty||1)})), by:ME, at:Date.now()}; SETS[setKey(name)]=rec; return R.child('sets/'+setKey(name)).set(rec); }
+function renderSets(){
+  const list=Object.keys(SETS).map(k=>SETS[k]).sort((a,b)=>a.name.localeCompare(b.name));
+  let h='<div class="row" style="margin-top:16px"><h1>🧩 Sets</h1><div class="spacer"></div>'+(list.length?'<button class="btn" id="setPrintAll">🖨 Print all barcodes</button>':'')+'<button class="btn primary" id="setNew">＋ New set</button></div>'+
+    '<p class="mini">A set is a bundle sold as one item (for example “… primary 3 pack”). It is set up once; the system then recognises its name in every file. In a stream a set counts as one item, and its products carry the set’s tag. Every set has its own barcode: print it on a 2.25 × 1.25 in label, stick it on the prepared set and scan it when the set is sold.</p>';
+  h+=list.length?'<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th>Name in the file</th><th>Tag</th><th>Barcode</th><th>Products in one set</th><th class="num">WH sets possible</th><th></th></tr></thead><tbody>'+
+    list.map(s=>{ const st=setStock(s.items); return '<tr><td><b>'+esc(s.name)+'</b></td><td><span class="badge sub">'+esc(s.tag)+'</span></td><td class="mono">'+esc(s.bc||'')+'</td><td>'+arr(s.items).map(x=>esc(x.name)+(x.qty>1?' × '+x.qty:'')+(invOf(x.name)?'':' <span class="badge err">not in inventory</span>')).join('<br>')+'</td><td class="num">'+(st==null?'—':fmt(st))+'</td><td class="num"><button class="btn sm" data-pr="'+esc(s.name)+'">🖨 Print</button> <button class="btn sm" data-ed="'+esc(s.name)+'">Edit</button></td></tr>'; }).join('')+'</tbody></table></div></div>'
+    :'<div class="empty">No sets yet. They can also be created while reviewing a file.</div>';
+  $('#body').innerHTML=h;
+  $('#setNew').onclick=()=>{ const n=prompt('Name of the set as it is written in the file (without “s-” and “_us”):'); if(!n||!cleanName(n)) return; openSetEditor(cleanName(n),render); };
+  $$('[data-ed]').forEach(b=>b.onclick=()=>openSetEditor(b.dataset.ed,render));
+  $$('[data-pr]').forEach(b=>b.onclick=()=>{ const st=SETS[setKey(b.dataset.pr)]; const n=prompt('How many labels for “'+st.name+'”?','1'); if(n==null) return; printSetLabels([{set:st,copies:int(n)||1}]); });
+  const pa=$('#setPrintAll'); if(pa) pa.onclick=()=>printSetLabels(list.map(st=>({set:st,copies:1})));
+}
+
+/* ---------------- picker rules ---------------- */
+function renderRules(){
+  const list=pickAllList();
+  let h='<div class="row" style="margin-top:16px"><h1>🧺 Picker rules</h1></div>'+
+    '<p class="mini">The picker brings <b>one sample</b> of every product for the display. The exceptions are the products below and everything tagged <span class="badge info">Random</span> — those are brought in <b>full quantity</b>.</p>'+
+    '<div class="card"><div class="row"><h2>Bring the full quantity</h2><div class="spacer"></div><button class="btn primary" id="ruAdd">＋ Add a product</button></div>'+
+    (list.length?'<table style="margin-top:10px"><tbody>'+list.map((n,i)=>'<tr><td style="width:44px">'+imgOf(n)+'</td><td>'+esc(n)+(invOf(n)?'':' <span class="badge warn">not in inventory</span>')+'</td><td class="num"><button class="btn sm danger" data-rm="'+i+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<div class="mini" style="margin-top:10px">Empty — one sample of everything except Random.</div>')+
+    '</div><p class="mini">A change applies to the streams created after it. A stream that is already prepared keeps the rules it was created with.</p>';
+  $('#body').innerHTML=h;
+  $('#ruAdd').onclick=()=>pickProduct('Bring the full quantity of…',n=>{ const l=pickAllList().slice(); if(!l.some(x=>norm(x)===norm(n))){ l.push(n); l.sort(); } savePickAll(l); render(); });
+  $$('[data-rm]').forEach(b=>b.onclick=()=>{ const l=pickAllList().slice(); l.splice(+b.dataset.rm,1); savePickAll(l); render(); });
+}
+
+/* ---------------- review of the loaded file ---------------- */
+function draftProblems(){
+  const p={unknown:0,noSet:0,random:0,short:0};
+  DRAFT.sets.forEach(s=>s.rows.forEach(r=>{ const i=rowInfo(r);
+    if(i.kind==='unknown') p.unknown++; else if(i.kind==='set'&&!i.set) p.noSet++; else if(i.kind==='random'&&allocSum(r)!==r.qty) p.random++;
+    const st=i.kind==='item'?stockOf(i.name):(i.kind==='set'&&i.set?setStock(i.set.items):null); if(st!=null&&st<r.qty) p.short++; }));
+  return p;
+}
+function renderReview(){
+  if(!DRAFT){ VIEW={name:'home'}; return render(); }
+  const S=DRAFT.sets[DRAFT.cur]||DRAFT.sets[0], P=draftProblems(), block=P.unknown+P.noSet+P.random;
+  const total=S.rows.reduce((a,r)=>a+r.qty,0);
+  let h='<div class="row" style="margin-top:16px"><h1>Check the file</h1><span class="mini">'+esc(DRAFT.file)+'</span><div class="spacer"></div><button class="btn" id="rvPrint" title="One label per prepared set, for both rounds">🖨 Set barcodes</button><button class="btn ghost" id="rvCancel">Cancel</button><button class="btn primary big" id="rvOk"'+(block?' disabled':'')+'>✔ Confirm — the stream is ready</button></div>'+
+    '<div class="card"><div class="row"><div class="fld" style="margin:0"><label>Stream date</label><input id="rvDate" type="date" class="tinput" style="color-scheme:dark" value="'+esc(DRAFT.date)+'"></div>'+
+      '<div class="fld" style="margin:0"><label>Stream name</label><div style="font:700 17px var(--disp);padding:8px 0">'+esc(usDate(DRAFT.date))+' WH Surprise Set</div></div><div class="spacer"></div>'+
+      '<div class="kvs">'+DRAFT.sets.map(s=>'<div class="kv"><div class="n">'+fmt(s.rows.reduce((a,r)=>a+r.qty,0))+'</div><div class="l">'+esc(s.label)+' · items</div></div>').join('')+'</div></div>'+
+      (block?'<div class="note err">To confirm: '+[P.unknown?P.unknown+' name(s) not recognised':'',P.noSet?P.noSet+' set(s) not set up':'',P.random?P.random+' random row(s) where the chosen quantity differs from the file':''].filter(Boolean).join(' · ')+'.</div>':'')+
+      (P.short?'<div class="note warn">'+P.short+' row(s) need more than is available in the warehouse (the count minus the orders not packed yet) — check before the stream.</div>':'')+
+      (DRAFT.sets.length<2?'<div class="note warn">Only one item sheet was found in the file — the stream will have one round.</div>':'')+'</div>'+
+    '<div class="row" style="margin-top:14px"><div class="seg">'+DRAFT.sets.map((s,i)=>'<button data-set="'+i+'" class="'+(i===DRAFT.cur?'on':'')+'">'+esc(s.label)+' <span class="mini">· '+esc(s.sheet)+'</span></button>').join('')+'</div><div class="spacer"></div><span class="mini">'+S.rows.length+' rows · '+fmt(total)+' items</span></div>'+
+    '<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th style="width:44px"></th><th>Item</th><th>Type</th><th class="num">Quantity</th><th class="num" title="Counted in the warehouse minus the units of orders that are not packed yet">Available in WH</th><th></th></tr></thead><tbody>';
+  S.rows.forEach((r,ri)=>{
+    const i=rowInfo(r);
+    if(i.kind==='item'){ const st=stockOf(i.name);
+      h+='<tr><td>'+imgOf(i.name)+'</td><td><b>'+esc(i.name)+'</b>'+(norm(i.name)!==norm(r.clean)?'<div class="mini">in the file: '+esc(r.clean)+'</div>':'')+'</td><td><span class="badge ok">product</span>'+(isPickAll(i.name)?' <span class="badge">full qty</span>':'')+'</td><td class="num">'+r.qty+'</td>'+stockCell(i.name,r.qty)+'<td class="num"><button class="btn sm ghost" data-link="'+ri+'">Change</button></td></tr>';
+    } else if(i.kind==='set'){ const st=i.set?setStock(i.set.items):null;
+      h+='<tr class="'+(i.set?'':'bad')+'"><td></td><td><b>'+esc(r.clean)+'</b></td><td><span class="badge sub">set'+(i.set?' · '+esc(i.set.tag):'')+'</span></td><td class="num">'+r.qty+'</td><td class="num'+(st!=null&&st<r.qty?' low':'')+'">'+(st==null?'—':fmt(st))+'</td><td class="num"><button class="btn sm'+(i.set?' ghost':' primary')+'" data-set-ed="'+ri+'">'+(i.set?'Edit set':'Set it up')+'</button>'+(i.set?'':' <button class="btn sm ghost" data-unset="'+ri+'">Not a set</button>')+'</td></tr>';
+      if(i.set) arr(i.set.items).forEach(c=>{ const cs=stockOf(c.name); h+='<tr class="sub"><td>'+imgOf(c.name)+'</td><td>'+esc(c.name)+' <span class="badge sub">'+esc(i.set.tag)+'</span></td><td></td><td class="num">'+(c.qty*r.qty)+'</td>'+stockCell(c.name,c.qty*r.qty)+'<td></td></tr>'; });
+    } else if(i.kind==='random'){ const sum=allocSum(r), cands=randomCands(r);
+      h+='<tr class="'+(sum===r.qty?'':'bad')+'"><td></td><td><b>'+esc(r.clean)+'</b><div class="mini">choose which products go into the stream and how many</div></td><td><span class="badge info">random</span></td><td class="num">'+r.qty+'</td><td class="num"><span class="'+(sum===r.qty?'':'low')+'">chosen '+sum+' / '+r.qty+'</span></td><td class="num"><button class="btn sm" data-auto="'+ri+'" title="Spread the quantity over the products that are in stock">Auto</button> <button class="btn sm ghost" data-radd="'+ri+'">＋ Product</button>'+(r.asRandom?' <button class="btn sm ghost" data-unrand="'+ri+'">Not random</button>':'')+'</td></tr>';
+      if(!cands.length) h+='<tr class="sub"><td></td><td colspan="5" class="mini">No products start with “'+esc(i.base)+'”. Use ＋ Product.</td></tr>';
+      cands.forEach(n=>{ const cs=stockOf(n), q=+(r.alloc||{})[n]||0; h+='<tr class="sub"><td>'+imgOf(n)+'</td><td>'+esc(n)+' <span class="badge info">Random</span></td><td></td><td class="num"><input class="tinput q" type="number" min="0" data-ra="'+ri+'" data-n="'+esc(n)+'" value="'+(q||'')+'" placeholder="0"></td>'+stockCell(n,q)+'<td></td></tr>'; });
+    } else {
+      h+='<tr class="bad"><td></td><td><b>'+esc(r.clean)+'</b><div class="mini">in the file: '+esc(r.src)+'</div></td><td><span class="badge err">not recognised</span></td><td class="num">'+r.qty+'</td><td class="num">—</td><td class="num"><button class="btn sm primary" data-link="'+ri+'">Pick the product</button> <button class="btn sm" data-mkset="'+ri+'">It is a set</button> <button class="btn sm" data-mkrand="'+ri+'">It is random</button></td></tr>';
+    }
+  });
+  h+='</tbody></table></div></div>';
+  $('#body').innerHTML=h;
+  $('#rvCancel').onclick=()=>{ if(confirm('Drop this file? Nothing is saved yet.')){ DRAFT=null; VIEW={name:'home'}; render(); } };
+  $('#rvDate').onchange=e=>{ DRAFT.date=e.target.value||dayOf(Date.now()); render(); };
+  $$('[data-set]').forEach(b=>b.onclick=()=>{ DRAFT.cur=+b.dataset.set; render(); });
+  $$('[data-link]').forEach(b=>b.onclick=()=>{ const r=S.rows[+b.dataset.link]; pickProduct('Which product is “'+r.clean+'”?',n=>{ r.link=n; r.asSet=false; r.asRandom=false;
+    if(norm(n)!==norm(r.clean)){ ALIASES[setKey(r.clean)]={name:n,by:ME,at:Date.now()}; R.child('aliases/'+setKey(r.clean)).set(ALIASES[setKey(r.clean)]); }   // remembered for the next files
+    render(); },'The link is remembered for the next files.'); });
+  $$('[data-mkset]').forEach(b=>b.onclick=()=>{ const r=S.rows[+b.dataset.mkset]; r.asSet=true; openSetEditor(r.clean,render); });
+  $$('[data-unset]').forEach(b=>b.onclick=()=>{ S.rows[+b.dataset.unset].asSet=false; render(); });
+  $$('[data-set-ed]').forEach(b=>b.onclick=()=>openSetEditor(S.rows[+b.dataset.setEd].clean,render));
+  $$('[data-mkrand]').forEach(b=>b.onclick=()=>{ S.rows[+b.dataset.mkrand].asRandom=true; render(); });
+  $$('[data-unrand]').forEach(b=>b.onclick=()=>{ const r=S.rows[+b.dataset.unrand]; r.asRandom=false; r.alloc={}; render(); });
+  $$('[data-radd]').forEach(b=>b.onclick=()=>{ const r=S.rows[+b.dataset.radd]; pickProduct('Add a product to “'+r.clean+'”',n=>{ r.extra=arr(r.extra); if(r.extra.indexOf(n)<0) r.extra.push(n); render(); }); });
+  $$('[data-ra]').forEach(e=>e.onchange=()=>{ const r=S.rows[+e.dataset.ra]; const v=Math.max(0,int(e.value)); r.alloc=r.alloc||{}; if(v) r.alloc[e.dataset.n]=v; else delete r.alloc[e.dataset.n]; render(); });
+  $$('[data-auto]').forEach(b=>b.onclick=()=>{ const r=S.rows[+b.dataset.auto]; const cands=randomCands(r).map(n=>({n,left:Math.max(0,stockOf(n)==null?r.qty:stockOf(n))})).filter(c=>c.left>0);
+    if(!cands.length){ toast('None of these products is in stock','warn'); return; } r.alloc={}; let need=r.qty, guard=0;
+    while(need>0&&guard++<10000){ const live=cands.filter(c=>c.left>0); if(!live.length) break; for(const c of live){ if(need<=0) break; r.alloc[c.n]=(r.alloc[c.n]||0)+1; c.left--; need--; } }
+    if(need>0) toast('Stock covers only '+(r.qty-need)+' of '+r.qty,'warn',4500); render(); });
+  $('#rvOk').onclick=confirmDraft;
+  $('#rvPrint').onclick=()=>{ const jobs=[]; DRAFT.sets.forEach(x=>x.rows.forEach(r=>{ const i=rowInfo(r); if(i.kind==='set'&&i.set) jobs.push({set:i.set,copies:r.qty}); })); printSetLabels(jobs); };
+}
+function buildLines(S, prefix){
+  const lines=[]; let n=0; const id=()=>prefix+(++n);
+  S.rows.forEach(r=>{ const i=rowInfo(r);
+    if(i.kind==='item') lines.push({id:id(), kind:'item', name:i.name, src:r.src, qty:r.qty, tags:[], pick:isPickAll(i.name)?'all':'sample'});
+    else if(i.kind==='set') lines.push({id:id(), kind:'set', name:r.clean, src:r.src, qty:r.qty, tags:[i.set.tag], pick:'sample', bc:i.set.bc||'', comps:arr(i.set.items).map(c=>({name:c.name,qty:+c.qty||1}))});
+    else if(i.kind==='random') randomCands(r).forEach(nm=>{ const q=+(r.alloc||{})[nm]||0; if(q>0) lines.push({id:id(), kind:'item', name:nm, src:r.src, qty:q, tags:['Random'], pick:'all', group:r.clean}); });
+  });
+  return lines;
+}
+async function confirmDraft(){
+  const P=draftProblems(); if(P.unknown+P.noSet+P.random) return;
+  if(P.short && !confirm(P.short+' row(s) need more than is available in the warehouse. Create the stream anyway?')) return;
+  const rounds={}; DRAFT.sets.forEach((s,i)=>{ const k='AB'[i]; rounds[k]={label:s.label, sheet:s.sheet, status:'ready', lines:buildLines(s,k.toLowerCase())}; });
+  const rec={name:usDate(DRAFT.date)+' WH Surprise Set', date:DRAFT.date, file:DRAFT.file, createdAt:Date.now(), createdBy:ME, rounds};
+  const ref=R.child('streams').push(); await ref.set(rec); STREAMS[ref.key]=rec;
+  try{ CPAuth.log('whss_stream',{text:'Prepared '+rec.name,ref:ref.key}); }catch(e){}
+  DRAFT=null; toast('The stream is ready','ok'); VIEW={name:'check', sid:ref.key, scope:'both'}; render();
+}
+
+/* ---------------- stream helpers ---------------- */
+const roundKeys=s=>Object.keys((s&&s.rounds)||{}).sort();
+const linesOf=(s,rk)=>arr(s&&s.rounds&&s.rounds[rk]&&s.rounds[rk].lines);
+function salesOf(s,rk){ const o=(s&&s.sales&&s.sales[rk])||{}; return Object.keys(o).map(k=>Object.assign({key:k},o[k])).sort((a,b)=>a.at-b.at); }
+function soldMap(s,rk){ const m={}; salesOf(s,rk).forEach(x=>{ if(!x.u) m[x.l]=(m[x.l]||0)+1; }); return m; }
+function roundStats(s,rk){ const sold=soldMap(s,rk); let total=0, done=0; linesOf(s,rk).forEach(l=>{ total+=l.qty; done+=Math.min(l.qty,sold[l.id]||0); }); return {total, sold:done, left:total-done}; }
+const stLabel={ready:'Prepared',live:'Live now',done:'Finished'};
+const stBadge=st=>'<span class="badge '+(st==='live'?'ok':st==='done'?'':'info')+'">'+(stLabel[st]||st)+'</span>';
+const tagsHTML=l=>arr(l.tags).map(t=>'<span class="badge '+(t==='Random'?'info':'sub')+'">'+esc(t)+'</span>').join(' ');
+
+/* ---------------- home ---------------- */
+function renderHome(){
+  const ids=Object.keys(STREAMS).sort((a,b)=>(STREAMS[b].createdAt||0)-(STREAMS[a].createdAt||0));
+  const open=ids.filter(id=>{ const s=STREAMS[id]; return roundKeys(s).some(k=>s.rounds[k].status!=='done') || (Date.now()-(s.createdAt||0))<20*3600e3; });
+  let h='<div class="row" style="margin-top:16px"><h1>🎁 Streams</h1><div class="spacer"></div></div>'+
+    '<div class="card"><div class="drop" id="drop"><div style="font:700 17px var(--disp);color:var(--ink)">＋ New stream — load the prepared Excel file</div><div style="margin-top:6px">Drop the file here or click to choose. The sheets with <b>Item</b> and <b>Quantity</b> columns become Set A and Set B.</div><input type="file" id="file" accept=".xlsx,.xls,.xlsm" class="hide"></div></div>';
+  if(!open.length) h+='<div class="empty">No prepared streams. Load a file to start.</div>';
+  else h+='<div class="scards">'+open.map(id=>streamCard(id)).join('')+'</div>';
+  $('#body').innerHTML=h;
+  const drop=$('#drop'), file=$('#file');
+  drop.onclick=()=>file.click(); file.onchange=()=>{ if(file.files[0]) readFile(file.files[0]); };
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); }; drop.ondragleave=()=>drop.classList.remove('over');
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); };
+  wireStreamCards();
+}
+function streamCard(id){
+  const s=STREAMS[id];
+  return '<div class="card" style="margin-top:0"><div class="row"><h2>'+esc(s.name)+'</h2><div class="spacer"></div>'+(IS_ADMIN?'<button class="btn sm danger" data-del="'+id+'" title="Delete the stream">✕</button>':'')+'</div>'+
+    '<div class="mini">'+esc(s.file||'')+' · prepared by '+esc(s.createdBy||'')+' · '+hhmm(s.createdAt)+'</div>'+
+    '<div class="row" style="margin-top:10px"><button class="btn" data-check="'+id+'">🧺 Picker checklist</button></div>'+
+    roundKeys(s).map(k=>{ const r=s.rounds[k], t=roundStats(s,k);
+      return '<div class="rcard"><div class="row"><b style="font:700 15px var(--disp)">'+esc(r.label)+'</b> '+stBadge(r.status)+'<div class="spacer"></div><span class="mono" style="font-size:15px">'+t.left+' / '+t.total+' left</span></div>'+
+        '<div class="bar"><i style="width:'+(t.total?Math.round(100*t.sold/t.total):0)+'%"></i></div>'+
+        '<div class="row" style="margin-top:10px">'+(r.status==='done'?'<button class="btn" data-rep="'+id+'|'+k+'">📄 Report</button>':'<button class="btn primary" data-live="'+id+'|'+k+'">'+(r.status==='live'?'▶ Continue':'▶ Start the round')+'</button>')+'</div></div>'; }).join('')+'</div>';
+}
+function wireStreamCards(){
+  $$('[data-check]').forEach(b=>b.onclick=()=>{ VIEW={name:'check',sid:b.dataset.check,scope:'both'}; render(); });
+  $$('[data-live]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.live.split('|'); startRound(sid,rk); });
+  $$('[data-rep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.rep.split('|'); VIEW={name:'report',sid,rk}; render(); });
+  $$('[data-del]').forEach(b=>b.onclick=async()=>{ const s=STREAMS[b.dataset.del]; if(!s||!confirm('Delete “'+s.name+'” with its history? This cannot be undone.')) return; await R.child('streams/'+b.dataset.del).remove(); toast('Deleted','ok'); });
+}
+
+/* ---------------- picker checklist ---------------- */
+function checkRows(s, scope){
+  const m=new Map(); const rks=scope==='both'?roundKeys(s):[scope];
+  rks.forEach(rk=>linesOf(s,rk).forEach(l=>{
+    const add=(name,mode,tag,qty)=>{ const key=norm(name)+'|'+mode+'|'+norm(tag||''); let e=m.get(key);
+      if(!e){ e={key,name,mode,tag:tag||'',need:0,by:{}}; m.set(key,e); }
+      e.by[rk]=(e.by[rk]||0)+qty; };
+    if(l.kind==='set') arr(l.comps).forEach(c=>add(c.name,'sample',arr(l.tags)[0]||l.name,(+c.qty||1)));
+    else add(l.name,l.pick==='all'?'all':'sample',arr(l.tags).indexOf('Random')>=0?'Random':'',l.qty);
+  }));
+  const set1=new Map();                                         // one sample of a set = its products × their qty in one set
+  rks.forEach(rk=>linesOf(s,rk).forEach(l=>{ if(l.kind==='set') arr(l.comps).forEach(c=>set1.set(norm(c.name)+'|sample|'+norm(arr(l.tags)[0]||l.name),+c.qty||1)); }));
+  const out=[...m.values()].map(e=>{ e.need = e.mode==='all' ? Object.keys(e.by).reduce((a,k)=>a+e.by[k],0) : (set1.get(e.key)||1); const it=invOf(e.name); e.loc=(it&&it.loc)||''; return e; });
+  return out.sort((a,b)=>(a.loc||'~').localeCompare(b.loc||'~',undefined,{numeric:true})||a.name.localeCompare(b.name));
+}
+function renderCheck(){
+  const s=STREAMS[VIEW.sid]; if(!s){ VIEW={name:'home'}; return render(); }
+  const scope=VIEW.scope||'both', rows=checkRows(s,scope), picks=(s.picks&&s.picks[scope])||{};
+  const done=rows.filter(r=>picks[fbKey(r.key)]).length, units=rows.reduce((a,r)=>a+r.need,0);
+  let h='<div class="row" style="margin-top:16px"><button class="btn ghost" id="ckBack">← Streams</button><h1>🧺 Picker checklist</h1><span class="mini">'+esc(s.name)+'</span><div class="spacer"></div>'+
+    '<div class="seg">'+[['both','Both sets']].concat(roundKeys(s).map(k=>[k,s.rounds[k].label])).map(x=>'<button data-sc="'+x[0]+'" class="'+(scope===x[0]?'on':'')+'">'+esc(x[1])+'</button>').join('')+'</div></div>'+
+    '<div class="note">Bring <b>one sample</b> of each product for the display. Products marked <span class="badge">full qty</span> and <span class="badge info">Random</span> are brought in full quantity. Products of a set carry the set’s tag — one sample of the whole set, with the set’s barcode label on it (print it in 🧩 Sets).</div>'+
+    '<div class="row" style="margin-top:12px"><div class="kvs"><div class="kv"><div class="n">'+done+' / '+rows.length+'</div><div class="l">picked</div></div><div class="kv"><div class="n">'+fmt(units)+'</div><div class="l">units to bring</div></div></div><div class="spacer"></div>'+(done?'<button class="btn ghost" id="ckClear">Clear the ticks</button>':'')+'</div>'+
+    '<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th style="width:44px"></th><th style="width:44px"></th><th>Product</th><th>Location</th><th class="num">Bring</th><th class="num" title="Counted in the warehouse minus the units of orders that are not packed yet">Available in WH</th></tr></thead><tbody>'+
+    rows.map(r=>{ const st=stockOf(r.name), on=!!picks[fbKey(r.key)];
+      return '<tr class="'+(on?'done':'')+'"><td><input type="checkbox" class="chk" data-pk="'+esc(r.key)+'"'+(on?' checked':'')+'></td><td>'+imgOf(r.name)+'</td><td><b>'+esc(r.name)+'</b> '+(r.tag?'<span class="badge '+(r.tag==='Random'?'info':'sub')+'">'+esc(r.tag)+'</span>':'')+(r.mode==='all'&&r.tag!=='Random'?' <span class="badge">full qty</span>':'')+
+        (r.mode==='all'&&scope==='both'&&Object.keys(r.by).length>1?'<div class="mini">'+Object.keys(r.by).sort().map(k=>s.rounds[k].label+': '+r.by[k]).join(' · ')+'</div>':'')+'</td>'+
+        '<td class="mono">'+esc(r.loc||'—')+'</td><td class="num" style="font-size:17px;font-weight:700">'+r.need+'</td>'+stockCell(r.name,r.need)+'</tr>'; }).join('')+
+    '</tbody></table></div></div>';
+  $('#body').innerHTML=h;
+  $('#ckBack').onclick=()=>{ VIEW={name:'home'}; render(); };
+  $$('[data-sc]').forEach(b=>b.onclick=()=>{ VIEW.scope=b.dataset.sc; render(); });
+  $$('[data-pk]').forEach(c=>c.onchange=()=>{ const ref=R.child('streams/'+VIEW.sid+'/picks/'+scope+'/'+fbKey(c.dataset.pk)); if(c.checked) ref.set(true); else ref.remove(); });
+  const cl=$('#ckClear'); if(cl) cl.onclick=()=>{ if(confirm('Clear all ticks of this list?')) R.child('streams/'+VIEW.sid+'/picks/'+scope).remove(); };
+}
+
+/* ---------------- live round ---------------- */
+let MSG=null, PENDING=null, showOut=false, _digitT=null;
+let MUTE=false; try{ MUTE=localStorage.getItem('cps.whss.mute')==='1'; }catch(e){}
+let _ac=null; function beep(kind){ if(MUTE) return; try{ _ac=_ac||new (window.AudioContext||window.webkitAudioContext)(); const t0=_ac.currentTime;
+  const tone=(f,at,len,type)=>{ const o=_ac.createOscillator(), g=_ac.createGain(); o.type=type||'sine'; o.frequency.value=f; g.gain.setValueAtTime(.0001,t0+at); g.gain.exponentialRampToValueAtTime(.25,t0+at+.01); g.gain.exponentialRampToValueAtTime(.0001,t0+at+len); o.connect(g); g.connect(_ac.destination); o.start(t0+at); o.stop(t0+at+len+.02); };
+  if(kind==='back') tone(880,0,.16); else if(kind==='remove'){ tone(520,0,.16); tone(390,.2,.26); } else if(kind==='info') tone(660,0,.12); else if(kind==='choose'){ tone(700,0,.09); tone(700,.14,.09); } else { tone(170,0,.32,'square'); } }catch(e){} }
+async function startRound(sid,rk){
+  const s=STREAMS[sid]; if(!s) return; const r=s.rounds[rk];
+  if(r.status==='ready'){ const other=roundKeys(s).find(k=>k!==rk&&s.rounds[k].status==='live');
+    if(other && !confirm(s.rounds[other].label+' is still live. Start '+r.label+' anyway?')) return;
+    await R.child('streams/'+sid+'/rounds/'+rk).update({status:'live',startedAt:Date.now(),startedBy:ME}); try{ CPAuth.log('whss_round_start',{text:'Started '+s.name+' · '+r.label,ref:sid}); }catch(e){} }
+  MSG=null; PENDING=null; showOut=false; VIEW={name:'live',sid,rk}; render();
+}
+function setMsg(kind, what, item, more){ MSG={kind,what,item:item||'',more:more||'',at:Date.now()}; beep(kind); drawMsg(true); }
+function drawMsg(pop){
+  const box=$('#liveMsg'); if(!box) return;
+  if(PENDING){ box.className='msg info'+(pop?' pop':''); box.innerHTML='<div class="what">WHICH ONE WAS SOLD?</div><div class="more">Press the number, or click.</div><div class="choose">'+PENDING.cands.map((l,i)=>'<button data-ch="'+i+'"><kbd>'+(i+1)+'</kbd><span><b>'+esc(l.name)+'</b> '+tagsHTML(l)+(l.kind==='set'?' <span class="mini">· the whole set</span>':'')+'</span></button>').join('')+'<button data-ch="x"><kbd>Esc</kbd><span class="mini">Nothing — cancel</span></button></div>';
+    box.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>choose(b.dataset.ch==='x'?-1:+b.dataset.ch)); return; }
+  if(!MSG){ box.className='msg idle'; box.innerHTML='<div class="what">Scan the sold item</div><div class="more">The instruction for the display appears here.</div>'; return; }
+  box.className='msg '+MSG.kind+(pop?' pop':''); box.innerHTML='<div class="what">'+esc(MSG.what)+'</div>'+(MSG.item?'<div class="item">'+esc(MSG.item)+'</div>':'')+(MSG.more?'<div class="more">'+esc(MSG.more)+'</div>':'');
+  if(pop){ void box.offsetWidth; }
+}
+function liveCtx(){ const s=STREAMS[VIEW.sid]; return s?{s, r:s.rounds[VIEW.rk], lines:linesOf(s,VIEW.rk), sold:soldMap(s,VIEW.rk)}:null; }
+const leftOf=(l,sold)=>Math.max(0,l.qty-(sold[l.id]||0));
+async function sell(line, via){
+  const c=liveCtx(); if(!c) return; const left=leftOf(line,c.sold);
+  if(left<=0){ setMsg('err','ALREADY SOLD OUT',line.name,'None of it is left in this round.'); return; }
+  const ref=R.child('streams/'+VIEW.sid+'/sales/'+VIEW.rk).push(); const rec={l:line.id,at:Date.now(),by:ME,via:via||'scan'};
+  const s=STREAMS[VIEW.sid]; s.sales=s.sales||{}; s.sales[VIEW.rk]=s.sales[VIEW.rk]||{}; s.sales[VIEW.rk][ref.key]=rec;        // shown at once, the database confirms it
+  ref.set(rec).catch(e=>toast('Not saved: '+(e.message||e),'err',5000));
+  const now=left-1, label=line.name+(line.kind!=='set'&&arr(line.tags).length?' · '+arr(line.tags).join(', '):'')+(line.kind==='set'?' (the whole set)':'');
+  if(line.pick==='all'){ if(now>0) setMsg('info','SOLD',label,now+' of '+line.qty+' left'); else setMsg('remove','SOLD — NONE LEFT',label,'That was the last one in this round.'); }
+  else if(now>0) setMsg('back','PUT IT BACK ON THE DISPLAY',label,now+' of '+line.qty+' left in this round');
+  else setMsg('remove','TAKE IT OFF THE DISPLAY',label,'That was the last one — it cannot drop in this round any more.');
+  updateLive();
+}
+function choose(i){ const p=PENDING; if(!p) return; PENDING=null; if(i<0||!p.cands[i]){ MSG=null; drawMsg(); return; } sell(p.cands[i],p.via); }
+/* a scanned barcode or typed text → the line that was sold.
+   Sets are sold by their own barcode label; a product barcode sells only the product itself. */
+function onScan(raw){
+  const c=liveCtx(); if(!c) return; const text=String(raw||'').trim(); if(!text) return;
+  const code=bcNorm(text);
+  /* 1 — the barcode of a set */
+  const sk=Object.keys(SETS).find(k=>SETS[k].bc && SETS[k].bc===code);
+  const setLine=c.lines.find(l=>l.kind==='set' && ((l.bc&&l.bc===code) || (sk&&setKey(l.name)===sk)));
+  if(setLine || sk){ PENDING=null;
+    if(!setLine){ setMsg('err','NOT IN THIS SET',SETS[sk].name,'This set is not part of '+c.r.label+'.'); return; }
+    return sell(setLine,'scan'); }
+  /* 2 — the barcode of a product */
+  const names=INV.bc[code]||INV.bc[code.replace(/^0+/,'')]||null;
+  let cands, shown;
+  if(names){ shown=INV.items[names[0]].name; PENDING=null;
+    cands=c.lines.filter(l=>l.kind!=='set' && names.indexOf(norm(l.name))>=0);
+    if(!cands.length){ const inSets=c.lines.filter(l=>l.kind==='set' && arr(l.comps).some(x=>names.indexOf(norm(x.name))>=0));
+      if(inSets.length){ setMsg('err','PART OF A SET',shown,'Scan the barcode label of the set: '+inSets.map(l=>arr(l.tags)[0]||l.name).join(' / ')+'.'); return; } }
+  } else {
+    if(PENDING){ beep('choose'); drawMsg(true); return; }
+    if(/^\d{6,}$/.test(code)){ setMsg('err','UNKNOWN BARCODE',text,'This barcode is not in the inventory.'); return; }
+    const ws=norm(text).split(' ').filter(Boolean); shown=text;
+    cands=c.lines.filter(l=>{ const hay=norm(l.name+' '+arr(l.tags).join(' ')+' '+arr(l.comps).map(x=>x.name).join(' ')); return ws.every(w=>hay.indexOf(w)>=0); });
+    const exact=cands.filter(l=>norm(l.name)===norm(text)); if(exact.length) cands=exact;
+  }
+  if(!cands.length){ setMsg('err','NOT IN THIS SET',shown,'This product is not part of '+c.r.label+'.'); return; }
+  const live=cands.filter(l=>leftOf(l,c.sold)>0);
+  if(!live.length){ setMsg('err','ALREADY SOLD OUT',shown,'None of it is left in this round.'); return; }
+  const items=live.filter(l=>l.kind!=='set').sort((a,b)=>(arr(a.tags).length-arr(b.tags).length)), sets=live.filter(l=>l.kind==='set');
+  const opts=names ? [items[0]] : live;                         // a product barcode: its own line (the plain one before the Random one)
+  if(opts.length===1) return sell(opts[0],names?'scan':'typed');
+  PENDING={cands:opts.slice(0,9), via:names?'scan':'typed', names:names||[]}; beep('choose'); drawMsg(true);
+}
+async function undoSale(key){ const c=liveCtx(); if(!c) return; await R.child('streams/'+VIEW.sid+'/sales/'+VIEW.rk+'/'+key).update({u:true,uby:ME,uat:Date.now()});
+  const sl=salesOf(c.s,VIEW.rk).find(x=>x.key===key), ln=sl&&c.lines.find(l=>l.id===sl.l); MSG=null; PENDING=null;
+  if(ln){ MSG={kind:'info',what:'UNDONE',item:ln.name,more:'The sale was cancelled — the item is back in the list.'+(ln.pick!=='all'?' Make sure it is on the display.':'')}; } drawMsg(true); }
+function renderLive(){
+  const c=liveCtx(); if(!c){ VIEW={name:'home'}; return render(); }
+  if(c.r.status==='done'){ VIEW={name:'report',sid:VIEW.sid,rk:VIEW.rk}; return render(); }
+  if(!$('#scan') || $('#liveRoot').dataset.k!==VIEW.sid+'|'+VIEW.rk){
+    $('#body').innerHTML='<div id="liveRoot" data-k="'+VIEW.sid+'|'+VIEW.rk+'"><div class="row" style="margin-top:14px"><button class="btn ghost" id="lvBack">← Streams</button><h1 id="lvTitle"></h1><span id="lvSt"></span><div class="spacer"></div>'+
+      '<button class="btn ghost" id="lvMute"></button><button class="btn" id="lvCheck">🧺 Checklist</button><button class="btn primary" id="lvEnd">■ Finish the round</button></div>'+
+      '<div class="live"><div><div class="card" style="margin-top:0"><div class="row" style="align-items:flex-end"><div><div class="mini" style="text-transform:uppercase;letter-spacing:.08em;font-weight:700">Items left</div><div class="count" id="lvCount"></div></div><div class="spacer"></div><div class="mini" id="lvSold" style="text-align:right"></div></div>'+
+        '<div class="bar"><i id="lvBar"></i></div>'+
+        '<div style="margin-top:14px"><input id="scan" class="tinput" placeholder="Scan the barcode of the sold item — or type its name and press Enter" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
+        '<div id="liveMsg" class="msg idle"></div></div>'+
+        '<div class="card"><div class="row"><h2>History of this round</h2><div class="spacer"></div><span class="mini" id="lvHistN"></span></div><div class="lscroll" id="lvHist" style="max-height:34vh"></div></div></div>'+
+      '<div><div class="card" style="margin-top:0"><div class="row"><h2>Prepared items — what is left</h2><div class="spacer"></div><label class="mini" style="cursor:pointer"><input type="checkbox" id="lvOut"> show sold out</label></div><div class="lscroll" id="lvList"></div></div></div></div></div>';
+    const scan=$('#scan');
+    scan.onkeydown=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); const v=scan.value; scan.value=''; clearTimeout(_digitT); onScan(v); }
+      else if(e.key==='Escape'){ scan.value=''; if(PENDING) choose(-1); }
+    };
+    scan.oninput=()=>{ clearTimeout(_digitT);                      // a lone digit while a choice is open = the answer (a scanner types many digits at once)
+      if(PENDING && /^[1-9]$/.test(scan.value)) _digitT=setTimeout(()=>{ if(PENDING && /^[1-9]$/.test(scan.value)){ const i=+scan.value-1; scan.value=''; if(PENDING.cands[i]) choose(i); } },260); };
+    $('#lvBack').onclick=()=>{ VIEW={name:'home'}; render(); };
+    $('#lvCheck').onclick=()=>{ VIEW={name:'check',sid:VIEW.sid,scope:VIEW.rk}; render(); };
+    $('#lvEnd').onclick=finishRound;
+    $('#lvOut').onchange=e=>{ showOut=e.target.checked; updateLive(); };
+    $('#lvMute').onclick=()=>{ MUTE=!MUTE; try{ localStorage.setItem('cps.whss.mute',MUTE?'1':'0'); }catch(e){} updateLive(); if(!MUTE) beep('info'); };
+    drawMsg();
+  }
+  updateLive(); focusScan();
+}
+function focusScan(){ const s=$('#scan'); if(s && !_m && document.activeElement!==s) s.focus(); }
+document.addEventListener('click',e=>{ if(VIEW.name==='live' && !e.target.closest('input,select,textarea,.modalbg')) setTimeout(focusScan,0); });
+document.addEventListener('keydown',e=>{ if(VIEW.name!=='live'||_m) return; const s=$('#scan'); if(!s) return;
+  if(document.activeElement!==s && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.length===1 && !(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) s.focus();   // a scan is never lost
+  if(e.key==='Escape' && PENDING && document.activeElement!==s) choose(-1); });
+function updateLive(){
+  const c=liveCtx(); if(!c||!$('#lvCount')) return; const t=roundStats(c.s,VIEW.rk);
+  $('#lvTitle').textContent=c.s.name+' · '+c.r.label; $('#lvSt').innerHTML=stBadge(c.r.status)+(c.r.startedAt?' <span class="mini">since '+hhmm(c.r.startedAt)+'</span>':'');
+  $('#lvCount').innerHTML=t.left+' <small>/ '+t.total+'</small>'; $('#lvSold').innerHTML='<b style="font-size:20px;font-family:var(--mono)">'+t.sold+'</b><br>sold'; $('#lvBar').style.width=(t.total?Math.round(100*t.sold/t.total):0)+'%';
+  $('#lvMute').textContent=MUTE?'🔇 Sound off':'🔊 Sound on';
+  const rows=c.lines.map(l=>({l,left:leftOf(l,c.sold)})).filter(x=>showOut||x.left>0).sort((a,b)=>(a.left>0?0:1)-(b.left>0?0:1)||a.l.name.localeCompare(b.l.name));
+  $('#lvList').innerHTML=rows.length?rows.map(x=>'<div class="litem'+(x.left?'':' out')+'">'+imgOf(x.l.kind==='set'?(arr(x.l.comps)[0]||{}).name:x.l.name)+'<div class="nm"><b>'+esc(x.l.name)+'</b> '+tagsHTML(x.l)+(x.l.pick==='all'&&arr(x.l.tags).indexOf('Random')<0?' <span class="badge">full qty</span>':'')+
+      (x.l.kind==='set'?'<div class="mini">'+arr(x.l.comps).map(q=>esc(q.name)+(q.qty>1?' × '+q.qty:'')).join(' + ')+'</div>':'')+'</div>'+
+      '<div class="left">'+x.left+'<span class="mini"> / '+x.l.qty+'</span></div>'+(x.left?'<button class="btn sm primary" data-sell="'+x.l.id+'">Sold</button>':'<span class="badge">sold out</span>')+'</div>').join('')
+    :'<div class="empty">Everything is sold. Finish the round.</div>';
+  $$('#lvList [data-sell]').forEach(b=>b.onclick=()=>{ const l=c.lines.find(x=>x.id===b.dataset.sell); if(l){ PENDING=null; sell(l,'manual'); } focusScan(); });
+  const sales=salesOf(c.s,VIEW.rk).reverse(); $('#lvHistN').textContent=sales.filter(x=>!x.u).length+' sale(s)';
+  $('#lvHist').innerHTML=sales.length?sales.map(x=>{ const l=c.lines.find(q=>q.id===x.l)||{name:'?',tags:[]};
+    return '<div class="hrow'+(x.u?' un':'')+'"><span class="mono" style="color:var(--muted)">'+hhmm(x.at)+'</span><span style="flex:1"><b>'+esc(l.name)+'</b> '+tagsHTML(l)+'</span><span class="mini">'+esc(x.by||'')+(x.via==='manual'?' · button':x.via==='typed'?' · typed':'')+'</span>'+(x.u?'<span class="badge">undone</span>':'<button class="btn sm ghost" data-undo="'+x.key+'">↶ Undo</button>')+'</div>'; }).join('')
+    :'<div class="empty" style="padding:22px">No sales yet.</div>';
+  $$('#lvHist [data-undo]').forEach(b=>b.onclick=()=>{ undoSale(b.dataset.undo); focusScan(); });
+}
+async function finishRound(){
+  const c=liveCtx(); if(!c) return; const t=roundStats(c.s,VIEW.rk);
+  if(!confirm('Finish '+c.r.label+'?\n'+t.sold+' of '+t.total+' sold, '+t.left+' left.')){ focusScan(); return; }
+  await R.child('streams/'+VIEW.sid+'/rounds/'+VIEW.rk).update({status:'done',endedAt:Date.now(),endedBy:ME});
+  try{ CPAuth.log('whss_round_end',{text:'Finished '+c.s.name+' · '+c.r.label+' — '+t.sold+'/'+t.total+' sold',ref:VIEW.sid}); }catch(e){}
+  VIEW={name:'report',sid:VIEW.sid,rk:VIEW.rk}; render();
+}
+
+/* ---------------- report ---------------- */
+function reportRows(s,rk){ const sold=soldMap(s,rk); return linesOf(s,rk).map(l=>({l, sold:Math.min(l.qty,sold[l.id]||0), left:leftOf(l,sold)})); }
+function renderReport(){
+  const s=STREAMS[VIEW.sid]; if(!s||!s.rounds[VIEW.rk]){ VIEW={name:'home'}; return render(); }
+  const r=s.rounds[VIEW.rk], t=roundStats(s,VIEW.rk), rows=reportRows(s,VIEW.rk), sales=salesOf(s,VIEW.rk);
+  const next=roundKeys(s).find(k=>s.rounds[k].status!=='done'&&k!==VIEW.rk);
+  const unsold=rows.filter(x=>x.left>0), soldRows=rows.filter(x=>x.sold>0);
+  let h='<div class="row" style="margin-top:16px"><button class="btn ghost" id="rpBack">← '+(VIEW.from==='history'?'History':'Streams')+'</button><h1>📄 '+esc(s.name)+' · '+esc(r.label)+'</h1>'+stBadge(r.status)+'<div class="spacer"></div>'+
+    '<button class="btn" id="rpCsv">⬇ CSV</button>'+(r.status==='done'?'<button class="btn ghost" id="rpReopen">Reopen the round</button>':'<button class="btn primary" id="rpLive">▶ Back to the round</button>')+
+    (next&&r.status==='done'?'<button class="btn primary big" id="rpNext">▶ Start '+esc(s.rounds[next].label)+'</button>':'')+'</div>'+
+    '<div class="kvs" style="margin-top:14px"><div class="kv"><div class="n">'+t.total+'</div><div class="l">prepared</div></div><div class="kv"><div class="n" style="color:var(--ok)">'+t.sold+'</div><div class="l">sold</div></div><div class="kv"><div class="n"'+(t.left?' style="color:var(--warn)"':'')+'>'+t.left+'</div><div class="l">not sold</div></div>'+
+      '<div class="kv"><div class="n">'+(r.startedAt?dur((r.endedAt||Date.now())-r.startedAt):'—')+'</div><div class="l">duration</div></div>'+
+      '<div class="kv"><div class="n" style="font-size:15px;padding:6px 0">'+(r.startedAt?hhmm(r.startedAt)+' – '+(r.endedAt?hhmm(r.endedAt):'…'):'not started')+'</div><div class="l">'+esc(r.startedBy||'')+'</div></div>'+
+      '<div class="kv"><div class="n">'+sales.filter(x=>x.u).length+'</div><div class="l">undone scans</div></div></div>';
+  const tbl=(title,list,cols)=>'<div class="card"><h2>'+title+' <span class="mini">· '+list.length+' line(s)</span></h2>'+(list.length?'<div class="tscroll" style="margin-top:10px"><table><thead><tr><th>Item</th><th class="num">Prepared</th><th class="num">Sold</th><th class="num">Left</th></tr></thead><tbody>'+
+    list.map(x=>'<tr><td><b>'+esc(x.l.name)+'</b> '+tagsHTML(x.l)+(x.l.kind==='set'?'<div class="mini">'+arr(x.l.comps).map(q=>esc(q.name)+(q.qty>1?' × '+q.qty:'')).join(' + ')+'</div>':'')+'</td><td class="num">'+x.l.qty+'</td><td class="num">'+x.sold+'</td><td class="num'+(x.left?' low':'')+'">'+x.left+'</td></tr>').join('')+'</tbody></table></div>':'<div class="mini" style="margin-top:8px">Nothing.</div>')+'</div>';
+  h+=tbl('Not sold — goes back to the warehouse',unsold)+tbl('Sold',soldRows);
+  h+='<div class="card"><h2>Scan history <span class="mini">· '+sales.length+'</span></h2><div class="lscroll" style="max-height:40vh">'+(sales.length?sales.slice().reverse().map(x=>{ const l=linesOf(s,VIEW.rk).find(q=>q.id===x.l)||{name:'?',tags:[]}; return '<div class="hrow'+(x.u?' un':'')+'"><span class="mono" style="color:var(--muted)">'+hhmm(x.at)+'</span><span style="flex:1"><b>'+esc(l.name)+'</b> '+tagsHTML(l)+'</span><span class="mini">'+esc(x.by||'')+(x.u?' · undone by '+esc(x.uby||''):'')+'</span></div>'; }).join(''):'<div class="empty" style="padding:22px">No scans.</div>')+'</div></div>';
+  $('#body').innerHTML=h;
+  $('#rpBack').onclick=()=>{ VIEW={name:VIEW.from==='history'?'history':'home'}; render(); };
+  $('#rpCsv').onclick=()=>{ const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"'; const lines=[['Stream','Set','Item','Tags','Set contents','Prepared','Sold','Left'].map(q).join(',')];
+    rows.forEach(x=>lines.push([s.name,r.label,x.l.name,arr(x.l.tags).join(', '),arr(x.l.comps).map(c=>c.name+(c.qty>1?' x'+c.qty:'')).join(' + '),x.l.qty,x.sold,x.left].map(q).join(',')));
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv'})); a.download=(s.name+' '+r.label).replace(/[\/\\:]/g,'-')+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); };
+  const ro=$('#rpReopen'); if(ro) ro.onclick=async()=>{ if(!confirm('Reopen '+r.label+' to add or undo sales?')) return; await R.child('streams/'+VIEW.sid+'/rounds/'+VIEW.rk).update({status:'live',endedAt:null,endedBy:null}); MSG=null; PENDING=null; VIEW={name:'live',sid:VIEW.sid,rk:VIEW.rk}; render(); };
+  const lv=$('#rpLive'); if(lv) lv.onclick=()=>startRound(VIEW.sid,VIEW.rk);
+  const nx=$('#rpNext'); if(nx) nx.onclick=()=>startRound(VIEW.sid,next);
+}
+
+/* ---------------- history ---------------- */
+function renderHistory(){
+  const ids=Object.keys(STREAMS).sort((a,b)=>(STREAMS[b].createdAt||0)-(STREAMS[a].createdAt||0));
+  let h='<div class="row" style="margin-top:16px"><h1>🕘 History</h1><div class="spacer"></div><span class="mini">'+ids.length+' stream(s)</span></div>';
+  h+=ids.length?'<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th>Stream</th><th>Set</th><th>Status</th><th class="num">Prepared</th><th class="num">Sold</th><th class="num">Left</th><th>Time</th><th>By</th><th></th></tr></thead><tbody>'+
+    ids.map(id=>{ const s=STREAMS[id]; return roundKeys(s).map((k,i)=>{ const r=s.rounds[k], t=roundStats(s,k);
+      return '<tr><td>'+(i===0?'<b>'+esc(s.name)+'</b><div class="mini">'+esc(s.file||'')+'</div>':'')+'</td><td>'+esc(r.label)+'</td><td>'+stBadge(r.status)+'</td><td class="num">'+t.total+'</td><td class="num">'+t.sold+'</td><td class="num'+(t.left&&r.status==='done'?' low':'')+'">'+t.left+'</td><td class="mini">'+(r.startedAt?hhmm(r.startedAt)+(r.endedAt?' – '+hhmm(r.endedAt)+' · '+dur(r.endedAt-r.startedAt):' – …'):'—')+'</td><td class="mini">'+esc(r.startedBy||s.createdBy||'')+'</td>'+
+        '<td class="num"><button class="btn sm" data-hrep="'+id+'|'+k+'">Report</button>'+(i===0&&IS_ADMIN?' <button class="btn sm danger" data-del="'+id+'">✕</button>':'')+'</td></tr>'; }).join(''); }).join('')+'</tbody></table></div></div>'
+    :'<div class="empty">No streams yet.</div>';
+  $('#body').innerHTML=h;
+  $$('[data-hrep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.hrep.split('|'); VIEW={name:'report',sid,rk,from:'history'}; render(); });
+  wireStreamCards();
+}
+
+/* ---------------- shell ---------------- */
+function render(){
+  if(!R) return;
+  const top={home:'home',review:'home',check:'home',live:'home',report:VIEW.from==='history'?'history':'home',sets:'sets',rules:'rules',history:'history'}[VIEW.name]||'home';
+  $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===top));
+  $('#topTabs').classList.toggle('hide',VIEW.name==='live');
+  if(_m && VIEW.name!=='sets' && VIEW.name!=='review' && VIEW.name!=='rules') closeModal();
+  if(_m) return;                                                  // an open editor is not redrawn under the user
+  ({home:renderHome,review:renderReview,check:renderCheck,live:renderLive,report:renderReport,sets:renderSets,rules:renderRules,history:renderHistory}[VIEW.name]||renderHome)();
+}
+CPAuth.init({app:'station',header:'#hdrUser',onReady:start});
+function start(u){
+  const allowed=(CPAuth.ACCESS.station&&CPAuth.ACCESS.station.whsurprise)?CPAuth.can('whsurprise','station'):DEFAULT_ROLES.indexOf(u.role)>=0;
+  $('#app').classList.remove('hide'); if(!allowed){ CPAuth.denied('#app','WH Surprise Set'); return; }
+  ME=u.name||u.email||''; IS_ADMIN=u.role==='admin'; DB=CPAuth.db; R=DB.ref(CPAuth.ROOT+'/whSurprise');
+  R.child('sets').on('value',s=>{ SETS=s.val()||{}; ensureSetCodes(); render(); });
+  R.child('aliases').on('value',s=>{ ALIASES=s.val()||{}; if(VIEW.name==='review') render(); });
+  R.child('settings').on('value',s=>{ SETTINGS=s.val()||{}; if(VIEW.name==='rules'||VIEW.name==='review') render(); });
+  R.child('streams').limitToLast(80).on('value',s=>{ STREAMS=s.val()||{}; if(VIEW.name==='review'||VIEW.name==='sets'||VIEW.name==='rules') return; render(); });
+  $$('#tabs [data-t]').forEach(b=>b.onclick=()=>{ if(DRAFT && VIEW.name==='review' && b.dataset.t!=='home' && b.dataset.t!=='sets'){ if(!confirm('Leave the file check? The loaded file is kept until you close the page.')) return; }
+    VIEW={name:(b.dataset.t==='home'&&DRAFT)?'review':b.dataset.t}; render(); });
+  $('#reloadSrc').onclick=()=>loadSources(true);
+  loadSources(false);
+}
+</script>
+</body>
+</html>

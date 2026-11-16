@@ -994,6 +994,7 @@ const EXTERNAL_MODES = {
   plan:      'warehouse-plan.html',
   lessons:   'https://r-alib.github.io/calipokehouselessons/',  // staff training — its own site, fully independent
   returns:   'return-tracker.html',
+  whsurprise: 'wh-surprise-set.html',                       // WH SURPRISE SET — surprise-set streams from the warehouse (admin, WH backend, streamer, LS backend)
   orderprep: 'order-prep.html',                                 // ORDER PREP — platform reports → import file, rules, Daily SOH table (admins)
   transfer:  'https://r-alib.github.io/calipoke-transfer/',        // transfer requests between locations — its own app
   cph:       'https://r-alib.github.io/cph-inventory/',            // CPH INVENTORY — stock by location, games, streamer shifts
@@ -1001,7 +1002,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-13b · New items';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-16a · WH Surprise Set';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -2005,6 +2006,7 @@ const MODES=[
   {icon:'🗺️', name:'WAREHOUSE PLAN',    desc:'Floor plan with live shelf contents · pallets · drag to transfer', ext:'plan', ready:true, feat:'plan'},
   {icon:'🎓', name:'LESSONS',           desc:'Staff training — video lessons and tests', ext:'lessons', ready:true, feat:'lessons'},
   {icon:'↩️', name:'RETURN TRACKER',    desc:'Log returns and exchanges · copy the table to Sheets / Excel', ext:'returns', ready:true, feat:'returns'},
+  {icon:'🎁', name:'WH SURPRISE SET',   desc:'Surprise-set streams: load the file · picker checklist · scan what is sold', ext:'whsurprise', ready:true, feat:'whsurprise'},
   {icon:'🧾', name:'ORDER PREP',        desc:'Platform order reports → import file · rules · Daily SOH table', ext:'orderprep', ready:true, feat:'orderprep'},
   {icon:'⇄', name:'TRANSFER REQUEST',   desc:'Request stock transfers between locations', ext:'transfer', ready:true, feat:'transfer'},
   {icon:'🏬', name:'CPH INVENTORY',     desc:'Stock by location · streaming games · streamer shifts', ext:'cph', ready:true, feat:'cphinventory'},
