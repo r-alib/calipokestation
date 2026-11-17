@@ -396,6 +396,15 @@ td.num,th.num{text-align:right; font-family:var(--mono)}
 .gtag.type{color:var(--info); border-color:#23395c}
 .gtag.brand{color:var(--accent); border-color:#1d4530}
 .gtag.series{color:var(--warn); border-color:#473a1c}
+/* guidebook: confirmed chip + variations listed under the product */
+.pkstock.conf{color:var(--accent); border-color:#1d4530}
+.gvars{margin-top:11px; border-top:1px dashed var(--line); padding-top:9px; display:flex; flex-direction:column; gap:5px; max-width:640px}
+.gvhead{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); font-weight:600}
+.gvrow{display:flex; align-items:baseline; gap:10px; font-size:13.5px; padding:5px 10px; background:var(--panel2); border:1px solid var(--border); border-radius:8px}
+.gvrow.zero{opacity:.5} .gvrow.hit{border-color:var(--accent)}
+.gvname{font-weight:600}
+.gvsub{color:var(--muted); font-size:12px; font-family:var(--mono); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.gvqty{font-family:var(--mono); font-weight:700; margin-left:auto; white-space:nowrap}
 
 /* scan-only: dim non-interactive manual controls */
 .item.scanlock .chk{opacity:.45}
@@ -1002,7 +1011,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-17b · stock by room from CPH INVENTORY';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-17c · Guidebook: variations grouped + Damaged / Confirmed';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1233,13 +1242,15 @@ function qtySplit(iv){
   return {wh:wh||0, st:st||0, rooms:rooms||[], tot:(wh||0)+(st||0), whKnown:wh!=null, stKnown:rooms!=null};
 }
 /* "WH 12 · SR 3 · TT1 2" — the warehouse, then every room that has the product */
-function splitText(q){ return 'WH '+(q.whKnown?fmtN(q.wh):'—')+(q.stKnown?q.rooms.map(r=>' · '+r[0]+' '+fmtN(r[1])).join(''):' · rooms —'); }
+function splitText(q){ const p=[]; if(q.whKnown ? (q.wh!==0 || !q.rooms.length) : !q.rooms.length) p.push('WH '+(q.whKnown?fmtN(q.wh):'—'));   // a place that holds nothing is not shown
+  q.rooms.forEach(r=>p.push(r[0]+' '+fmtN(r[1]))); return p.join(' · ')+(q.stKnown?'':' · rooms —'); }
 const SPLIT_TIP='WH — warehouse, inventory count (live) · rooms — CPH INVENTORY (live): '+ROOM_TAGS.map(r=>r[1]+' '+r[2]).join(', ');
-function splitChip(iv){
-  const q=qtySplit(iv); if(!q) return '';
+function splitChipQ(q){
+  if(!q) return '';
   const cls=q.tot<=0?'zero':'';
   return '<span class="pkstock split '+cls+'" title="'+esc(SPLIT_TIP+(q.whKnown?'':' · WH not counted yet'))+'">📦 '+fmtN(q.tot)+' <small>'+splitText(q)+'</small></span>';
 }
+function splitChip(iv){ return splitChipQ(qtySplit(iv)); }
 function fmtN(n){ return (+n||0).toLocaleString('en-US'); }
 function shelfList(iv){
   if(!iv) return null;
@@ -2862,7 +2873,9 @@ let guideFrom='platforms';
 function enterGuide(from){ dsohInfo(); guideFrom=from||'platforms'; show('guide'); guideAutoLoad(); buildGuideFilters(); setGuideTab(guideTab); const i=$('#guideName'); if(i && guideTab==='items'){ i.value=guideF.name||''; i.focus(); } }
 /* ---- Damaged & Confirmed (from the live inventory count) ---- */
 let guideTab='items', dcMode='damaged', dcQ='';
-const isPlainVar = lbl => /^default$/i.test(lbl) || /^case\b/i.test(lbl) || /^\d+\s*pcs?\.?$/i.test(lbl) || /^\d+\s*packs?$/i.test(lbl);
+/* "plain" variations are packaging, not a confirmed variation: Default, Case, Case of X, X pc, X pack */
+const isPlainVar = lbl => { const s=String(lbl==null?'':lbl).trim();
+  return !s || /^default$/i.test(s) || /^case\b/i.test(s) || /^case(of)?\d*$/i.test(s) || /^\d+\s*pcs?\.?$/i.test(s) || /^\d+[\s-]*packs?$/i.test(s); };
 function varLabelOf(name, vk){ const c=clean(name); for(const ik in S.inventory){ const iv=S.inventory[ik]; if(clean(iv.name)===c && clean(iv.variation)===vk) return iv.variation; } return vk; }
 function setGuideTab(t){ guideTab=t; $$('#guideTabs button').forEach(b=>b.classList.toggle('on', b.dataset.gt===t));
   $('#guideDC').classList.toggle('hide', t!=='dc'); $('#guideSearchCard').classList.toggle('hide', t!=='items'); $('#guideResults').classList.toggle('hide', t!=='items');
@@ -2922,41 +2935,117 @@ function renderGuideChips(){
   el.innerHTML=h;
   $$('#guideChips [data-fclear]').forEach(b=>b.onclick=()=>{ const f=b.dataset.fclear; guideF[f]=''; if(f==='name'){ const i=$('#guideName'); if(i) i.value=''; } buildGuideFilters(); renderGuide(); });
 }
+/* ---- one card per product: the Default row on top, its variations listed under it ---- */
+function isDefaultVar(v){ const n=norm(v); return !n || n==='default'; }
+/* a count key that belongs to this variation alone (the counting workbook lists it as its own item) */
+function varOwnKey(iv){
+  if(!iv || isDefaultVar(iv.variation)) return null;
+  const t=clean((iv.name||'')+iv.variation); if(!t) return null;
+  if(STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[t]) return t;
+  return NAMEK.has(t) ? NAMEK.get(t) : null;
+}
+/* the CPH INVENTORY key of one inventory row */
+function roomKeyOf(v){ if(!ROOMQ||!v||!v.name) return null; const k=invFbKey(keyOf(v.name,v.variation||'')); if(ROOMQ.has(k)) return k; if(!v.variation){ const d=invFbKey(keyOf(v.name,'default')); if(ROOMQ.has(d)) return d; } return null; }
+function roomsText(o){ return o?ROOM_TAGS.filter(t=>o[t[0]]).map(t=>t[1]+' '+fmtN(o[t[0]])).join(' · '):''; }
+/* all = every inventory row of one product name */
+function guideGroupInfo(all){
+  const single=all.length===1;
+  const base=all.find(v=>isDefaultVar(v.variation)) || (single ? all[0] : null);
+  const head=base||all[0];
+  const members=all.filter(v=>v!==base);
+  const label={}; all.forEach(v=>{ const vk=clean(v.variation); if(vk) label[vk]=v.variation; });
+  const probe=single ? head : {name:head.name, variation:''};
+  const kBase=stockKeyFor(probe);
+  const cells=(kBase && CELLS.get(kBase)) || null;
+  /* confirmed units are split by variation inside every counted cell (cv); damaged units are counted per cell */
+  const cvTot={}, cvLoc={}; let cases=0, dmgCnt=0, wh=null;
+  if(cells){ wh=0; for(const L in cells){ const c=cells[L]; if(!c||isStoreLoc(L)) continue;
+    wh+=cellUnits(kBase,c); cases+=(+c.s||0); dmgCnt+=(+c.d||0);
+    if(!c.cv) continue;
+    for(const vk in c.cv){ const n=+c.cv[vk]||0; if(n<=0) continue; cvTot[vk]=(cvTot[vk]||0)+n; (cvLoc[vk]=cvLoc[vk]||[]).push(L); } } }
+  let confirmed=0; for(const vk in cvTot){ if(!isPlainVar(label[vk]||vk)) confirmed+=cvTot[vk]; }
+  const rows=[], seen=new Set(), ownSeen=new Set();
+  members.forEach(v=>{
+    const vk=clean(v.variation), own=varOwnKey(v); seen.add(vk);
+    let qty=null, unit='', locs=[];
+    if(own && own!==kBase){                                   // counted as its own item
+      const oc=CELLS.get(own)||{}; let w=0;
+      for(const L in oc){ if(isStoreLoc(L)) continue; const u=cellUnits(own,oc[L]); w+=u; if(u>0) locs.push(L); if(!ownSeen.has(own)) dmgCnt+=(+(oc[L]||{}).d||0); }
+      qty=w;
+      if(!ownSeen.has(own)){ ownSeen.add(own); wh=(wh||0)+w; }
+    }
+    else if(cvTot[vk]!=null){ qty=cvTot[vk]; locs=cvLoc[vk]||[]; }
+    else if(cells && /^case\b/i.test(String(v.variation).trim())){ qty=cases; unit=' case'+(cases===1?'':'s'); }
+    else if(!cells && v.stock!=null){ qty=+v.stock||0; }      // never counted → the sheet's figure
+    else if(cells && !isPlainVar(v.variation)){ qty=0; }
+    const rk=roomKeyOf(v);
+    rows.push({name:v.variation||'—', qty, unit, locs, rooms:rk?roomsText(ROOMQ.get(rk)):'', barcode:v.barcode, iv:v});
+  });
+  /* variations the count knows about that have no row in the inventory sheet */
+  for(const vk in cvTot){ if(seen.has(vk) || vk==='default' || (base && vk===clean(base.variation))) continue;
+    rows.push({name:label[vk]||vk, qty:cvTot[vk], unit:'', locs:cvLoc[vk]||[], rooms:'', barcode:''}); }
+  /* the rooms: every variation of the product together */
+  let rooms=null;
+  if(ROOMQ){ const m={}, ks=new Set(); all.forEach(v=>{ const k=roomKeyOf(v); if(k) ks.add(k); }); ks.forEach(k=>{ const o=ROOMQ.get(k); for(const loc in o) m[loc]=(m[loc]||0)+o[loc]; });
+    rooms=ROOM_TAGS.filter(t=>m[t[0]]).map(t=>[t[1],m[t[0]]]); }
+  const st=rooms?rooms.reduce((n,r)=>n+r[1],0):0;
+  const q=(wh==null && !(rooms&&rooms.length)) ? null : {wh:wh||0, st, rooms:rooms||[], tot:(wh||0)+st, whKnown:wh!=null, stKnown:rooms!=null};
+  let dmgSheet=null, stock=null;
+  all.forEach(v=>{ if(v.damaged!=null) dmgSheet=(dmgSheet||0)+(+v.damaged||0); if(v.stock!=null) stock=(stock||0)+(+v.stock||0); });
+  /* damaged: the live count when the product is counted, the inventory sheet otherwise */
+  const dmg=wh!=null ? dmgCnt : dmgSheet;
+  return {base, head, rows, q, confirmed, dmg, dmgLive:wh!=null, stock};
+}
 function renderGuide(){
   const area=$('#guideResults'); if(!area) return;
   renderGuideChips();
   const src=guideSource();
   if(Object.keys(src).length===0){ area.innerHTML='<div class="empty">Catalog is not loaded yet.</div>'; $('#guideCount').textContent='—'; return; }
   const nameQ=norm(guideF.name);
-  let list=[];
-  for(const k in src){ const v=src[k];
+  const groups=new Map(), hit=new Set(), exact=new Set(), exactIv=new Set();
+  for(const k in src){ const v=src[k]; if(!v || !v.name) continue;
+    const gk=norm(v.name);
+    (groups.get(gk)||groups.set(gk,[]).get(gk)).push(v);
     if(guideF.type && norm(v.type)!==norm(guideF.type)) continue;
     if(guideF.brand && norm(v.brand)!==norm(guideF.brand)) continue;
     if(guideF.series && norm(v.series)!==norm(guideF.series)) continue;
-    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ)
-       || barcodesOf(v.barcode).some(b=>b.includes(nameQ)))) continue;
-    list.push(v);
+    const bcs=barcodesOf(v.barcode);
+    if(nameQ && !(norm(v.name).includes(nameQ) || norm(v.variation).includes(nameQ) || bcs.some(b=>b.includes(nameQ)))) continue;
+    hit.add(gk);
+    // a scanned barcode should land on exactly that product, not on everything that contains it
+    if(nameQ && bcs.includes(nameQ)){ exact.add(gk); exactIv.add(v); }
   }
-  // a scanned barcode should land on exactly that product, not on everything that contains it
-  if(nameQ){ const exact=list.filter(v=>barcodesOf(v.barcode).includes(nameQ)); if(exact.length) list=exact; }
-  list.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')) || String(a.variation||'').localeCompare(String(b.variation||'')));
-  $('#guideCount').textContent=list.length+' item'+(list.length===1?'':'s');
-  if(!list.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
+  const keys=[...(exact.size?exact:hit)].sort((a,b)=>a.localeCompare(b));
+  $('#guideCount').textContent=keys.length+' product'+(keys.length===1?'':'s');
+  if(!keys.length){ area.innerHTML='<div class="empty">No products match the current filters.</div>'; return; }
   let h='<div class="pklist" style="margin-top:14px">';
-  for(const v of list){
-    const img=v.image||PLACEHOLDER; const loc=locOf(v);
-    const stock=(v.stock==null)?null:v.stock; const dmg=(v.damaged==null)?null:v.damaged;
-    let chips=splitChip(v); if(!chips && stock!=null) chips+='<span class="pkstock '+(stock<=0?'zero':'')+'">stock '+stock+'</span>';
-    if(dmg!=null&&dmg>0) chips+='<span class="pkstock dmg '+(stock!=null&&dmg>=stock?'':'low')+'">✖ damaged '+dmg+'</span>';
+  for(const gk of keys){
+    const all=groups.get(gk).slice().sort((a,b)=>String(a.variation||'').localeCompare(String(b.variation||''),undefined,{numeric:true}));
+    const g=guideGroupInfo(all), v=g.head;
+    const img=v.image||(all.find(x=>x.image)||{}).image||PLACEHOLDER; const loc=locOf(v);
+    const total=g.q?g.q.tot:g.stock;
+    let chips=splitChipQ(g.q); if(!chips && g.stock!=null) chips+='<span class="pkstock '+(g.stock<=0?'zero':'')+'">stock '+fmtN(g.stock)+'</span>';
+    if(g.dmg>0) chips+='<span class="pkstock dmg '+(total!=null&&g.dmg>=total?'':'low')+'" title="'+(g.dmgLive?'Damaged units in the warehouse — from the inventory count (included in WH)':'Damaged units — from the inventory sheet')+'">✖ damaged '+fmtN(g.dmg)+'</span>';
+    if(g.confirmed>0) chips+='<span class="pkstock conf" title="Confirmed units of real variations (not Default / Case / N pc / N pack) — from the inventory count (included in WH)">✓ confirmed '+fmtN(g.confirmed)+'</span>';
     const bcs=barcodesOf(v.barcode); if(bcs.length) chips+='<span class="pkstock">⌗ '+esc(bcs.join(' · '))+'</span>';
     let tags='';
     if(v.type) tags+='<span class="gtag type">'+esc(v.type)+'</span>';
     if(v.brand) tags+='<span class="gtag brand">'+esc(v.brand)+'</span>';
     if(v.series) tags+='<span class="gtag series">'+esc(v.series)+'</span>';
+    const sub = g.base ? (g.base.variation || (g.rows.length?'Default':'')) : '';
+    let vars='';
+    if(g.rows.length){
+      vars='<div class="gvars"><div class="gvhead">Variations · '+g.rows.length+'</div>'+g.rows.map(r=>{
+        const b=barcodesOf(r.barcode);
+        const info=[(r.locs&&r.locs.length)?'📍 '+r.locs.slice(0,3).join(' · ')+(r.locs.length>3?' +'+(r.locs.length-3):''):'', r.rooms||'', b.length?'⌗ '+b.join(' · '):''].filter(Boolean).join('   ');
+        return '<div class="gvrow'+(r.qty===0&&!r.rooms?' zero':'')+(r.iv&&exactIv.has(r.iv)?' hit':'')+'"><span class="gvname">'+esc(r.name)+'</span>'+
+          '<span class="gvsub">'+esc(info)+'</span><span class="gvqty">'+(r.qty==null?'':fmtN(r.qty)+esc(r.unit||''))+'</span></div>';
+      }).join('')+'</div>';
+    }
     h+='<div class="pkitem"><img class="thumb pkimg" src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'" alt="'+esc(v.name)+'">'+
-       '<div><div class="pkname">'+esc(v.name)+'</div>'+(v.variation?'<div class="pkvar">'+esc(v.variation)+'</div>':'')+
+       '<div style="min-width:0"><div class="pkname">'+esc(v.name)+'</div>'+(sub?'<div class="pkvar">'+esc(sub)+'</div>':'')+
        '<div class="pkmeta"><span class="loc-big">📍 '+esc(loc)+'</span>'+chips+'</div>'+
-       (tags?'<div class="gtags">'+tags+'</div>':'')+'</div></div>';
+       vars+(tags?'<div class="gtags">'+tags+'</div>':'')+'</div></div>';
   }
   h+='</div>';
   area.innerHTML=h;
