@@ -803,7 +803,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn ghost" id="guideBack">← Back</button>
       <h1 style="margin:0">📖 Product Guidebook</h1>
       <div class="spacer"></div>
-      <button class="btn ghost" id="guideSoh" title="Store quantities come from the Daily SOH sheet (LS EOD SOH, latest filled day). Re-read now — it also refreshes itself at 7:00 and 16:00.">↻ Daily SOH <span class="mono" id="guideSohInfo" style="opacity:.75">…</span></button>
+      <span class="pill" title="WH — warehouse, the inventory count. SR Stockroom · TT1 TikTok 1 · EB Ebay · WN WhatNot · S&amp;S Single &amp; Slab · SG Streaming Game Area · CS Card Show — live from CPH INVENTORY.">📍 WH · SR · TT1 · EB · WN · S&amp;S · SG · CS</span><button class="btn ghost hide" id="guideSoh">↻ Daily SOH <span class="mono" id="guideSohInfo" style="opacity:.75">…</span></button>
       <div class="pill" id="guideCount">—</div>
     </div>
     <div class="seg gt" id="guideTabs" style="margin-bottom:12px"><button data-gt="items" class="on">📖 Products</button><button data-gt="dc">🩹 Damaged &amp; Confirmed</button></div>
@@ -1002,7 +1002,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-17a · transfers into the warehouse';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-17b · stock by room from CPH INVENTORY';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1195,19 +1195,50 @@ function stockKeyFor(iv){
   for(const t of tries){ if(!t) continue; if(STOCK_BASE && STOCK_BASE.items && STOCK_BASE.items[t]) return t; if(NAMEK.has(t)) return NAMEK.get(t); }
   return null;
 }
+/* ============================================================
+   STOCK IN THE ROOMS — read from CPH INVENTORY (never written here)
+   balances of every location + what sits in the open games / shows there
+   ============================================================ */
+const INV_CONFIG={apiKey:"AIzaSyAsTYwU0qABmXKuYSpyendwHw3djJc-Bqo",authDomain:"calipoke-inventory.firebaseapp.com",databaseURL:"https://calipoke-inventory-default-rtdb.firebaseio.com",projectId:"calipoke-inventory",storageBucket:"calipoke-inventory.firebasestorage.app",messagingSenderId:"156640764541",appId:"1:156640764541:web:833f96e4b0849b53454714"};
+const ROOM_TAGS=[['stockroom','SR','Stockroom'],['tiktok1','TT1','TikTok 1'],['ebay','EB','Ebay'],['whatnot','WN','WhatNot'],['singleslab','S&S','Single & Slab'],['gamearea','SG','Streaming Game Area'],['cardshow','CS','Card Show']];
+const invFbKey=k=>String(k).replace(/[.#$\/\[\]]/g,'_');
+let ROOM_BAL=null, ROOM_SUBS=null, ROOMQ=null;   // ROOMQ: item key → {location id: units}
+function roomsRebuild(){
+  if(ROOM_BAL==null){ ROOMQ=null; return; }
+  const m=new Map(); const add=(loc,k,q)=>{ q=+q||0; if(!q) return; let o=m.get(k); if(!o){ o={}; m.set(k,o); } o[loc]=(o[loc]||0)+q; };
+  for(const loc in ROOM_BAL){ const b=ROOM_BAL[loc]||{}; for(const k in b) add(loc,k,b[k]); }
+  for(const id in (ROOM_SUBS||{})){ const sb=ROOM_SUBS[id]; if(!sb||sb.status==='closed'||!sb.at) continue; for(const k in (sb.items||{})) add(sb.at,k,sb.items[k]); }
+  ROOMQ=m;
+  if(['guide','pack','picking'].includes(curScreen)) renderCurrent();
+}
+function roomsWatch(){
+  try{ const a=(firebase.apps||[]).find(x=>x.name==='cphinv')||firebase.initializeApp(INV_CONFIG,'cphinv'); const R=firebase.database(a).ref('inv');
+    R.child('balances').on('value',sn=>{ ROOM_BAL=sn.val()||{}; roomsRebuild(); },e=>console.warn('rooms',e));
+    R.child('subs').on('value',sn=>{ ROOM_SUBS=sn.val()||{}; roomsRebuild(); },e=>console.warn('rooms',e));
+  }catch(e){ console.warn('rooms',e); }
+}
+/* [[tag, units], …] for the rooms that have this product; null while CPH INVENTORY is not read yet */
+function roomsOf(iv){
+  if(!ROOMQ||!iv||!iv.name) return ROOMQ?[]:null;
+  const o=ROOMQ.get(invFbKey(keyOf(iv.name,iv.variation||'')))||(!iv.variation?ROOMQ.get(invFbKey(keyOf(iv.name,'default'))):null); if(!o) return [];
+  return ROOM_TAGS.filter(r=>o[r[0]]).map(r=>[r[1],o[r[0]]]);
+}
 /* total on hand from the count: {wh, st, tot} — or from Daily SOH when the count has never seen the product */
-/* WH = the live inventory count (every location except the store); Store = LS EOD SOH of the Daily SOH sheet */
+/* WH = the live inventory count (every location except the store); rooms = CPH INVENTORY balances */
 function qtySplit(iv){
   const k=stockKeyFor(iv); const cells=k && CELLS.get(k);
   let wh=null; if(cells){ wh=0; for(const L in cells){ if(!isStoreLoc(L)) wh+=cellUnits(k,cells[L]); } }
-  let st=null; if(DSOH && DSOH.items){ const d=DSOH.items[dsohNorm(iv.name)]; if(d) st=d.ls||0; }
-  if(wh==null && st==null) return null;
-  return {wh:wh||0, st:st||0, tot:(wh||0)+(st||0), whKnown:wh!=null, stKnown:st!=null};
+  const rooms=roomsOf(iv); const st=rooms?rooms.reduce((n,r)=>n+r[1],0):null;
+  if(wh==null && !(rooms && rooms.length)) return null;
+  return {wh:wh||0, st:st||0, rooms:rooms||[], tot:(wh||0)+(st||0), whKnown:wh!=null, stKnown:rooms!=null};
 }
+/* "WH 12 · SR 3 · TT1 2" — the warehouse, then every room that has the product */
+function splitText(q){ return 'WH '+(q.whKnown?fmtN(q.wh):'—')+(q.stKnown?q.rooms.map(r=>' · '+r[0]+' '+fmtN(r[1])).join(''):' · rooms —'); }
+const SPLIT_TIP='WH — warehouse, inventory count (live) · rooms — CPH INVENTORY (live): '+ROOM_TAGS.map(r=>r[1]+' '+r[2]).join(', ');
 function splitChip(iv){
   const q=qtySplit(iv); if(!q) return '';
-  const cls=q.tot<=0?'zero':''; const t='WH — inventory count (live)'+(q.whKnown?'':' · not counted yet')+' · Store — Daily SOH '+(DSOH&&DSOH.date?'for '+DSOH.date:'')+(q.stKnown?'':' · no row for this product');
-  return '<span class="pkstock split '+cls+'" title="'+esc(t)+'">📦 '+fmtN(q.tot)+' <small>WH '+(q.whKnown?fmtN(q.wh):'—')+' · Store '+(q.stKnown?fmtN(q.st):'—')+'</small></span>';
+  const cls=q.tot<=0?'zero':'';
+  return '<span class="pkstock split '+cls+'" title="'+esc(SPLIT_TIP+(q.whKnown?'':' · WH not counted yet'))+'">📦 '+fmtN(q.tot)+' <small>'+splitText(q)+'</small></span>';
 }
 function fmtN(n){ return (+n||0).toLocaleString('en-US'); }
 function shelfList(iv){
@@ -1222,7 +1253,7 @@ function locOf(iv){
     const shown=list.slice(0,3).map(x=>x.L).join(' · ');
     return shown + (list.length>3 ? ' +'+(list.length-3) : '');
   }
-  if(DSOH && DSOH.items){ const d=DSOH.items[dsohNorm(iv && iv.name)]; if(d && (d.ls||0)>0) return 'Store'; }   // only in the shop (Daily SOH)
+  { const r=(roomsOf(iv)||[]).filter(x=>x[1]>0); if(r.length) return r.map(x=>x[0]).join(' · '); }   // not on a warehouse shelf — only in the rooms (CPH INVENTORY)
   return (iv && iv.location) || '—';
 }
 
@@ -1541,8 +1572,8 @@ function connect(){
   db.ref(STOCK_PATH+'/meta/freeze').on('value', snap=>{ FREEZE=snap.val()||null; if(curScreen==='platforms') renderShiftBar(); });
   /* Transfer Requests delivered to the Warehouse are put on the return location of the count */
   db.ref('packstation/transfers').orderByChild('status').equalTo('ready').on('value', snap=>{ WH_TR=snap.val()||{}; whTransfersIn(); });
-  /* Daily SOH — fallback quantities for products the count has not seen; refreshed every 30 min */
-  dsohTick(); setInterval(()=>dsohTick(), 10*60*1000);
+  /* stock in the rooms — live from CPH INVENTORY (read only) */
+  roomsWatch();
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
   // the list of shifts is a small index node — the heavy order data is only fetched
@@ -2465,7 +2496,7 @@ function renderOrderArea(){
     const iv=S.inventory[it.invKey]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv); const stock=(iv.stock==null)?null:iv.stock;
     const pk=activePick[idx]; const q=pk.qty||1; const multi=q>1; const full=pk.count>=q;
     let stockChip=''; const qs=qtySplit(iv);
-    if(qs) stockChip='<span class="chip stock '+(qs.tot<=0?'zero':(qs.wh<q?'low':''))+'" title="WH — inventory count (live) · Store — Daily SOH LS EOD">📦 <b>'+fmtN(qs.tot)+'</b> · WH '+(qs.whKnown?fmtN(qs.wh):'—')+' · Store '+(qs.stKnown?fmtN(qs.st):'—')+'</span>';
+    if(qs) stockChip='<span class="chip stock '+(qs.tot<=0?'zero':(qs.wh<q?'low':''))+'" title="'+esc(SPLIT_TIP)+'">📦 <b>'+fmtN(qs.tot)+'</b> · '+splitText(qs)+'</span>';
     else if(stock!=null){ const cls=stock<=0?'zero':(stock<q?'low':''); stockChip='<span class="chip stock '+cls+'">stock <b>'+stock+'</b></span>'; }
     const dmg=(iv.damaged==null)?null:iv.damaged;
     if(dmg!=null && dmg>0){ const dcls=(stock!=null&&dmg>=stock)?'zero':'low'; stockChip+='<span class="chip stock dmg '+dcls+'">✖ dmg <b>'+dmg+'</b></span>'; }

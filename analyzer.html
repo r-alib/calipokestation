@@ -698,6 +698,64 @@ function indexListings(d) {
     tab.names.forEach(n => { if (!DATA.lstByItem.has(n)) DATA.lstByItem.set(n, []); DATA.lstByItem.get(n).push(t); });
   });
 }
+/* ------------------- stock by location (read only) -------------------
+   WH    = the warehouse inventory count of the Pack Station
+   rooms = CPH INVENTORY balances + what sits in the open games / shows   */
+const LOC_DB = {
+  bal  : 'https://calipoke-inventory-default-rtdb.firebaseio.com/inv/balances.json',
+  subs : 'https://calipoke-inventory-default-rtdb.firebaseio.com/inv/subs.json',
+  base : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/stockCount/base/items.json',
+  cnt  : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/stockCount/counts.json'
+};
+const LOC_TAGS = [['stockroom', 'SR', 'Stockroom'], ['tiktok1', 'TT1', 'TikTok 1'], ['ebay', 'EB', 'Ebay'], ['whatnot', 'WN', 'WhatNot'],
+  ['singleslab', 'S&S', 'Single & Slab'], ['gamearea', 'SG', 'Streaming Game Area'], ['cardshow', 'CS', 'Card Show']];
+const LOC_FRESH_MS = 2 * 60 * 1000;
+const locClean = v => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]/g, '');
+const locFb = k => String(k).replace(/[.#$\/\[\]]/g, '_');
+async function loadLocStock(force) {
+  const key = 'locs1';
+  if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < LOC_FRESH_MS) return hit.data; }
+  try {
+    const get = async u => { const r = await fetch(u + '?_=' + Date.now(), {cache: 'no-store', credentials: 'omit'}); if (!r.ok) throw new Error('HTTP ' + r.status); return (await r.json()) || {}; };
+    const [bal, subs, base, cnt] = await Promise.all([get(LOC_DB.bal), get(LOC_DB.subs), get(LOC_DB.base), get(LOC_DB.cnt)]);
+    const rooms = {}, wh = {};
+    const add = (loc, k, q) => { q = +q || 0; if (!q) return; const nm = String(k).split('||')[0]; (rooms[nm] = rooms[nm] || {})[loc] = ((rooms[nm] || {})[loc] || 0) + q; };
+    for (const loc in bal) for (const k in (bal[loc] || {})) add(loc, k, bal[loc][k]);
+    for (const id in subs) { const sb = subs[id]; if (!sb || sb.status === 'closed' || !sb.at) continue; for (const k in (sb.items || {})) add(sb.at, k, sb.items[k]); }
+    const items = Array.isArray(base) ? Object.fromEntries(base.filter(Boolean).map(x => [x.k || locClean(x.n), x])) : base;
+    for (const L in cnt) {
+      if (String(L).toUpperCase() === 'STORE') continue;
+      const c = cnt[L] || {};
+      for (const k in c) {
+        const v = c[k]; if (!v || typeof v !== 'object') continue;
+        const b = items[k] || {}, q = b.q > 0 ? +b.q : 1;
+        const u = (v.s || 0) * q + (v.b || 0) + (v.c || 0) + (v.d || 0);
+        const ck = locClean(v.n || b.n || k);
+        wh[ck] = (wh[ck] || 0) + u;
+      }
+    }
+    const data = {rooms, wh, at: Date.now()};
+    await IDB.set(key, {ts: Date.now(), data});
+    return data;
+  } catch (e) { const stale = await IDB.get(key); if (stale) return Object.assign({stale: e.message}, stale.data); throw e; }
+}
+/* chips for the item card: "WH 120", then every room that has the product */
+function locChipsHTML(key, name) {
+  const d = DATA.locs;
+  /* the card is opened long after the page was loaded — read the stock again */
+  if (d && Date.now() - d.at > LOC_FRESH_MS && Date.now() - (DATA.locTried || 0) > LOC_FRESH_MS) {
+    DATA.locTried = Date.now();
+    loadLocStock(true).then(x => { DATA.locs = x; DATA.locErr = x.stale || ''; if (UI.view === 'item' && UI.item) refresh(true); }).catch(() => {});
+  }
+  if (!d) return '<span class="chip" title="' + esc(DATA.locErr || 'reading…') + '">📍 locations ' + (DATA.locErr ? 'unavailable' : '…') + '</span>';
+  const n = v => Number(v).toLocaleString('en-US');
+  const ck = locClean(name || key), out = [];
+  const w = d.wh[ck];
+  out.push('<span class="chip' + (w > 0 ? ' b' : '') + '" title="Warehouse — the inventory count of the Pack Station' + (w == null ? ' · not counted' : '') + '">📍 WH ' + (w == null ? '—' : n(w)) + '</span>');
+  const r = d.rooms[locFb(key)] || d.rooms[locFb(norm(name))] || {};
+  LOC_TAGS.forEach(t => { if (r[t[0]]) out.push('<span class="chip' + (r[t[0]] < 0 ? ' crit' : '') + '" title="' + esc(t[2]) + ' — CPH INVENTORY">' + esc(t[1]) + ' ' + n(r[t[0]]) + '</span>'); });
+  return out.join('');
+}
 /* ------------------------- new-item shipping data ------------------------- */
 async function loadShipInfo(force) {
   const key = 'ship1';
@@ -840,6 +898,8 @@ const DATA = {
   wm      : null, wmErr: '',  // Walmart catalog snapshot
   ship    : new Map(),   // norm(item name) -> {l, w, h, wt, cost}  (New Shipment → New items)
   shipErr : '',
+  locs    : null,         // stock by location: {rooms:{name:{loc:qty}}, wh:{cleanName:qty}}
+  locErr  : '',
   loadedAt: 0
 };
 const FILTER = {
@@ -1449,12 +1509,12 @@ function viewItem(root) {
     if (inv.type)   chips.appendChild(el('span', {class: 'chip b', text: inv.type}));
     if (inv.brand)  chips.appendChild(el('span', {class: 'chip', text: inv.brand}));
     if (inv.series) chips.appendChild(el('span', {class: 'chip', text: inv.series}));
-    if (inv.location) chips.appendChild(el('span', {class: 'chip', text: '📍 ' + inv.location}));
     if (inv.barcode)  chips.appendChild(el('span', {class: 'chip', text: '▮▮ ' + inv.barcode}));
     if (inv.damaged)  chips.appendChild(el('span', {class: 'chip crit', text: inv.damaged + ' damaged'}));
   } else {
     chips.appendChild(el('span', {class: 'chip warn', text: 'Not in the inventory sheet'}));
   }
+  chips.insertAdjacentHTML('beforeend', locChipsHTML(key, it.name));
   info.appendChild(chips);
   if (DATA.lst) {
     const lc = el('div', {class: 'chips', style: 'margin-top:7px'});
@@ -2393,12 +2453,15 @@ async function reload(force) {
     .catch(e => { DATA.lstErr = e.message; });
   const shipP = loadShipInfo(force).then(d => { indexShipInfo(d); DATA.shipErr = ''; })
     .catch(e => { DATA.shipErr = e.message; });
+  const locP = loadLocStock(force).then(d => { DATA.locs = d; DATA.locErr = d.stale || ''; })
+    .catch(e => { DATA.locErr = e.message; });
   const failed = await ensureWeeks(force);
   await Promise.race([Promise.all([costP, lstP, wmP, shipP]), new Promise(r => setTimeout(r, 6000))]);
   lstP.then(() => { if (DATA.lst) refresh(true); });
   wmP.then(() => { if (DATA.wm && UI.view === 'wm') refresh(true); });   // do not hold the screen for a slow cost table
   costP.then(() => { if (DATA.cost.size) refresh(true); });
   shipP.then(() => { if (DATA.ship.size && UI.view === 'item' && UI.item) refresh(true); });
+  locP.then(() => { if (UI.view === 'item' && UI.item) refresh(true); });
   $('#bootBar').style.width = '100%';
   DATA.loadedAt = Date.now();
   $('#boot').classList.add('hide'); $('#views').classList.remove('hide');
