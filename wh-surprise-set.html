@@ -80,7 +80,7 @@ tr.bad td{background:#2a1116} tr.bad td:first-child{box-shadow:inset 3px 0 0 var
   <div class="spacer"></div>
   <span class="badge" id="srcPill">loading…</span>
   <button class="btn sm" id="reloadSrc" title="Re-read the inventory sheet and the warehouse count">⟳ Inventory</button>
-  <span class="mini">v2026-11-18a</span>
+  <span class="mini">v2026-11-18b</span>
   <div id="hdrUser"></div>
 </header>
 <main id="app" class="hide">
@@ -129,7 +129,7 @@ let _m=null; function modal(h,wide){ closeModal(); const bg=document.createEleme
 let DB=null, R=null, ME='', IS_ADMIN=false;
 let INV={items:{},names:[],bc:{},at:0}, STOCK=null, SRC_ERR=[];
 let SETS={}, ALIASES={}, SETTINGS={}, STREAMS={};
-let VIEW={name:'home'};            // home | review | check | live | report | sets | rules | history
+let VIEW={name:'home'};            // home | review | check | live | watch | report | sets | rules | history
 let DRAFT=null;                    // the file being reviewed before it becomes a stream
 
 /* ---------------- sources (read only) ---------------- */
@@ -519,7 +519,7 @@ function streamCard(id){
   const s=STREAMS[id];
   return '<div class="card" style="margin-top:0"><div class="row"><h2>'+esc(s.name)+'</h2><div class="spacer"></div>'+(IS_ADMIN?'<button class="btn sm danger" data-del="'+id+'" title="Delete the stream">✕</button>':'')+'</div>'+
     '<div class="mini">'+esc(s.file||'')+' · prepared by '+esc(s.createdBy||'')+' · '+hhmm(s.createdAt)+'</div>'+
-    '<div class="row" style="margin-top:10px"><button class="btn" data-check="'+id+'">🧺 Picker checklist</button></div>'+
+    '<div class="row" style="margin-top:10px"><button class="btn" data-check="'+id+'">🧺 Picker checklist</button><button class="btn" data-watch="'+id+'" title="Follow the stream from the side: what is sold, what is left, the scan history. Nothing can be scanned or changed there.">👁 Watch</button></div>'+
     roundKeys(s).map(k=>{ const r=s.rounds[k], t=roundStats(s,k);
       return '<div class="rcard"><div class="row"><b style="font:700 15px var(--disp)">'+esc(r.label)+'</b> '+stBadge(r.status)+'<div class="spacer"></div><span class="mono" style="font-size:15px">'+t.left+' / '+t.total+' left</span></div>'+
         '<div class="bar"><i style="width:'+(t.total?Math.round(100*t.sold/t.total):0)+'%"></i></div>'+
@@ -527,6 +527,7 @@ function streamCard(id){
 }
 function wireStreamCards(){
   $$('[data-check]').forEach(b=>b.onclick=()=>{ VIEW={name:'check',sid:b.dataset.check,scope:'both'}; render(); });
+  $$('[data-watch]').forEach(b=>b.onclick=()=>openWatch(b.dataset.watch));
   $$('[data-live]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.live.split('|'); startRound(sid,rk); });
   $$('[data-rep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.rep.split('|'); VIEW={name:'report',sid,rk}; render(); });
   $$('[data-del]').forEach(b=>b.onclick=async()=>{ const s=STREAMS[b.dataset.del]; if(!s||!confirm('Delete “'+s.name+'” with its history? This cannot be undone.')) return; await R.child('streams/'+b.dataset.del).remove(); toast('Deleted','ok'); });
@@ -733,6 +734,55 @@ function renderReport(){
   const nx=$('#rpNext'); if(nx) nx.onclick=()=>startRound(VIEW.sid,next);
 }
 
+/* ---------------- watch: follow a stream from the side (read only) ----------------
+   Shows the same numbers as the live round — prepared / sold / left per item and the scan
+   history — and updates by itself. There is no scan field and no Sold / Undo button here,
+   and opening it never starts or changes a round. */
+let watchOut=true, watchT=null;
+function openWatch(sid, from){ const s=STREAMS[sid]; if(!s) return; const ks=roundKeys(s);
+  const rk=ks.find(k=>s.rounds[k].status==='live') || ks.find(k=>s.rounds[k].status!=='done') || ks[ks.length-1];
+  VIEW={name:'watch',sid,rk,from:from||(VIEW.name==='history'?'history':'home')}; render(); }
+const agoText=ts=>{ const m=Math.floor((Date.now()-ts)/60000); return m<1?'just now':m<60?m+' min ago':Math.floor(m/60)+' h '+(m%60)+' min ago'; };
+function renderWatch(){
+  const s=STREAMS[VIEW.sid]; if(!s||!s.rounds||!s.rounds[VIEW.rk]){ VIEW={name:VIEW.from==='history'?'history':'home'}; return render(); }
+  if(!$('#watchRoot') || $('#watchRoot').dataset.k!==VIEW.sid){
+    $('#body').innerHTML='<div id="watchRoot" data-k="'+VIEW.sid+'"><div class="row" style="margin-top:14px"><button class="btn ghost" id="wtBack">← '+(VIEW.from==='history'?'History':'Streams')+'</button><h1 id="wtTitle"></h1><span class="badge info" title="Nothing can be scanned or changed on this page">👁 watching · read only</span><div class="spacer"></div><span class="mini" id="wtUpd"></span></div>'+
+      '<div class="row" id="wtRounds" style="margin-top:10px"></div><div class="kvs" id="wtKpi" style="margin-top:12px"></div><div class="bar" style="margin-top:12px"><i id="wtBar"></i></div>'+
+      '<div class="live"><div><div class="card" style="margin-top:0"><div class="row"><h2>Scan history</h2><div class="spacer"></div><span class="mini" id="wtHistN"></span></div><div class="lscroll" id="wtHist" style="max-height:62vh"></div></div></div>'+
+      '<div><div class="card" style="margin-top:0"><div class="row"><h2>Items — prepared, sold, left</h2><div class="spacer"></div><label class="mini" style="cursor:pointer"><input type="checkbox" id="wtOut"'+(watchOut?' checked':'')+'> show sold out</label></div><div class="lscroll" id="wtList" style="max-height:62vh"></div></div></div></div></div>';
+    $('#wtBack').onclick=()=>{ VIEW={name:VIEW.from==='history'?'history':'home'}; render(); };
+    $('#wtOut').onchange=e=>{ watchOut=e.target.checked; updateWatch(); };
+    clearInterval(watchT); watchT=setInterval(()=>{ if(VIEW.name==='watch') updateWatch(); else { clearInterval(watchT); watchT=null; } },30000);   // keeps "… min ago" and the duration moving
+  }
+  updateWatch();
+}
+function updateWatch(){
+  const s=STREAMS[VIEW.sid]; if(!s||!$('#wtKpi')) return; const r=s.rounds[VIEW.rk]; if(!r) return;
+  const t=roundStats(s,VIEW.rk), lines=linesOf(s,VIEW.rk), sold=soldMap(s,VIEW.rk), sales=salesOf(s,VIEW.rk), good=sales.filter(x=>!x.u);
+  $('#wtTitle').textContent='👁 '+s.name;
+  $('#wtRounds').innerHTML=roundKeys(s).map(k=>{ const q=s.rounds[k], st=roundStats(s,k); return '<button class="btn'+(k===VIEW.rk?' primary':'')+'" data-wrk="'+k+'">'+esc(q.label)+' · '+st.sold+' / '+st.total+' sold</button> '+stBadge(q.status); }).join(' ');
+  $$('#wtRounds [data-wrk]').forEach(b=>b.onclick=()=>{ VIEW.rk=b.dataset.wrk; updateWatch(); });
+  const last=good.length?good[good.length-1].at:0, ms=r.startedAt?((r.endedAt||Date.now())-r.startedAt):0, perH=ms>5*60000?Math.round(t.sold/(ms/3600000)):null;
+  const kv=(n,l,st)=>'<div class="kv"><div class="n"'+(st?' style="'+st+'"':'')+'>'+n+'</div><div class="l">'+l+'</div></div>';
+  $('#wtKpi').innerHTML=kv(t.total,'prepared')+kv(t.sold,'sold','color:var(--ok)')+kv(t.left,'left',t.left?'':'color:var(--muted)')+
+    kv(r.startedAt?dur(ms):'—','duration'+(r.startedAt?' · '+hhmm(r.startedAt)+' – '+(r.endedAt?hhmm(r.endedAt):'now'):''))+
+    kv(last?hhmm(last):'—','last sale'+(last&&r.status==='live'?' · '+agoText(last):''),'font-size:20px;padding:4px 0')+
+    kv(perH==null?'—':perH,'sold per hour')+kv(sales.length-good.length,'undone scans');
+  $('#wtBar').style.width=(t.total?Math.round(100*t.sold/t.total):0)+'%';
+  $('#wtUpd').textContent=r.status==='live'?'updates by itself · '+hhmm(Date.now()):(r.status==='done'?'round finished':'round not started yet');
+  const rows=lines.map(l=>({l,left:leftOf(l,sold),sold:Math.min(l.qty,sold[l.id]||0)})).filter(x=>watchOut||x.left>0).sort((a,b)=>(a.left>0?0:1)-(b.left>0?0:1)||a.l.name.localeCompare(b.l.name));
+  const keep=$('#wtList').scrollTop, keepH=$('#wtHist').scrollTop;
+  $('#wtList').innerHTML=rows.length?rows.map(x=>'<div class="litem'+(x.left?'':' out')+'">'+imgOf(x.l.kind==='set'?(arr(x.l.comps)[0]||{}).name:x.l.name)+'<div class="nm"><b>'+esc(x.l.name)+'</b> '+tagsHTML(x.l)+
+      (x.l.kind==='set'?'<div class="mini">'+arr(x.l.comps).map(q=>esc(q.name)+(q.qty>1?' × '+q.qty:'')).join(' + ')+'</div>':'')+'<div class="mini">prepared '+x.l.qty+' · sold '+x.sold+'</div></div>'+
+      '<div class="left">'+x.left+'<span class="mini"> left</span></div>'+(x.left?'':'<span class="badge">sold out</span>')+'</div>').join('')
+    :'<div class="empty">'+(lines.length?'Everything is sold.':'No items in this set.')+'</div>';
+  $('#wtHistN').textContent=good.length+' sale(s)';
+  $('#wtHist').innerHTML=sales.length?sales.slice().reverse().map(x=>{ const l=lines.find(q=>q.id===x.l)||{name:'?',tags:[]};
+    return '<div class="hrow'+(x.u?' un':'')+'"><span class="mono" style="color:var(--muted)">'+hhmm(x.at)+'</span><span style="flex:1"><b>'+esc(l.name)+'</b> '+tagsHTML(l)+'</span><span class="mini">'+esc(x.by||'')+(x.via==='manual'?' · button':x.via==='typed'?' · typed':'')+(x.u?' · undone by '+esc(x.uby||''):'')+'</span></div>'; }).join('')
+    :'<div class="empty" style="padding:22px">No sales yet.</div>';
+  $('#wtList').scrollTop=keep; $('#wtHist').scrollTop=keepH;
+}
+
 /* ---------------- history ---------------- */
 function renderHistory(){
   const ids=Object.keys(STREAMS).sort((a,b)=>(STREAMS[b].createdAt||0)-(STREAMS[a].createdAt||0));
@@ -740,7 +790,7 @@ function renderHistory(){
   h+=ids.length?'<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th>Stream</th><th>Set</th><th>Status</th><th class="num">Prepared</th><th class="num">Sold</th><th class="num">Left</th><th>Time</th><th>By</th><th></th></tr></thead><tbody>'+
     ids.map(id=>{ const s=STREAMS[id]; return roundKeys(s).map((k,i)=>{ const r=s.rounds[k], t=roundStats(s,k);
       return '<tr><td>'+(i===0?'<b>'+esc(s.name)+'</b><div class="mini">'+esc(s.file||'')+'</div>':'')+'</td><td>'+esc(r.label)+'</td><td>'+stBadge(r.status)+'</td><td class="num">'+t.total+'</td><td class="num">'+t.sold+'</td><td class="num'+(t.left&&r.status==='done'?' low':'')+'">'+t.left+'</td><td class="mini">'+(r.startedAt?hhmm(r.startedAt)+(r.endedAt?' – '+hhmm(r.endedAt)+' · '+dur(r.endedAt-r.startedAt):' – …'):'—')+'</td><td class="mini">'+esc(r.startedBy||s.createdBy||'')+'</td>'+
-        '<td class="num"><button class="btn sm" data-hrep="'+id+'|'+k+'">Report</button>'+(i===0&&IS_ADMIN?' <button class="btn sm danger" data-del="'+id+'">✕</button>':'')+'</td></tr>'; }).join(''); }).join('')+'</tbody></table></div></div>'
+        '<td class="num">'+(i===0?'<button class="btn sm" data-watch="'+id+'">👁 Watch</button> ':'')+'<button class="btn sm" data-hrep="'+id+'|'+k+'">Report</button>'+(i===0&&IS_ADMIN?' <button class="btn sm danger" data-del="'+id+'">✕</button>':'')+'</td></tr>'; }).join(''); }).join('')+'</tbody></table></div></div>'
     :'<div class="empty">No streams yet.</div>';
   $('#body').innerHTML=h;
   $$('[data-hrep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.hrep.split('|'); VIEW={name:'report',sid,rk,from:'history'}; render(); });
@@ -750,12 +800,12 @@ function renderHistory(){
 /* ---------------- shell ---------------- */
 function render(){
   if(!R) return;
-  const top={home:'home',review:'home',check:'home',live:'home',report:VIEW.from==='history'?'history':'home',sets:'sets',rules:'rules',history:'history'}[VIEW.name]||'home';
+  const top={home:'home',review:'home',check:'home',live:'home',watch:VIEW.from==='history'?'history':'home',report:VIEW.from==='history'?'history':'home',sets:'sets',rules:'rules',history:'history'}[VIEW.name]||'home';
   $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===top));
   $('#topTabs').classList.toggle('hide',VIEW.name==='live');
   if(_m && VIEW.name!=='sets' && VIEW.name!=='review' && VIEW.name!=='rules') closeModal();
   if(_m) return;                                                  // an open editor is not redrawn under the user
-  ({home:renderHome,review:renderReview,check:renderCheck,live:renderLive,report:renderReport,sets:renderSets,rules:renderRules,history:renderHistory}[VIEW.name]||renderHome)();
+  ({home:renderHome,review:renderReview,check:renderCheck,live:renderLive,watch:renderWatch,report:renderReport,sets:renderSets,rules:renderRules,history:renderHistory}[VIEW.name]||renderHome)();
 }
 CPAuth.init({app:'station',header:'#hdrUser',onReady:start});
 function start(u){
