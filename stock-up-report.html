@@ -88,6 +88,18 @@ table.grid td.soh{font-family:var(--mono);font-weight:700;text-align:right;font-
 table.grid td.soh.match{background:#123524;color:#6FE3A0}
 table.grid td.soh.miss{background:#3a1719;color:#FF8A85}
 table.grid thead th.soh{color:var(--info)}
+/* count cell + the figure the system holds for it */
+.qcell{display:inline-flex;align-items:center;gap:4px}
+button.sys{min-width:34px;padding:3px 6px;border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--info);
+  font-family:var(--mono);font-size:11.5px;font-weight:700;cursor:pointer;line-height:1.2;font-variant-numeric:tabular-nums}
+button.sys:hover:not(:disabled){border-color:var(--info);background:rgba(57,135,229,.14)}
+button.sys.zero{color:var(--faint)} button.sys.same{color:#6FE3A0;border-color:#1d4530;background:#123524}
+button.sys.none{color:var(--faint);cursor:default;border-style:dashed}
+td.roomscell{font-family:var(--mono);font-size:11.5px;color:var(--info);text-align:right}
+.roomsys.zero,.roomsys.none{color:var(--faint)} .roomsys b{color:var(--ink,inherit)}
+textarea.sohp.auto{color:var(--info);cursor:default;text-align:right}
+.sohst{font-size:12px;padding:5px 9px;border-radius:8px;border:1px solid var(--line);color:var(--muted)}
+.sohst.ok{color:#6FE3A0;border-color:#1d4530} .sohst.err{color:#FF8A85;border-color:#5a2326} .sohst.warn{color:var(--warn,#E8B341);border-color:#4a3a14;cursor:help}
 .statchip.miss{border-color:#4a2128;color:#FF8A85}
 .statchip.match{border-color:#1d4530;color:#6FE3A0}
 @media(max-width:1000px){.split{grid-template-columns:1fr}}
@@ -248,8 +260,8 @@ const TABS = [
       {k: 'qtyCase',   label: 'QTY / case',      group: '', hint: 'units inside one case', entryOnly: true},
       {k: 'lsCase',    label: 'LS Case',         group: 'Live Stream / Store'},
       {k: 'lsLoose',   label: 'LS Loose',        group: 'Live Stream / Store'},
-      {k: 'whLoose',   label: 'WH Loose',        group: 'Arcadia WH'},
-      {k: 'whDamaged', label: 'WH Damaged',      group: 'Arcadia WH'},
+      {k: 'whLoose',   label: 'WH Loose',        group: 'Arcadia WH', sys: 'whGood', hint: 'Warehouse count without the damaged units'},
+      {k: 'whDamaged', label: 'WH Damaged',      group: 'Arcadia WH', sys: 'whDmg', hint: 'Damaged units in the warehouse count'},
       {k: 'cannot',    label: 'Cannot Pack',     group: ''},
       {k: 'deliver',   label: 'To be delivered', group: ''}
     ],
@@ -262,8 +274,12 @@ const TABS = [
     id: 'pj', name: 'Pokemon Japanese', accent: '#3987e5', soft: '#E3EEFB', softInk: '#134079',
     threshold: true, totalOf: ['wh', 'ls'], legend: false,
     fields: [
-      {k: 'wh',      label: 'WH QTY'},
-      {k: 'ls',      label: 'LS QTY'},
+      {k: 'wh',      label: 'WH QTY', sys: 'wh', hint: 'Warehouse'},
+      {k: 'sr',      label: 'SR',  sys: 'stockroom', room: true, entryOnly: true, hint: 'Stockroom'},
+      {k: 'tt1',     label: 'TT1', sys: 'tiktok1',   room: true, entryOnly: true, hint: 'TikTok 1'},
+      {k: 'eb',      label: 'EB',  sys: 'ebay',      room: true, entryOnly: true, hint: 'Ebay'},
+      {k: 'sg',      label: 'SG',  sys: 'gamearea',  room: true, entryOnly: true, hint: 'Streaming Game Area'},
+      {k: 'ls',      label: 'LS QTY', calc: true, hint: 'Total LS = SR + TT1 + EB + SG'},
       {k: 'cannot',  label: 'Cannot Pack'},
       {k: 'deliver', label: 'To be delivered'}
     ]
@@ -272,8 +288,12 @@ const TABS = [
     id: 'pc', name: 'Pokemon Chinese', accent: '#8b64d6', soft: '#EDE6FA', softInk: '#4B2A87',
     threshold: true, totalOf: ['wh', 'ls'], legend: false,
     fields: [
-      {k: 'wh',      label: 'WH QTY'},
-      {k: 'ls',      label: 'LS QTY'},
+      {k: 'wh',      label: 'WH QTY', sys: 'wh', hint: 'Warehouse'},
+      {k: 'sr',      label: 'SR',  sys: 'stockroom', room: true, entryOnly: true, hint: 'Stockroom'},
+      {k: 'tt1',     label: 'TT1', sys: 'tiktok1',   room: true, entryOnly: true, hint: 'TikTok 1'},
+      {k: 'eb',      label: 'EB',  sys: 'ebay',      room: true, entryOnly: true, hint: 'Ebay'},
+      {k: 'sg',      label: 'SG',  sys: 'gamearea',  room: true, entryOnly: true, hint: 'Streaming Game Area'},
+      {k: 'ls',      label: 'LS QTY', calc: true, hint: 'Total LS = SR + TT1 + EB + SG'},
       {k: 'cannot',  label: 'Cannot Pack'},
       {k: 'deliver', label: 'To be delivered'}
     ]
@@ -291,9 +311,24 @@ const TOTALS = {
     totWh: it => num(it.v.whLoose) + num(it.v.whDamaged),
     totLs: it => num(it.v.lsCase) * (num(it.v.qtyCase) || 1) + num(it.v.lsLoose)
   },
-  pj: { totWh: it => num(it.v.wh), totLs: it => num(it.v.ls) },
-  pc: { totWh: it => num(it.v.wh), totLs: it => num(it.v.ls) }
+  pj: { totWh: it => num(it.v.wh), totLs: it => roomsLs(it) },
+  pc: { totWh: it => num(it.v.wh), totLs: it => roomsLs(it) }
 };
+/* the rooms that make up Total LS */
+const ROOM_KEYS = ['sr', 'tt1', 'eb', 'sg'];
+const ROOM_SYS = [['stockroom', 'SR'], ['tiktok1', 'TT1'], ['ebay', 'EB'], ['gamearea', 'SG']];
+/* Total LS = SR + TT1 + EB + SG. A row counted before the rooms existed still carries
+   its single LS figure — it is kept until the first room cell of that row is filled. */
+function roomsLs(it) {
+  const v = it.v || {};
+  if (ROOM_KEYS.some(k => v[k] != null && v[k] !== '')) return ROOM_KEYS.reduce((a, k) => a + num(v[k]), 0);
+  return num(v.ls);
+}
+/* the figure a column stands for: a typed cell, or the calculated LS QTY */
+function valOf(tabId, it, k) {
+  const f = (TAB[tabId].fields.find(x => x.k === k) || {});
+  return f.calc ? totalCol(tabId, 'totLs', it) : num(it.v[k]);
+}
 const STORE_KEY = 'cps-stockup-v1';
 
 /* ------------------------------- helpers ---------------------------------- */
@@ -552,8 +587,9 @@ function syncItemsFromText(tabId) {
     const old = prev.get(key);
     const item = {name, checked: old ? old.checked : false, v: old ? Object.assign({}, old.v) : {},
       sohWh: sohCell(whL[li]), sohLs: sohCell(lsL[li])};
+    applyDailySoh(item);
     if (parts.length > 1) {
-      t.fields.forEach((f, i) => {
+      t.fields.filter(f => !f.calc).forEach((f, i) => {
         const raw = parts[i + 1];
         if (raw != null && raw !== '' && /^-?[\d., ]+$/.test(raw)) item.v[f.k] = String(num(raw));
       });
@@ -567,6 +603,7 @@ function syncItemsFromText(tabId) {
 function textFromItems(tabId) {
   const st = ST[tabId];
   st.text = st.items.map(i => i.name).join('\n');
+  st.items.forEach(applyDailySoh);
   /* the SOH columns are aligned line-for-line with the names, so they are
      rewritten together whenever rows are sorted, de-duplicated or removed */
   const any = st.items.some(i => i.sohWh !== '' || i.sohLs !== '');
@@ -595,7 +632,7 @@ function sohState(tabId, item, which) {
 }
 function sohTitle(tabId, item, which) {
   const soh = which === 'wh' ? item.sohWh : item.sohLs;
-  if (soh == null || soh === '') return 'No SOH pasted for this row';
+  if (soh == null || soh === '') return DSOH ? 'This name is not in Daily SOH (' + DSOH.dateLabel + ')' : 'Daily SOH is not loaded yet';
   const counted = totalCol(tabId, which === 'wh' ? 'totWh' : 'totLs', item);
   const lbl = tabId === 'op' ? (which === 'wh' ? 'Total WH' : 'Total LS') : (which === 'wh' ? 'WH QTY' : 'LS QTY');
   const d = counted - num(soh);
@@ -624,7 +661,7 @@ function reconcile(tabId) {
 function totalOf(tabId, item) {
   const t = TAB[tabId];
   if (!t.totalOf) return null;
-  return t.totalOf.reduce((a, k) => a + num(item.v[k]), 0);
+  return t.totalOf.reduce((a, k) => a + valOf(tabId, item, k), 0);
 }
 function totalCol(tabId, key, item) {
   const f = (TOTALS[tabId] || {})[key];
@@ -638,6 +675,170 @@ function caseUnconverted(tabId, item) {
 /* units actually on hand = Total WH + Total LS */
 function stockOf(tabId, item) {
   return totalCol(tabId, 'totWh', item) + totalCol(tabId, 'totLs', item);
+}
+
+/* ============================================================================
+   DAILY SOH (read only) — SOH WH / SOH LS of every row are taken from the
+   Daily SOH sheet: WH EOD SOH and LS EOD SOH of the latest day that has figures.
+   Nothing is ever written to that sheet.
+   ========================================================================== */
+const DSOH_SHEET_ID = '1keeoQrnw2jemRXxLq8iEp4UixyqvUdV4QrBFc7Mp5bE';
+const DSOH_CACHE = 'cps-stockup-dsoh-v1';
+const DSOH_MAX_AGE = 30 * 60 * 1000;
+let DSOH = null, DSOH_ERR = '', DSOH_BUSY = false;
+function dsohCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) { const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; } else if (c !== '\r') cur += c; }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); } return rows;
+}
+function dsohNum(v) { if (v == null || v === '') return null; const n = parseFloat(String(v).replace(/[,\s]/g, '')); return isFinite(n) ? n : null; }
+function dsohTabNames(monday) { const M = monday.getMonth() + 1, D = monday.getDate(), p = n => String(n).padStart(2, '0');
+  return [p(M) + '/' + p(D), M + '/' + D, p(M) + '/' + D, M + '/' + p(D)]; }
+/* one week tab -> [{date, items{name: {wh, ls}}}] for the days that have an EOD figure */
+function dsohParse(text) {
+  const rows = dsohCSV(text); if (rows.length < 2) return [];
+  const H = rows[0].map(norm);
+  const cWh = H.indexOf('wh eod soh'), cLs = H.indexOf('ls eod soh');
+  if (cWh < 0) return [];
+  const days = []; let cur = null;
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r]; const c0 = String(row[0] || '').trim(); if (!c0) continue;
+    const m = c0.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) { cur = {date: m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0'), dateLabel: m[1].padStart(2, '0') + '/' + m[2].padStart(2, '0') + '/' + m[3], items: {}, filled: 0}; days.push(cur); continue; }
+    if (!cur || c0.toUpperCase() === 'ITEM') continue;
+    const wh = dsohNum(row[cWh]), ls = cLs >= 0 ? dsohNum(row[cLs]) : null;
+    if (wh != null || ls != null) cur.filled++;
+    const k = norm(c0), prev = cur.items[k];
+    if (prev) { prev.wh += wh || 0; prev.ls += ls || 0; } else cur.items[k] = {wh: wh || 0, ls: ls || 0};
+  }
+  return days.filter(d => d.filled > 0);
+}
+async function dsohFetchTab(name) {
+  const url = 'https://docs.google.com/spreadsheets/d/' + DSOH_SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name) + '&_=' + Date.now();
+  const r = await fetch(url, {credentials: 'omit', cache: 'no-store'});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const t = await r.text();
+  if (/<!DOCTYPE|<html/i.test(t.slice(0, 300))) throw new Error('Daily SOH sheet is not shared for reading');
+  return t;
+}
+async function loadDailySoh(force) {
+  if (DSOH_BUSY) return; DSOH_BUSY = true; DSOH_ERR = ''; renderSohStatus();
+  try {
+    if (!force) { try { const c = JSON.parse(localStorage.getItem(DSOH_CACHE) || 'null'); if (c && c.items && Date.now() - c.at < DSOH_MAX_AGE) { DSOH = c; return; } } catch (e) {} }
+    const now = new Date(); let found = null, lastErr = null;
+    for (let back = 0; back < 4 && !found; back++) {
+      const mon = new Date(now); mon.setHours(0, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7) - 7 * back);
+      for (const nm of dsohTabNames(mon)) {
+        let txt; try { txt = await dsohFetchTab(nm); } catch (e) { lastErr = e; continue; }
+        /* a tab name that does not exist makes the sheet answer with its first tab — the week is checked by its dates */
+        const days = dsohParse(txt).filter(d => { const dt = new Date(d.date + 'T12:00:00'); return dt >= mon && dt < new Date(mon.getTime() + 7 * 86400000); });
+        if (days.length) { const d = days[days.length - 1]; found = {date: d.date, dateLabel: d.dateLabel, tab: nm, items: d.items, at: Date.now()}; break; }
+      }
+    }
+    if (!found) throw (lastErr || new Error('no day with figures found'));
+    DSOH = found; try { localStorage.setItem(DSOH_CACHE, JSON.stringify(found)); } catch (e) {}
+  } catch (e) { DSOH_ERR = e.message || String(e); }
+  finally {
+    DSOH_BUSY = false;
+    if (DSOH) { TABS.forEach(t => { const st = ST[t.id]; st.items.forEach(applyDailySoh); st.sohWh = st.items.map(i => i.sohWh || '').join('\n'); st.sohLs = st.items.map(i => i.sohLs || '').join('\n'); }); writeLocal(); }
+    renderSohStatus(); fillSohBoxes(); if ($('#gridwrap')) { renderGrid(); scheduleChips(); }
+  }
+}
+/* SOH of one row = the Daily SOH line with the same name ('' when the name is not in the sheet) */
+function applyDailySoh(item) {
+  if (!DSOH || !item) return;
+  const d = DSOH.items[norm(item.name)];
+  item.sohWh = d ? String(d.wh) : ''; item.sohLs = d ? String(d.ls) : '';
+}
+function fillSohBoxes() {
+  const st = ST[CUR], w = $('#pasteWh'), l = $('#pasteLs'); if (!w || !l) return;
+  w.value = st.items.map(i => i.sohWh === '' || i.sohWh == null ? '—' : i.sohWh).join('\n');
+  l.value = st.items.map(i => i.sohLs === '' || i.sohLs == null ? '—' : i.sohLs).join('\n');
+}
+function renderSohStatus() {
+  const h = $('#sohStatus'); if (!h) return;
+  const st = ST[CUR]; const miss = DSOH ? st.items.filter(i => !DSOH.items[norm(i.name)]) : [];
+  h.innerHTML = (DSOH_BUSY ? '<span class="sohst">Reading Daily SOH…</span>'
+    : DSOH ? '<span class="sohst ok" title="WH EOD SOH and LS EOD SOH of the latest day that has figures">Daily SOH · ' + esc(DSOH.dateLabel) + '</span>'
+    : '<span class="sohst err" title="' + esc(DSOH_ERR) + '">Daily SOH not loaded</span>') +
+    (DSOH_ERR && DSOH ? ' <span class="sohst err" title="' + esc(DSOH_ERR) + '">refresh failed — showing the saved copy</span>' : '') +
+    (miss.length ? ' <span class="sohst warn" title="' + esc(miss.slice(0, 25).map(i => i.name).join('\n') + (miss.length > 25 ? '\n…' : '')) + '">' + miss.length + ' name(s) not in Daily SOH</span>' : '') +
+    ' <button class="iconbtn" id="btnSohRefresh"' + (DSOH_BUSY ? ' disabled' : '') + '>↻ Refresh SOH</button>';
+  const b = $('#btnSohRefresh'); if (b) b.addEventListener('click', () => loadDailySoh(true));
+}
+
+/* ============================================================================
+   STOCK IN THE SYSTEM (read only) — shown next to every count cell
+     WH   = the warehouse inventory count of the Pack Station (live)
+     rooms = CPH INVENTORY balances + what sits in the open games there (live)
+   A click on the figure copies it into the cell; nothing is filled in by itself.
+   ========================================================================== */
+const INV_CFG = {apiKey: "AIzaSyAsTYwU0qABmXKuYSpyendwHw3djJc-Bqo", authDomain: "calipoke-inventory.firebaseapp.com", databaseURL: "https://calipoke-inventory-default-rtdb.firebaseio.com", projectId: "calipoke-inventory", storageBucket: "calipoke-inventory.firebasestorage.app", messagingSenderId: "156640764541", appId: "1:156640764541:web:833f96e4b0849b53454714"};
+const clean = v => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]/g, '');
+let SYS_RAW = {base: null, counts: null, bal: null, subs: null};
+let SYS = {wh: null, dmg: null, rooms: null};
+let sysT = null;
+function sysRebuild() {
+  if (SYS_RAW.counts) {
+    const items = (SYS_RAW.base && !Array.isArray(SYS_RAW.base)) ? SYS_RAW.base : {}, wh = {}, dmg = {};
+    for (const L in SYS_RAW.counts) { if (String(L).toUpperCase() === 'STORE') continue; const c = SYS_RAW.counts[L] || {};
+      for (const k in c) { const v = c[k]; if (!v || typeof v !== 'object') continue; const b = items[k] || {}, q = b.q > 0 ? +b.q : 1;
+        const ck = clean(v.n || b.n || k); wh[ck] = (wh[ck] || 0) + (+v.s || 0) * q + (+v.b || 0) + (+v.c || 0) + (+v.d || 0); if (+v.d) dmg[ck] = (dmg[ck] || 0) + (+v.d); } }
+    SYS.wh = wh; SYS.dmg = dmg;
+  }
+  if (SYS_RAW.bal) {
+    const m = {}; const add = (loc, k, q) => { q = +q || 0; if (!q) return; const ck = clean(String(k).split('||')[0]); (m[ck] = m[ck] || {})[loc] = (m[ck][loc] || 0) + q; };
+    for (const loc in SYS_RAW.bal) { const b = SYS_RAW.bal[loc] || {}; for (const k in b) add(loc, k, b[k]); }
+    for (const id in (SYS_RAW.subs || {})) { const sb = SYS_RAW.subs[id]; if (!sb || sb.status === 'closed' || !sb.at) continue; for (const k in (sb.items || {})) add(sb.at, k, sb.items[k]); }
+    SYS.rooms = m;
+  }
+  clearTimeout(sysT); sysT = setTimeout(refreshSys, 250);
+}
+function initSystemStock() {
+  try {
+    const p = firebase.database();
+    p.ref('packstation/stockCount/base/items').on('value', s => { SYS_RAW.base = s.val() || {}; sysRebuild(); }, () => {});
+    p.ref('packstation/stockCount/counts').on('value', s => { SYS_RAW.counts = s.val() || {}; sysRebuild(); }, () => {});
+    const a = (firebase.apps || []).find(x => x.name === 'cphinv') || firebase.initializeApp(INV_CFG, 'cphinv');
+    const R = firebase.database(a).ref('inv');
+    R.child('balances').on('value', s => { SYS_RAW.bal = s.val() || {}; sysRebuild(); }, () => {});
+    R.child('subs').on('value', s => { SYS_RAW.subs = s.val() || {}; sysRebuild(); }, () => {});
+  } catch (e) { console.warn('system stock', e); }
+}
+/* units the system holds for one row in one place; null while that source is not read yet */
+function sysQty(item, sys) {
+  const ck = clean(item.name);
+  if (sys === 'wh' || sys === 'whGood' || sys === 'whDmg') {
+    if (!SYS.wh) return null;
+    const w = SYS.wh[ck] || 0, d = (SYS.dmg || {})[ck] || 0;
+    return sys === 'wh' ? w : sys === 'whDmg' ? d : w - d;
+  }
+  if (!SYS.rooms) return null;
+  return (SYS.rooms[ck] || {})[sys] || 0;
+}
+function sysBtn(item, r, f) {
+  const q = sysQty(item, f.sys), cur = item.v[f.k];
+  const same = q != null && cur != null && cur !== '' && num(cur) === q;
+  return '<button type="button" tabindex="-1" class="sys' + (q == null ? ' none' : same ? ' same' : q ? '' : ' zero') + '" data-sysr="' + r + '" data-sysk="' + f.k + '"' +
+    (q == null ? ' disabled title="Not loaded yet"' : ' title="' + esc((f.hint || f.label) + ' in the system now: ' + fmtN(q) + ' — click to put it into the cell') + '"') + '>' + (q == null ? '·' : fmtN(q)) + '</button>';
+}
+/* OP Japanese counts the store in cases — the rooms are shown as one read-only cell */
+function roomsCellHtml(item) {
+  if (!SYS.rooms) return '<span class="roomsys none">·</span>';
+  const parts = ROOM_SYS.map(x => [x[1], sysQty(item, x[0])]).filter(x => x[1]);
+  const tot = parts.reduce((a, x) => a + x[1], 0);
+  return '<span class="roomsys' + (tot ? '' : ' zero') + '" title="In the rooms now, units — from CPH INVENTORY">' + (parts.length ? parts.map(x => x[0] + ' ' + fmtN(x[1])).join(' · ') + ' = <b>' + fmtN(tot) + '</b>' : '0') + '</span>';
+}
+/* new figures arrived: update the small buttons in place, never touch what is being typed */
+function refreshSys() {
+  const st = ST[CUR], t = TAB[CUR], host = $('#gridwrap'); if (!host) return;
+  $$('button.sys', host).forEach(b => { const it = st.items[+b.dataset.sysr], f = t.fields.find(x => x.k === b.dataset.sysk); if (!it || !f) return;
+    const tmp = document.createElement('span'); tmp.innerHTML = sysBtn(it, +b.dataset.sysr, f); const nb = tmp.firstChild;
+    b.className = nb.className; b.textContent = nb.textContent; b.title = nb.title || ''; b.disabled = nb.disabled; });
+  $$('td[data-rooms]', host).forEach(td => { const it = st.items[+td.dataset.rooms]; if (it) td.innerHTML = roomsCellHtml(it); });
 }
 
 /* ============================================================================
@@ -671,18 +872,19 @@ function renderEditor() {
   const host = $('#editor');
   host.innerHTML =
     '<h3>' + esc(t.name) + ' — enter the count</h3>' +
-    '<p class="sub">Paste the item names on the left, one per line. Fill the counts on the right. ' +
+    '<p class="sub">Paste the item names on the left, one per line — SOH WH and SOH LS come from Daily SOH by themselves. Fill the counts on the right. ' +
       'Everything is saved in this browser automatically.</p>' +
     '<div class="split">' +
       '<div>' +
         '<div class="pastecols">' +
           '<div><div class="eyebrow">Item names</div>' +
           '<textarea id="paste" wrap="off" spellcheck="false" placeholder="black bolt&#10;white flare&#10;terastal festival&#10;…"></textarea></div>' +
-          '<div><div class="eyebrow" title="SOH WH QTY — pasted from the sheet, one value per line">SOH WH</div>' +
-          '<textarea id="pasteWh" class="sohp" wrap="off" spellcheck="false" placeholder="0&#10;0&#10;…"></textarea></div>' +
-          '<div><div class="eyebrow" title="SOH LS QTY — pasted from the sheet, one value per line">SOH LS</div>' +
-          '<textarea id="pasteLs" class="sohp" wrap="off" spellcheck="false" placeholder="0&#10;0&#10;…"></textarea></div>' +
+          '<div><div class="eyebrow" title="WH EOD SOH from Daily SOH — filled in automatically">SOH WH</div>' +
+          '<textarea id="pasteWh" class="sohp auto" wrap="off" spellcheck="false" readonly tabindex="-1" placeholder="auto"></textarea></div>' +
+          '<div><div class="eyebrow" title="LS EOD SOH from Daily SOH — filled in automatically">SOH LS</div>' +
+          '<textarea id="pasteLs" class="sohp auto" wrap="off" spellcheck="false" readonly tabindex="-1" placeholder="auto"></textarea></div>' +
         '</div>' +
+        '<div class="arow" id="sohStatus" style="margin-top:8px"></div>' +
         '<div class="arow">' +
           '<button class="iconbtn" id="btnSortNames">↕ Sort A→Z</button>' +
           '<button class="iconbtn" id="btnDedupe">⧉ Remove duplicates</button>' +
@@ -690,10 +892,10 @@ function renderEditor() {
         '</div>' +
         '<p class="hint">You can also paste straight from a spreadsheet — a line like ' +
           '<span class="mono">name ⇥ 12 ⇥ 4</span> fills the count columns left to right.<br>' +
-          '<b>SOH WH / SOH LS</b> line up with the item names line by line — paste the sheet\'s SOH WH QTY and ' +
-          'SOH LS QTY columns there (copying both columns at once into SOH WH fills both). ' +
-          'They are checked against ' + (t.id === 'op' ? 'Total WH / Total LS' : 'WH QTY / LS QTY') +
-          ': green = match, red = different.<br>' +
+          '<b>SOH WH / SOH LS</b> are read from Daily SOH (WH EOD SOH and LS EOD SOH of the latest day with figures) ' +
+          'and checked against ' + (t.id === 'op' ? 'Total WH / Total LS' : 'WH QTY / LS QTY') +
+          ': green = match, red = different. A name that is not in Daily SOH shows “—”.<br>' +
+          'The small figure next to a count cell is what the system holds there right now — click it to put it into the cell.<br>' +
           'Tick the checkbox to ' + (t.threshold
             ? 'keep an item in the report even when it is above the threshold.'
             : 'highlight the row in the report.') + '</p>' +
@@ -708,7 +910,7 @@ function renderEditor() {
 
   const ta = $('#paste'), tWh = $('#pasteWh'), tLs = $('#pasteLs');
   const areas = [ta, tWh, tLs];
-  ta.value = st.text; tWh.value = st.sohWh || ''; tLs.value = st.sohLs || '';
+  ta.value = st.text; fillSohBoxes(); renderSohStatus();
   /* all three boxes share one height so the lines stay side by side */
   const autosize = () => {
     const lines = Math.max.apply(null, areas.map(a => (a.value.match(/\n/g) || []).length)) + 2;
@@ -726,32 +928,18 @@ function renderEditor() {
   let tmr = null;
   const reflow = () => {
     clearTimeout(tmr);
-    tmr = setTimeout(() => { syncItemsFromText(CUR); saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav(); }, 220);
+    tmr = setTimeout(() => { syncItemsFromText(CUR); fillSohBoxes(); renderSohStatus(); saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav(); }, 220);
   };
   ta.addEventListener('input', () => { autosize(); st.text = ta.value; reflow(); });
-  tWh.addEventListener('input', () => { autosize(); st.sohWh = tWh.value; reflow(); });
-  tLs.addEventListener('input', () => { autosize(); st.sohLs = tLs.value; reflow(); });
-  /* two columns copied out of the sheet and pasted into SOH WH: first -> WH, second -> LS */
-  tWh.addEventListener('paste', e => {
-    const txt = (e.clipboardData || window.clipboardData).getData('text');
-    if (!txt || txt.indexOf('\t') < 0) return;
-    e.preventDefault();
-    const rows = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n');
-    tWh.value = rows.map(r => (r.split('\t')[0] || '').trim()).join('\n');
-    tLs.value = rows.map(r => (r.split('\t')[1] || '').trim()).join('\n');
-    st.sohWh = tWh.value; st.sohLs = tLs.value;
-    autosize(); reflow();
-    toast('SOH WH and SOH LS filled from ' + rows.length + ' line(s)', 'ok');
-  });
   $('#btnSortNames').addEventListener('click', () => {
     st.items.sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
-    textFromItems(CUR); ta.value = st.text; tWh.value = st.sohWh; tLs.value = st.sohLs; saveState(); renderGrid(); renderReport();
+    textFromItems(CUR); ta.value = st.text; fillSohBoxes(); saveState(); renderGrid(); renderReport();
   });
   $('#btnDedupe').addEventListener('click', () => {
     const seen = new Set(), out = [];
     st.items.forEach(i => { const k = norm(i.name); if (seen.has(k)) return; seen.add(k); i.dup = false; out.push(i); });
     const removed = st.items.length - out.length;
-    st.items = out; textFromItems(CUR); ta.value = st.text; tWh.value = st.sohWh; tLs.value = st.sohLs; saveState();
+    st.items = out; textFromItems(CUR); ta.value = st.text; fillSohBoxes(); renderSohStatus(); saveState();
     renderGrid(); renderCtrls(); renderReport(); renderNav();
     toast(removed ? removed + ' duplicate row(s) removed' : 'No duplicates found', 'ok');
   });
@@ -772,12 +960,13 @@ function renderGrid() {
   }
   const tots = t.totals || [];
   let head = '<tr><th class="cbx" title="Include / highlight">✓</th><th class="left">Item</th>' +
-    t.fields.map(f => '<th' + (f.hint ? ' title="' + esc(f.hint) + '"' : '') + '>' + esc(f.label) + '</th>').join('') +
+    t.fields.map(f => '<th' + (f.calc ? ' class="tot"' : '') + (f.hint ? ' title="' + esc(f.hint) + '"' : '') + '>' + esc(f.label) + '</th>').join('') +
+    (CUR === 'op' ? '<th title="Units in the rooms right now — from CPH INVENTORY. Compare with Total LS.">LS in system</th>' : '') +
     (t.totalOf ? '<th>Total</th>' : '') +
     tots.map(x => '<th class="tot" title="' + esc(x.how || '') + '">' + esc(x.label) + '</th>').join('') +
-    '<th class="soh" title="SOH WH QTY pasted from the sheet — green when it matches ' +
+    '<th class="soh" title="WH EOD SOH from Daily SOH — green when it matches ' +
       (CUR === 'op' ? 'Total WH' : 'WH QTY') + '">SOH WH QTY</th>' +
-    '<th class="soh" title="SOH LS QTY pasted from the sheet — green when it matches ' +
+    '<th class="soh" title="LS EOD SOH from Daily SOH — green when it matches ' +
       (CUR === 'op' ? 'Total LS' : 'LS QTY') + '">SOH LS QTY</th>' +
     '<th></th></tr>';
   let body = st.items.map((it, r) => {
@@ -786,10 +975,13 @@ function renderGrid() {
     return '<tr class="' + (it.checked ? 'on' : '') + (it.dup ? ' dup' : '') + '" data-row="' + r + '">' +
       '<td class="cbx"><input type="checkbox" data-chk="' + r + '"' + (it.checked ? ' checked' : '') + '></td>' +
       '<td class="iname" title="' + esc(it.name) + (it.dup ? ' — duplicate line' : '') + '">' + esc(it.name) + '</td>' +
-      t.fields.map((f, c) => '<td><input class="q' + (it.v[f.k] !== undefined && it.v[f.k] !== '' ? ' filled' : '') +
+      t.fields.map((f, c) => f.calc
+        ? '<td class="gtot tot" data-tot="totLs" title="' + esc(f.hint || '') + '">' + fmtN(totalCol(CUR, 'totLs', it)) + '</td>'
+        : '<td' + (f.sys ? ' class="hassys"' : '') + '><span class="qcell"><input class="q' + (it.v[f.k] !== undefined && it.v[f.k] !== '' ? ' filled' : '') +
         '" type="number" inputmode="numeric" placeholder="0" data-r="' + r + '" data-c="' + c + '" data-k="' + f.k +
-        '" value="' + esc(it.v[f.k] == null ? '' : it.v[f.k]) + '"></td>').join('') +
-      (t.totalOf ? '<td class="gtot">' + fmtN(tot) + '</td>' : '') +
+        '" value="' + esc(it.v[f.k] == null ? '' : it.v[f.k]) + '">' + (f.sys ? sysBtn(it, r, f) : '') + '</span></td>').join('') +
+      (CUR === 'op' ? '<td class="roomscell" data-rooms="' + r + '">' + roomsCellHtml(it) + '</td>' : '') +
+      (t.totalOf ? '<td class="gtot" data-grand="1">' + fmtN(tot) + '</td>' : '') +
       tots.map(x => '<td class="gtot tot' + (warn && x.k === 'totLs' ? ' warncase' : '') + '" data-tot="' + x.k + '"' +
         (warn && x.k === 'totLs' ? ' title="LS Case is not converted yet — fill in QTY / case"' : '') + '>' +
         fmtN(totalCol(CUR, x.k, it)) + '</td>').join('') +
@@ -806,9 +998,11 @@ function renderGrid() {
       inp.classList.toggle('filled', inp.value !== '');
       const tr = inp.closest('tr');
       if (t.totalOf) {
-        const cell = tr.children[2 + t.fields.length];
+        const cell = $('td[data-grand]', tr);
         if (cell) cell.textContent = fmtN(totalOf(CUR, it));
       }
+      const sb = $('button.sys', inp.parentNode);
+      if (sb && !sb.disabled) { const q = num(sb.textContent); sb.classList.toggle('same', inp.value !== '' && num(inp.value) === q); }
       const warn = caseUnconverted(CUR, it);
       $$('td[data-tot]', tr).forEach(td => {
         td.textContent = fmtN(totalCol(CUR, td.dataset.tot, it));
@@ -835,6 +1029,11 @@ function renderGrid() {
     });
     inp.addEventListener('focus', () => inp.select());
   });
+  /* the small figure next to a cell = what the system holds there; a click copies it into the cell */
+  $$('button.sys', host).forEach(b => b.addEventListener('click', () => {
+    const inp = $('input.q', b.parentNode); if (!inp || b.disabled) return;
+    inp.value = String(num(b.textContent)); inp.dispatchEvent(new Event('input', {bubbles: true})); inp.focus();
+  }));
   $$('input[data-chk]', host).forEach(cb => cb.addEventListener('change', () => {
     const it = st.items[+cb.dataset.chk]; if (!it) return;
     it.checked = cb.checked;
@@ -844,7 +1043,7 @@ function renderGrid() {
   $$('button[data-del]', host).forEach(b => b.addEventListener('click', () => {
     st.items.splice(+b.dataset.del, 1);
     textFromItems(CUR); const ta = $('#paste'); if (ta) ta.value = st.text;
-    const tw = $('#pasteWh'); if (tw) tw.value = st.sohWh; const tl = $('#pasteLs'); if (tl) tl.value = st.sohLs;
+    fillSohBoxes(); renderSohStatus();
     saveState(); renderGrid(); renderCtrls(); renderReport(); renderNav();
   }));
 }
@@ -981,7 +1180,7 @@ function renderReport() {
   const body = rows.map(it => {
     const tds = cols.map(c => {
       if (c.item) return '<td class="item">' + esc(it.name) + '</td>';
-      const v = c.total ? totalOf(CUR, it) : num(it.v[c.k]);
+      const v = c.total ? totalOf(CUR, it) : valOf(CUR, it, c.k);
       let cls = c.total ? 'total ' + levelClass(CUR, v) : '';
       if (!c.total) {
         if (!v) cls = 'zeroish';
@@ -1038,7 +1237,7 @@ function reportColumns(t) {
 function tableMatrix() {
   const t = TAB[CUR], rows = reportRows(CUR), cols = reportColumns(t);
   const out = [cols.map(c => c.item ? 'ITEM' : c.label)];
-  rows.forEach(it => out.push(cols.map(c => c.item ? it.name : String(c.total ? totalOf(CUR, it) : num(it.v[c.k])))));
+  rows.forEach(it => out.push(cols.map(c => c.item ? it.name : String(c.total ? totalOf(CUR, it) : valOf(CUR, it, c.k)))));
   return out;
 }
 
@@ -1117,6 +1316,8 @@ function renderAll() { renderNav(); renderEditor(); renderReport(); }
   setSync('off', 'starting…');
   renderAll();
   initCloud();
+  initSystemStock();
+  loadDailySoh(false);
   addEventListener('beforeunload', writeLocal);
 })();
 </script>
