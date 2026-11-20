@@ -80,7 +80,7 @@ tr.bad td{background:#2a1116} tr.bad td:first-child{box-shadow:inset 3px 0 0 var
   <div class="spacer"></div>
   <span class="badge" id="srcPill">loading…</span>
   <button class="btn sm" id="reloadSrc" title="Re-read the inventory sheet and the warehouse count">⟳ Inventory</button>
-  <span class="mini">v2026-11-18b</span>
+  <span class="mini">v2026-11-20b</span>
   <div id="hdrUser"></div>
 </header>
 <main id="app" class="hide">
@@ -405,12 +405,19 @@ function renderRules(){
   const list=pickAllList();
   let h='<div class="row" style="margin-top:16px"><h1>🧺 Picker rules</h1></div>'+
     '<p class="mini">The picker brings <b>one sample</b> of every product for the display. The exceptions are the products below and everything tagged <span class="badge info">Random</span> — those are brought in <b>full quantity</b>.</p>'+
-    '<div class="card"><div class="row"><h2>Bring the full quantity</h2><div class="spacer"></div><button class="btn primary" id="ruAdd">＋ Add a product</button></div>'+
-    (list.length?'<table style="margin-top:10px"><tbody>'+list.map((n,i)=>'<tr><td style="width:44px">'+imgOf(n)+'</td><td>'+esc(n)+(invOf(n)?'':' <span class="badge warn">not in inventory</span>')+'</td><td class="num"><button class="btn sm danger" data-rm="'+i+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<div class="mini" style="margin-top:10px">Empty — one sample of everything except Random.</div>')+
+    '<div class="card"><div class="row"><h2>Bring the full quantity</h2><div class="spacer"></div><button class="btn primary" id="ruAdd">＋ Add a product</button><button class="btn primary" id="ruAddSet">＋ Add a set</button></div>'+
+    (list.length?'<table style="margin-top:10px"><tbody>'+list.map((n,i)=>'<tr><td style="width:44px">'+imgOf(n)+'</td><td>'+esc(n)+(SETS[setKey(n)]?' <span class="badge sub">set</span><div class="mini">'+esc(arr(SETS[setKey(n)].items).map(x=>x.name+(+x.qty>1?' ×'+x.qty:'')).join(' · '))+'</div>':(invOf(n)?'':' <span class="badge warn">not in inventory</span>'))+'</td><td class="num"><button class="btn sm danger" data-rm="'+i+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<div class="mini" style="margin-top:10px">Empty — one sample of everything except Random.</div>')+
     '</div><p class="mini">A change applies to the streams created after it. A stream that is already prepared keeps the rules it was created with.</p>';
   $('#body').innerHTML=h;
   $('#ruAdd').onclick=()=>pickProduct('Bring the full quantity of…',n=>{ const l=pickAllList().slice(); if(!l.some(x=>norm(x)===norm(n))){ l.push(n); l.sort(); } savePickAll(l); render(); });
   $$('[data-rm]').forEach(b=>b.onclick=()=>{ const l=pickAllList().slice(); l.splice(+b.dataset.rm,1); savePickAll(l); render(); });
+  $('#ruAddSet').onclick=()=>{ const have=pickAllList(); const sets=Object.keys(SETS).map(k=>SETS[k]).filter(st=>st&&st.name).sort((a,b)=>a.name.localeCompare(b.name));
+    const m=modal('<h2>Bring the full quantity of the set…</h2><div class="mini">For every set that is sold the picker brings all of its products, not one sample.</div>'+
+      (sets.length?'<div class="plist" style="margin-top:12px">'+sets.map((st,i)=>{ const on=have.some(x=>norm(x)===norm(st.name)); return '<button data-i="'+i+'"'+(on?' disabled style="opacity:.5"':'')+'><span style="flex:1;text-align:left"><b>'+esc(st.name)+'</b><div class="mini">'+esc(arr(st.items).map(x=>x.name+(+x.qty>1?' ×'+x.qty:'')).join(' · '))+'</div></span><span class="mini">'+(on?'already in the rules':esc(st.tag||''))+'</span></button>'; }).join('')+'</div>'
+        :'<div class="mini" style="padding:12px">No sets are defined yet — add them in 🧩 Sets first.</div>')+
+      '<div class="row" style="margin-top:14px"><div class="spacer"></div><button class="btn ghost" id="rsX">Cancel</button></div>');
+    m.querySelector('#rsX').onclick=closeModal;
+    m.querySelectorAll('.plist button[data-i]').forEach(b=>b.onclick=()=>{ const n=sets[+b.dataset.i].name; closeModal(); const l=pickAllList().slice(); if(!l.some(x=>norm(x)===norm(n))){ l.push(n); l.sort(); } savePickAll(l); render(); }); };
 }
 
 /* ---------------- review of the loaded file ---------------- */
@@ -475,7 +482,7 @@ function buildLines(S, prefix){
   const lines=[]; let n=0; const id=()=>prefix+(++n);
   S.rows.forEach(r=>{ const i=rowInfo(r);
     if(i.kind==='item') lines.push({id:id(), kind:'item', name:i.name, src:r.src, qty:r.qty, tags:[], pick:isPickAll(i.name)?'all':'sample'});
-    else if(i.kind==='set') lines.push({id:id(), kind:'set', name:r.clean, src:r.src, qty:r.qty, tags:[i.set.tag], pick:'sample', bc:i.set.bc||'', comps:arr(i.set.items).map(c=>({name:c.name,qty:+c.qty||1}))});
+    else if(i.kind==='set') lines.push({id:id(), kind:'set', name:r.clean, src:r.src, qty:r.qty, tags:[i.set.tag], pick:(isPickAll(i.set.name)||isPickAll(r.clean))?'all':'sample', bc:i.set.bc||'', comps:arr(i.set.items).map(c=>({name:c.name,qty:+c.qty||1}))});
     else if(i.kind==='random') randomCands(r).forEach(nm=>{ const q=+(r.alloc||{})[nm]||0; if(q>0) lines.push({id:id(), kind:'item', name:nm, src:r.src, qty:q, tags:['Random'], pick:'all', group:r.clean}); });
   });
   return lines;
@@ -487,7 +494,7 @@ async function confirmDraft(){
   const rec={name:usDate(DRAFT.date)+' WH Surprise Set', date:DRAFT.date, file:DRAFT.file, createdAt:Date.now(), createdBy:ME, rounds};
   const ref=R.child('streams').push(); await ref.set(rec); STREAMS[ref.key]=rec;
   try{ CPAuth.log('whss_stream',{text:'Prepared '+rec.name,ref:ref.key}); }catch(e){}
-  DRAFT=null; toast('The stream is ready','ok'); VIEW={name:'check', sid:ref.key, scope:'both'}; render();
+  DRAFT=null; toast('The stream is ready','ok'); VIEW={name:'check', sid:ref.key}; render();
 }
 
 /* ---------------- stream helpers ---------------- */
@@ -501,9 +508,12 @@ const stBadge=st=>'<span class="badge '+(st==='live'?'ok':st==='done'?'':'info')
 const tagsHTML=l=>arr(l.tags).map(t=>'<span class="badge '+(t==='Random'?'info':'sub')+'">'+esc(t)+'</span>').join(' ');
 
 /* ---------------- home ---------------- */
+/* which streams are on the Streams page. archived: true = sent to History by hand · false = brought back
+   by hand · not set = automatic (while a round is open, and for 20 hours after the stream was prepared) */
+function onHome(id){ const s=STREAMS[id]; if(s.archived===true) return false; if(s.archived===false) return true; return roundKeys(s).some(k=>s.rounds[k].status!=='done') || (Date.now()-(s.createdAt||0))<20*3600e3; }
 function renderHome(){
   const ids=Object.keys(STREAMS).sort((a,b)=>(STREAMS[b].createdAt||0)-(STREAMS[a].createdAt||0));
-  const open=ids.filter(id=>{ const s=STREAMS[id]; return roundKeys(s).some(k=>s.rounds[k].status!=='done') || (Date.now()-(s.createdAt||0))<20*3600e3; });
+  const open=ids.filter(onHome);
   let h='<div class="row" style="margin-top:16px"><h1>🎁 Streams</h1><div class="spacer"></div></div>'+
     '<div class="card"><div class="drop" id="drop"><div style="font:700 17px var(--disp);color:var(--ink)">＋ New stream — load the prepared Excel file</div><div style="margin-top:6px">Drop the file here or click to choose. The sheets with <b>Item</b> and <b>Quantity</b> columns become Set A and Set B.</div><input type="file" id="file" accept=".xlsx,.xls,.xlsm" class="hide"></div></div>';
   if(!open.length) h+='<div class="empty">No prepared streams. Load a file to start.</div>';
@@ -517,7 +527,7 @@ function renderHome(){
 }
 function streamCard(id){
   const s=STREAMS[id];
-  return '<div class="card" style="margin-top:0"><div class="row"><h2>'+esc(s.name)+'</h2><div class="spacer"></div>'+(IS_ADMIN?'<button class="btn sm danger" data-del="'+id+'" title="Delete the stream">✕</button>':'')+'</div>'+
+  return '<div class="card" style="margin-top:0"><div class="row"><h2>'+esc(s.name)+'</h2><div class="spacer"></div><button class="btn sm" data-arch="'+id+'" title="Take the stream off this page. It stays in History with all its reports and can be brought back.">🕘 To History</button>'+(IS_ADMIN?'<button class="btn sm danger" data-del="'+id+'" title="Delete the stream">✕</button>':'')+'</div>'+
     '<div class="mini">'+esc(s.file||'')+' · prepared by '+esc(s.createdBy||'')+' · '+hhmm(s.createdAt)+'</div>'+
     '<div class="row" style="margin-top:10px"><button class="btn" data-check="'+id+'">🧺 Picker checklist</button><button class="btn" data-watch="'+id+'" title="Follow the stream from the side: what is sold, what is left, the scan history. Nothing can be scanned or changed there.">👁 Watch</button></div>'+
     roundKeys(s).map(k=>{ const r=s.rounds[k], t=roundStats(s,k);
@@ -526,10 +536,15 @@ function streamCard(id){
         '<div class="row" style="margin-top:10px">'+(r.status==='done'?'<button class="btn" data-rep="'+id+'|'+k+'">📄 Report</button>':'<button class="btn primary" data-live="'+id+'|'+k+'">'+(r.status==='live'?'▶ Continue':'▶ Start the round')+'</button>')+'</div></div>'; }).join('')+'</div>';
 }
 function wireStreamCards(){
-  $$('[data-check]').forEach(b=>b.onclick=()=>{ VIEW={name:'check',sid:b.dataset.check,scope:'both'}; render(); });
+  $$('[data-check]').forEach(b=>b.onclick=()=>{ VIEW={name:'check',sid:b.dataset.check}; render(); });
   $$('[data-watch]').forEach(b=>b.onclick=()=>openWatch(b.dataset.watch));
   $$('[data-live]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.live.split('|'); startRound(sid,rk); });
   $$('[data-rep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.rep.split('|'); VIEW={name:'report',sid,rk}; render(); });
+  $$('[data-arch]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.arch, s=STREAMS[id]; if(!s) return;
+    const ks=roundKeys(s), live=ks.filter(k=>s.rounds[k].status==='live'), notDone=ks.filter(k=>s.rounds[k].status!=='done');
+    if(!confirm('Move “'+s.name+'” to History?'+(live.length?'\n\n⚠ '+live.map(k=>s.rounds[k].label).join(', ')+' is LIVE right now.':(notDone.length?'\n\nNot finished: '+notDone.map(k=>s.rounds[k].label).join(', ')+'.':''))+'\n\nNothing is deleted or changed — the stream can be brought back from the History tab.')) return;
+    await R.child('streams/'+id).update({archived:true, archivedAt:Date.now(), archivedBy:ME}); try{ CPAuth.log('whss_archive',{text:'Moved to History: '+s.name,ref:id}); }catch(e){} toast('Moved to History','ok'); });
+  $$('[data-unarch]').forEach(b=>b.onclick=async()=>{ const id=b.dataset.unarch, s=STREAMS[id]; if(!s) return; await R.child('streams/'+id).update({archived:false, archivedAt:null, archivedBy:null}); toast('“'+s.name+'” is back on the Streams page','ok'); });
   $$('[data-del]').forEach(b=>b.onclick=async()=>{ const s=STREAMS[b.dataset.del]; if(!s||!confirm('Delete “'+s.name+'” with its history? This cannot be undone.')) return; await R.child('streams/'+b.dataset.del).remove(); toast('Deleted','ok'); });
 }
 
@@ -540,11 +555,11 @@ function checkRows(s, scope){
     const add=(name,mode,tag,qty)=>{ const key=norm(name)+'|'+mode+'|'+norm(tag||''); let e=m.get(key);
       if(!e){ e={key,name,mode,tag:tag||'',need:0,by:{}}; m.set(key,e); }
       e.by[rk]=(e.by[rk]||0)+qty; };
-    if(l.kind==='set') arr(l.comps).forEach(c=>add(c.name,'sample',arr(l.tags)[0]||l.name,(+c.qty||1)));
+    if(l.kind==='set') arr(l.comps).forEach(c=>{ if(l.pick==='all') add(c.name,'all',arr(l.tags)[0]||l.name,(+c.qty||1)*(+l.qty||0)); else add(c.name,'sample',arr(l.tags)[0]||l.name,(+c.qty||1)); });   // a set in the picker rules: every set sold needs its products
     else add(l.name,l.pick==='all'?'all':'sample',arr(l.tags).indexOf('Random')>=0?'Random':'',l.qty);
   }));
   const set1=new Map();                                         // one sample of a set = its products × their qty in one set
-  rks.forEach(rk=>linesOf(s,rk).forEach(l=>{ if(l.kind==='set') arr(l.comps).forEach(c=>set1.set(norm(c.name)+'|sample|'+norm(arr(l.tags)[0]||l.name),+c.qty||1)); }));
+  rks.forEach(rk=>linesOf(s,rk).forEach(l=>{ if(l.kind==='set'&&l.pick!=='all') arr(l.comps).forEach(c=>set1.set(norm(c.name)+'|sample|'+norm(arr(l.tags)[0]||l.name),+c.qty||1)); }));
   const out=[...m.values()].map(e=>{ e.need = e.mode==='all' ? Object.keys(e.by).reduce((a,k)=>a+e.by[k],0) : (set1.get(e.key)||1); e.locs=locsOf(e.name); const it=invOf(e.name); e.loc=e.locs.length?e.locs[0].L:''; e.sheetLoc=(it&&it.loc&&!/^tba$/i.test(String(it.loc).trim()))?it.loc:''; return e; });
   return out.sort((a,b)=>(a.loc||'~').localeCompare(b.loc||'~',undefined,{numeric:true})||a.name.localeCompare(b.name));
 }
@@ -556,11 +571,13 @@ function locCell(r){
 }
 function renderCheck(){
   const s=STREAMS[VIEW.sid]; if(!s){ VIEW={name:'home'}; return render(); }
-  const scope=VIEW.scope||'both', rows=checkRows(s,scope), picks=(s.picks&&s.picks[scope])||{};
+  const rkAll=roundKeys(s);   /* one set at a time: the live round first, else the first one that is not finished */
+  if(!VIEW.scope||rkAll.indexOf(VIEW.scope)<0) VIEW.scope=rkAll.find(k=>s.rounds[k].status==='live')||rkAll.find(k=>s.rounds[k].status!=='done')||rkAll[0];
+  const scope=VIEW.scope, rows=checkRows(s,scope), picks=(s.picks&&s.picks[scope])||{};
   const done=rows.filter(r=>picks[fbKey(r.key)]).length, units=rows.reduce((a,r)=>a+r.need,0);
   let h='<div class="row" style="margin-top:16px"><button class="btn ghost" id="ckBack">← Streams</button><h1>🧺 Picker checklist</h1><span class="mini">'+esc(s.name)+'</span><div class="spacer"></div>'+
-    '<div class="seg">'+[['both','Both sets']].concat(roundKeys(s).map(k=>[k,s.rounds[k].label])).map(x=>'<button data-sc="'+x[0]+'" class="'+(scope===x[0]?'on':'')+'">'+esc(x[1])+'</button>').join('')+'</div></div>'+
-    '<div class="note">Bring <b>one sample</b> of each product for the display. Products marked <span class="badge">full qty</span> and <span class="badge info">Random</span> are brought in full quantity. Products of a set carry the set’s tag — one sample of the whole set, with the set’s barcode label on it (print it in 🧩 Sets).</div>'+
+    '<div class="seg">'+roundKeys(s).map(k=>[k,s.rounds[k].label]).map(x=>'<button data-sc="'+x[0]+'" class="'+(scope===x[0]?'on':'')+'">'+esc(x[1])+'</button>').join('')+'</div></div>'+
+    '<div class="note">Bring <b>one sample</b> of each product for the display. Products marked <span class="badge">full qty</span> and <span class="badge info">Random</span> are brought in full quantity. Products of a set carry the set’s tag — one sample of the whole set, with the set’s barcode label on it (print it in 🧩 Sets); a set listed in 🧺 Picker rules is brought in full quantity.</div>'+
     '<div class="row" style="margin-top:12px"><div class="kvs"><div class="kv"><div class="n">'+done+' / '+rows.length+'</div><div class="l">picked</div></div><div class="kv"><div class="n">'+fmt(units)+'</div><div class="l">units to bring</div></div></div><div class="spacer"></div>'+(done?'<button class="btn ghost" id="ckClear">Clear the ticks</button>':'')+'</div>'+
     '<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th style="width:44px"></th><th style="width:44px"></th><th>Product</th><th>Location</th><th class="num">Bring</th><th class="num" title="Counted in the warehouse minus the units of orders that are not packed yet">Available in WH</th></tr></thead><tbody>'+
     rows.map(r=>{ const st=stockOf(r.name), on=!!picks[fbKey(r.key)];
@@ -790,7 +807,7 @@ function renderHistory(){
   h+=ids.length?'<div class="card" style="padding:0"><div class="tscroll" style="border:0"><table><thead><tr><th>Stream</th><th>Set</th><th>Status</th><th class="num">Prepared</th><th class="num">Sold</th><th class="num">Left</th><th>Time</th><th>By</th><th></th></tr></thead><tbody>'+
     ids.map(id=>{ const s=STREAMS[id]; return roundKeys(s).map((k,i)=>{ const r=s.rounds[k], t=roundStats(s,k);
       return '<tr><td>'+(i===0?'<b>'+esc(s.name)+'</b><div class="mini">'+esc(s.file||'')+'</div>':'')+'</td><td>'+esc(r.label)+'</td><td>'+stBadge(r.status)+'</td><td class="num">'+t.total+'</td><td class="num">'+t.sold+'</td><td class="num'+(t.left&&r.status==='done'?' low':'')+'">'+t.left+'</td><td class="mini">'+(r.startedAt?hhmm(r.startedAt)+(r.endedAt?' – '+hhmm(r.endedAt)+' · '+dur(r.endedAt-r.startedAt):' – …'):'—')+'</td><td class="mini">'+esc(r.startedBy||s.createdBy||'')+'</td>'+
-        '<td class="num">'+(i===0?'<button class="btn sm" data-watch="'+id+'">👁 Watch</button> ':'')+'<button class="btn sm" data-hrep="'+id+'|'+k+'">Report</button>'+(i===0&&IS_ADMIN?' <button class="btn sm danger" data-del="'+id+'">✕</button>':'')+'</td></tr>'; }).join(''); }).join('')+'</tbody></table></div></div>'
+        '<td class="num">'+(i===0?'<button class="btn sm" data-watch="'+id+'">👁 Watch</button> ':'')+'<button class="btn sm" data-hrep="'+id+'|'+k+'">Report</button>'+(i===0&&!onHome(id)?' <button class="btn sm ghost" data-unarch="'+id+'" title="Show this stream on the Streams page again">↩ To Streams</button>':'')+(i===0&&IS_ADMIN?' <button class="btn sm danger" data-del="'+id+'">✕</button>':'')+'</td></tr>'; }).join(''); }).join('')+'</tbody></table></div></div>'
     :'<div class="empty">No streams yet.</div>';
   $('#body').innerHTML=h;
   $$('[data-hrep]').forEach(b=>b.onclick=()=>{ const [sid,rk]=b.dataset.hrep.split('|'); VIEW={name:'report',sid,rk,from:'history'}; render(); });
