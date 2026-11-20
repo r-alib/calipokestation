@@ -1011,7 +1011,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-17c · Guidebook: variations grouped + Damaged / Confirmed';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-20a · New Shipment: put everything away in one step · find a product by name';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -5200,6 +5200,14 @@ function rcAddItem(unit, entry, qty, barcode){
   else unit.items.push({name:entry.name, variation:entry.variation||'', image:entry.image||'', barcode:barcode||entry.barcode||'', qty:+qty||0, isNew:!!entry.isNew, assigned:!!entry.assigned});
   rcSave();
 }
+/* products whose name (or variation) has every typed word. Digits only = a barcode, not a name. */
+function rcNameSearch(q, limit){ const words=norm(q).split(' ').filter(Boolean); if(!words.length||norm(q).length<2||/^[\d\s-]{6,}$/.test(q.trim())) return [];   // a long run of digits is a barcode
+  const seen=new Set(), out=[], starts=[]; const nq=norm(q);
+  for(const src of [RCCAT.main, RCCAT.pending]) for(const e of (src||[])){ if(!e||!e.name) continue; const hay=norm(e.name)+' '+norm(e.variation||''); if(!words.every(w=>hay.indexOf(w)>=0)) continue;
+    const k=norm(e.name)+'||'+norm(e.variation||''); if(seen.has(k)) continue; seen.add(k); (norm(e.name).indexOf(nq)===0?starts:out).push(e); }
+  const isDef=e=>{ const v=norm(e.variation||''); return !v||v==='default'; };
+  const byName=(a,b)=>String(a.name).localeCompare(String(b.name),undefined,{numeric:true})||(isDef(b)-isDef(a))||String(a.variation||'').localeCompare(String(b.variation||''),undefined,{numeric:true});
+  return starts.sort(byName).concat(out.sort(byName)).slice(0, limit||12); }
 function rcScanCode(raw){
   const code=String(raw==null?'':raw).trim();   // stored and exported exactly as scanned
   const key=norm(code); if(!key) return;        // matching is case/spacing insensitive
@@ -5488,8 +5496,16 @@ function rcWireHome(){
 const RC_PUTAWAY_USERS=['admin','andre'];
 function rcCanPutaway(){ return IS_ADMIN || RC_PUTAWAY_USERS.includes(norm(MY_NAME)); }
 function rcPutKey(name, variation){ return safeKey(norm(name)+'||'+norm(variation||'')); }
-function rcPutLine(s, t){ const p=(s.putaway||{})[rcPutKey(t.name,t.variation)]||{}; const wh=rcArr(p.wh); return {wh, whQty:wh.reduce((a,x)=>a+(+x.qty||0),0), store:+p.store||0}; }
-function rcPutLeft(s){ return rcTotals(s).reduce((n,t)=>{ const l=rcPutLine(s,t); return n+Math.max(0, t.qty-l.whQty-l.store); },0); }
+function rcPutLine(s, t){ const p=(s.putaway||{})[rcPutKey(t.name,t.variation)]||{}; const wh=rcArr(p.wh), rooms=rcArr(p.rooms); const whQty=wh.reduce((a,x)=>a+(+x.qty||0),0), roomQty=rooms.reduce((a,x)=>a+(+x.qty||0),0), store=+p.store||0; return {wh, whQty, rooms, roomQty, store, placed:whQty+roomQty+store}; }
+function rcPutLeft(s){ return rcTotals(s).reduce((n,t)=>{ const l=rcPutLine(s,t); return n+Math.max(0, t.qty-l.placed); },0); }
+const RC_DESK_LOC='FL-006';      // the manager's desk: goods wait here until they are spread over the shelves
+const RC_MAIN_ROOM='stockroom';  // the old "Store" is split into rooms — goods for the shop side go to a named room
+const rcRoomName=id=>{ const r=ROOM_TAGS.find(x=>x[0]===id); return r?r[2]:id; };
+/* what was typed -> a room of CPH INVENTORY, a warehouse location, or an error */
+function rcPutDest(v){ const raw=String(v||'').trim(); if(!raw) return null; const n=norm(raw).replace(/[^a-z0-9]/g,'');
+  const room=ROOM_TAGS.find(r=>r[0]===n||norm(r[2]).replace(/[^a-z0-9]/g,'')===n); if(room) return {room:room[0], label:room[2]};
+  const L=raw.toUpperCase().replace(/\s+/g,''); if(isStoreLoc(L)) return {err:'The Store is split into rooms now — choose the room (Stockroom, TikTok 1, Ebay …)'};
+  return {L, label:L}; }
 function rcPutPlaces(){
   const set=new Set();
   const locs=STOCK_BASE && STOCK_BASE.locs; (Array.isArray(locs)?locs:Object.values(locs||{})).forEach(l=>{ if(l&&l.id){ const L=String(l.id).trim().toUpperCase().replace(/\s+/g,''); if(!isStoreLoc(L)) set.add(L); } });
@@ -5501,40 +5517,70 @@ function rcOpenPutaway(id){
   if(!rcCanPutaway()){ toast('Only Admin or Andre can put goods away','warn'); return; }
   const tot=rcTotals(s);
   const tag='Receiving '+(s.supplier||'')+' '+(s.dateStr||'');
+  const send=async(t,n,dest)=>{ if(dest.room) await rcPutRoom(s,t,n,dest.room,tag); else await rcPutaway(s,t,n,dest.L,tag); };
+  /* a typed warehouse location that the system has never seen is usually a typo — ask before using it */
+  const okDest=dest=>{ if(!dest){ toast('Type the location','warn'); return false; } if(dest.err){ toast(dest.err,'warn',5000); return false; }
+    if(dest.L && !rcPutPlaces().includes(dest.L) && !confirm(dest.L+' is not a location the system knows.\n\nUse it anyway?')) return false; return true; };
+  let busy=false;
   const draw=()=>{
-    const left=rcPutLeft(s);
+    const left=rcPutLeft(s); const leftLines=tot.filter(t=>t.qty-rcPutLine(s,t).placed>0).length;
     let h='<h2>📦 Put away · '+esc(s.supplier||'—')+' · '+esc(s.dateStr)+'</h2>'+
-      '<p class="sub" style="margin-bottom:10px">Choose where each product went. A warehouse location adds it to the live inventory count (as loose units on that shelf); <b>Store</b> only records that it went to the shop — store stock comes from Daily SOH.</p>'+
-      '<div class="rcrow" style="margin-bottom:10px"><span class="pill">left to place <b>'+fmtN(left)+'</b></span><div class="spacer" style="flex:1"></div>'+
-      (left>0?'<button class="btn ghost" id="rcPutAllStore">🏬 Everything left → Store</button>':'')+'</div>'+
-      '<datalist id="rcPutLocs">'+rcPutPlaces().map(L=>'<option value="'+esc(L)+'">').join('')+'</datalist>'+
+      '<p class="sub" style="margin-bottom:10px">Choose where the goods went. A warehouse location (S-02-2, PL-003, FL-006 …) adds them to the live inventory count on that shelf. A room (Stockroom, TikTok 1 …) adds them to that room in CPH INVENTORY.</p>'+
+      '<div class="rcrow" style="margin-bottom:10px"><span class="pill">left to place <b>'+fmtN(left)+'</b></span></div>'+
+      (left>0?'<div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px"><div style="font-weight:700;margin-bottom:8px">Everything that is left ('+fmtN(left)+' units · '+leftLines+' product'+(leftLines===1?'':'s')+') →</div>'+
+        '<div class="rcputctl" style="margin-top:0"><button class="btn primary" data-putall="'+RC_DESK_LOC+'">📍 Everything to '+RC_DESK_LOC+'</button><button class="btn primary" data-putall="'+esc(rcRoomName(RC_MAIN_ROOM))+'">🏬 Everything to '+esc(rcRoomName(RC_MAIN_ROOM))+'</button>'+
+        '<input type="text" class="tinput" id="rcPutAllLoc" list="rcPutLocs" placeholder="…or another location / room" autocomplete="off" style="flex:1 1 170px"><button class="btn" id="rcPutAllGo">→ Everything there</button></div>'+
+        '<div class="sub" style="font-size:12.5px;margin-top:8px">Products that need their own place: set them below first, then send the rest with one button.</div></div>':'')+
+      '<datalist id="rcPutLocs">'+ROOM_TAGS.map(r=>'<option value="'+esc(r[2])+'">').join('')+rcPutPlaces().map(L=>'<option value="'+esc(L)+'">').join('')+'</datalist>'+
       '<div class="rcput">';
     tot.forEach((t,i)=>{
-      const l=rcPutLine(s,t); const rem=Math.max(0,t.qty-l.whQty-l.store);
+      const l=rcPutLine(s,t); const rem=Math.max(0,t.qty-l.placed);
       const iv=S.inventory[keyOf(t.name,t.variation||'Default')]||S.inventory[keyOf(t.name,'')]||{};
-      const placed=l.wh.map(x=>esc(x.L)+' <b>'+fmtN(x.qty)+'</b>').concat(l.store?['🏬 Store <b>'+fmtN(l.store)+'</b>']:[]).join(' · ');
+      const placed=l.wh.map(x=>esc(x.L)+' <b>'+fmtN(x.qty)+'</b>').concat(l.rooms.map(x=>'🏬 '+esc(rcRoomName(x.room))+' <b>'+fmtN(x.qty)+'</b>')).concat(l.store?['🏬 Store <b>'+fmtN(l.store)+'</b>']:[]).join(' · ');
       h+='<div class="rcputrow'+(rem?'':' done')+'">'+rcImg(iv.image,t.name,'')+
         '<div style="min-width:0"><div class="an">'+esc(t.name)+(t.variation?' <span class="sub">· '+esc(t.variation)+'</span>':'')+'</div>'+
         '<div class="am">received <b>'+fmtN(t.qty)+'</b>'+(placed?' · placed: '+placed:'')+(rem?' · <span style="color:var(--warn)">left '+fmtN(rem)+'</span>':' · <span style="color:var(--accent)">all placed</span>')+'</div>'+
         (rem?'<div class="rcputctl"><input type="number" class="tinput" id="rcpq_'+i+'" min="1" max="'+rem+'" value="'+rem+'" style="width:96px;min-width:96px;flex:0 0 96px">'+
-          '<input type="text" class="tinput" id="rcpl_'+i+'" list="rcPutLocs" placeholder="Location (S-02-2, PL-003 …)" autocomplete="off" style="flex:1 1 150px">'+
-          '<button class="btn primary" data-putwh="'+i+'">→ Location</button><button class="btn ghost" data-putst="'+i+'">→ Store</button></div>':'')+
+          '<input type="text" class="tinput" id="rcpl_'+i+'" list="rcPutLocs" placeholder="Location or room (S-02-2, PL-003, TikTok 1 …)" autocomplete="off" style="flex:1 1 150px">'+
+          '<button class="btn primary" data-putwh="'+i+'">→ There</button><button class="btn ghost" data-putst="'+i+'">→ '+esc(rcRoomName(RC_MAIN_ROOM))+'</button></div>':'')+
         '</div></div>';
     });
     h+='</div><div class="rcrow" style="margin-top:14px"><div class="spacer" style="flex:1"></div><button class="btn ghost" id="rcPutClose">Close</button></div>';
     const m=rcModal(h); m.querySelector('.rcbox').style.width='min(760px,96vw)';
     $('#rcPutClose').onclick=rcCloseModal;
     const qtyOf=i=>{ const inp=$('#rcpq_'+i); const n=Math.floor(+inp.value||0); const max=+inp.max; if(n<1||n>max){ toast('Enter 1 – '+max,'warn'); inp.focus(); return 0; } return n; };
-    $$('#rcModal [data-putwh]').forEach(b=>b.onclick=async()=>{ const i=+b.dataset.putwh; const n=qtyOf(i); if(!n) return;
-      const L=String($('#rcpl_'+i).value||'').trim().toUpperCase().replace(/\s+/g,''); if(!L){ toast('Type the location','warn'); $('#rcpl_'+i).focus(); return; }
-      if(isStoreLoc(L)){ await rcPutaway(s, tot[i], n, null, tag); draw(); return; }
-      b.disabled=true; try{ await rcPutaway(s, tot[i], n, L, tag); toast(n+' × '+tot[i].name+' → '+L+(frozen()?' (queued — count in progress)':''),'ok'); }catch(e){ toast(e.message||'Could not save','err'); } draw(); });
-    $$('#rcModal [data-putst]').forEach(b=>b.onclick=async()=>{ const i=+b.dataset.putst; const n=qtyOf(i); if(!n) return;
-      b.disabled=true; try{ await rcPutaway(s, tot[i], n, null, tag); toast(n+' × '+tot[i].name+' → Store','ok'); }catch(e){ toast(e.message||'Could not save','err'); } draw(); });
-    const all=$('#rcPutAllStore'); if(all) all.onclick=async()=>{ if(!confirm('Send everything that is still unplaced ('+fmtN(left)+' units) to the Store?')) return;
-      all.disabled=true; for(const t of tot){ const l=rcPutLine(s,t); const rem=t.qty-l.whQty-l.store; if(rem>0){ try{ await rcPutaway(s, t, rem, null, tag); }catch(e){} } } toast('Everything left → Store','ok'); draw(); };
+    const one=async(i,dest,b)=>{ if(busy) return; const n=qtyOf(i); if(!n) return; if(!okDest(dest)){ if(!dest) $('#rcpl_'+i).focus(); return; }
+      busy=true; b.disabled=true; try{ await send(tot[i],n,dest); toast(n+' × '+tot[i].name+' → '+dest.label+(dest.L&&frozen()?' (queued — count in progress)':''),'ok'); }catch(e){ toast(e.message||'Could not save','err',5000); } busy=false; draw(); };
+    $$('#rcModal [data-putwh]').forEach(b=>b.onclick=()=>one(+b.dataset.putwh, rcPutDest($('#rcpl_'+b.dataset.putwh).value), b));
+    $$('#rcModal [data-putst]').forEach(b=>b.onclick=()=>one(+b.dataset.putst, {room:RC_MAIN_ROOM, label:rcRoomName(RC_MAIN_ROOM)}, b));
+    const all=async dest=>{ if(busy) return; if(!okDest(dest)){ if(!dest){ const x=$('#rcPutAllLoc'); if(x) x.focus(); } return; }
+      if(!confirm('Send everything that is still unplaced ('+fmtN(left)+' units · '+leftLines+' product'+(leftLines===1?'':'s')+') to '+dest.label+'?')) return;
+      busy=true; $$('#rcModal button').forEach(x=>x.disabled=true); let done=0, bad=0, err='';
+      for(const t of tot){ const rem=t.qty-rcPutLine(s,t).placed; if(rem>0){ try{ await send(t,rem,dest); done+=rem; }catch(e){ bad++; err=e.message||String(e); } } }
+      busy=false; toast(bad?(fmtN(done)+' units → '+dest.label+' · '+bad+' product(s) not saved: '+err):('Everything left ('+fmtN(done)+' units) → '+dest.label+(dest.L&&frozen()?' (queued — count in progress)':'')), bad?'err':'ok', bad?7000:3500); draw(); };
+    $$('#rcModal [data-putall]').forEach(b=>b.onclick=()=>all(rcPutDest(b.dataset.putall)));
+    const ag=$('#rcPutAllGo'); if(ag){ ag.onclick=()=>all(rcPutDest($('#rcPutAllLoc').value)); $('#rcPutAllLoc').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); ag.click(); } }); }
   };
   draw();
+}
+/* a room of CPH INVENTORY (Stockroom, TikTok 1 …): the goods are added to the room's stock there,
+   as a "Receiving" record in its ledger — the same way a finished transfer is posted */
+let RC_IR=null;
+function rcInvRoot(){ if(RC_IR) return RC_IR; try{ const a=(firebase.apps||[]).find(x=>x.name==='cphinv')||firebase.initializeApp(INV_CONFIG,'cphinv'); RC_IR=firebase.database(a).ref('inv'); }catch(e){ console.warn('inventory db',e); } return RC_IR; }
+async function rcPutRoom(s, t, qty, room, tag){
+  const key=rcPutKey(t.name,t.variation); const by=MY_NAME||'', at=Date.now();
+  const ref=rcRef ? rcRef.child('sessions/'+safeKey(s.id)+'/putaway/'+key) : null;
+  if(!ref) throw new Error('Not connected to the shared database');
+  const IR=rcInvRoot(); if(!IR) throw new Error('CPH INVENTORY is not reachable — nothing was moved');
+  const va=String(t.variation||'').trim(); const item=keyOf(t.name, va||'Default');
+  const d=new Date(at), p2=n=>String(n).padStart(2,'0');
+  const rec={ts:at, day:d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()), item, name:t.name+(va&&norm(va)!=='default'?' · '+va:''), qty, to:room, kind:'recv', by, note:tag.trim(), src:'station', srcId:String(s.id), at};
+  await IR.child('ledger/rc_'+invFbKey(String(s.id))+'_'+invFbKey(item)+'_'+at).set(rec);
+  await IR.child('balances/'+room+'/'+invFbKey(item)).transaction(c=>{ const v=(+c||0)+qty; return v===0?null:v; });
+  s.putaway=s.putaway||{}; const line=s.putaway[key]=s.putaway[key]||{};
+  line.rooms=rcArr(line.rooms).concat([{room, qty, by, at}]);
+  await ref.child('rooms').set(line.rooms);
+  rcSaveLocal();
 }
 /* one placement: L = warehouse location (adds to the count) or null = store (noted only) */
 async function rcPutaway(s, t, qty, L, tag){
@@ -5750,10 +5796,10 @@ function rcViewUnit(){
 
   h+='<div class="scanwrap"><div class="scanhead"><span class="mode items">Scan items</span>'+
     '<span class="who">'+esc(s.supplier)+' · '+W.toLowerCase()+' '+u.n+'</span></div>'+
-    '<div class="scanrow"><input id="rcScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan the item barcode…">'+
+    '<div class="scanrow"><input id="rcScan" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Scan the barcode or type the product name…">'+
     '<button class="btn primary" id="rcCam" title="Scan with the phone camera">📷 Camera</button>'+
     '<button class="btn" id="rcScanGo">Enter</button>'+
-    '<button class="btn ghost" id="rcAddManual">＋ Manual</button></div></div>';
+    '<button class="btn ghost" id="rcAddManual">＋ Manual</button></div><div id="rcSugg" class="rclist" style="display:none;margin:0;padding:0 16px 14px"></div></div>';
 
   if(u.items.length){
     h+='<div class="rcitems">'+u.items.map((it,i)=>
@@ -5778,9 +5824,25 @@ function rcViewUnit(){
 function rcWireUnit(){
   const s=rcCur(), u=rcUnit(rcUnitN); if(!u) return;
   $('#rcUBack').onclick=()=>rcGo('units');
-  const sc=$('#rcScan');
-  sc.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const v=sc.value.trim(); sc.value=''; if(v) rcScanCode(v); } });
-  $('#rcScanGo').onclick=()=>{ const v=sc.value.trim(); sc.value=''; if(v) rcScanCode(v); };
+  const sc=$('#rcScan'), sg=$('#rcSugg'); let sgRows=[], sgT=null;
+  /* typing a name shows matching products under the line; a scanned barcode still goes straight through */
+  const sgHide=()=>{ clearTimeout(sgT); sgRows=[]; sg.style.display='none'; sg.innerHTML=''; };
+  const sgPick=e=>{ sc.value=''; sgHide(); rcOpenQty(e, '', false); };
+  const sgShow=()=>{ const v=sc.value.trim(); sgRows=rcNameSearch(v, 12); if(!sgRows.length){ sg.style.display='none'; sg.innerHTML=''; return; }
+    sg.innerHTML=sgRows.map((e,i)=>'<button class="rcpick" data-i="'+i+'">'+rcImg(e.image,e.name)+'<div><div class="pn">'+esc(e.name)+'</div>'+(e.variation?'<div class="pv">'+esc(e.variation)+'</div>':'')+'</div></button>').join(''); sg.style.display='';
+    sg.querySelectorAll('.rcpick').forEach(b=>b.onmousedown=ev=>{ ev.preventDefault(); sgPick(sgRows[+b.dataset.i]); }); };
+  const sgEnter=()=>{ const v=sc.value.trim(); if(!v) return; clearTimeout(sgT);
+    if((rcIdx[norm(v)]||[]).length){ sc.value=''; sgHide(); rcScanCode(v); return; }          // a known barcode
+    const rows=rcNameSearch(v, 12);
+    if(rows.length===1){ sgPick(rows[0]); return; }
+    if(rows.length>1){ sgRows=rows; sgShow(); toast(rows.length+(rows.length>=12?'+':'')+' products match — pick one from the list','warn'); return; }
+    sc.value=''; sgHide();
+    if(/\s/.test(v)||!/\d/.test(v)){ flash('err'); beep('warn'); rcOpenPending('', 'No product named “'+v+'”'); return; }   // typed words, not a barcode: nothing gets attached as a barcode
+    rcScanCode(v); };
+  sc.addEventListener('input',()=>{ clearTimeout(sgT); sgT=setTimeout(sgShow,140); });
+  sc.addEventListener('blur',()=>setTimeout(()=>{ if(document.activeElement!==sc) sgHide(); },180));
+  sc.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); sgEnter(); } else if(e.key==='Escape'&&sgRows.length){ e.preventDefault(); e.stopPropagation(); sgHide(); } });
+  $('#rcScanGo').onclick=()=>sgEnter();
   $('#rcCam').onclick=openCam;
   $('#rcAddManual').onclick=()=>rcOpenPending('','Add a product manually');
   const trk=$('#rcTrk');
