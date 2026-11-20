@@ -239,6 +239,47 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 /* ---------- report ---------- */
 .statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:6px 0 20px}
 .stat{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:16px}
+/* ---- live dashboard (Pick & Pack) — meant to stay open on a wall screen ---- */
+#screen-dash{background:var(--bg)} #screen-dash:fullscreen{padding:26px 34px; overflow:auto}
+.dshead{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+.dstitle{font-family:var(--disp); font-weight:700; font-size:clamp(22px,2.4vw,36px)}
+.dsshifts{display:flex; gap:6px; flex-wrap:wrap} .dsshifts span{font-size:12.5px; color:var(--muted); border:1px solid var(--border); border-radius:99px; padding:3px 10px}
+.dsclock{font-family:var(--mono); font-size:clamp(18px,2vw,30px); color:var(--muted)}
+.dsprog{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:18px 22px 16px; margin-bottom:14px}
+.dsprogtop{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+.dspct{font-family:var(--mono); font-weight:700; font-size:clamp(40px,5.4vw,84px); line-height:1; color:var(--accent); letter-spacing:-.03em}
+.dsprogtxt{font-size:clamp(15px,1.5vw,22px); color:var(--muted)} .dsprogtxt b{color:var(--ink); font-family:var(--mono)}
+.dsroad{position:relative; height:74px; margin-top:6px}
+.dstrack{position:absolute; left:0; right:0; bottom:8px; height:18px; border-radius:99px; background:var(--raised); overflow:hidden}
+.dsfill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent-d),var(--accent)); background-size:44px 100%; transition:width 1.2s cubic-bezier(.2,.8,.2,1); position:relative; overflow:hidden}
+.dsfill::after{content:""; position:absolute; inset:0; background:repeating-linear-gradient(115deg,rgba(255,255,255,.16) 0 14px,transparent 14px 28px); animation:dsstripe 1.1s linear infinite}
+.dstruck{position:absolute; bottom:18px; font-size:46px; line-height:1; transition:left 1.2s cubic-bezier(.2,.8,.2,1); transform:translateX(-78%); filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+.dstruck i{display:inline-block; font-style:normal; transform:scaleX(-1); animation:dsbump .5s ease-in-out infinite}
+.dstruck.idle i{animation-duration:2.4s} .dstruck.done i{animation:dsparty 1s ease-in-out infinite}
+.dspuff{position:absolute; left:-10px; bottom:6px; font-size:16px; opacity:0; animation:dspuff 1.2s linear infinite}
+.dsflag{position:absolute; right:-4px; bottom:22px; font-size:34px}
+.dsmile{position:absolute; bottom:-12px; font-size:11px; color:var(--faint); transform:translateX(-50%)}
+@keyframes dsstripe{to{transform:translateX(28px)}}
+@keyframes dsbump{0%,100%{transform:scaleX(-1) translateY(0) rotate(0)} 50%{transform:scaleX(-1) translateY(-3px) rotate(-1.5deg)}}
+@keyframes dsparty{0%,100%{transform:scaleX(-1) translateY(0) rotate(-4deg)} 50%{transform:scaleX(-1) translateY(-10px) rotate(4deg)}}
+@keyframes dspuff{0%{opacity:.7; transform:translate(0,0) scale(.6)} 100%{opacity:0; transform:translate(-34px,-14px) scale(1.5)}}
+.dstoday{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:6px}
+.dsbig{background:linear-gradient(135deg,#143524,#161A21 70%); border:1px solid #1d4d33; border-radius:var(--r); padding:18px 22px}
+.dsbig .n{font-family:var(--mono); font-weight:700; font-size:clamp(44px,5vw,80px); line-height:1.05; color:var(--accent); letter-spacing:-.03em}
+.dsbig .l{font-size:clamp(14px,1.3vw,19px); color:var(--ink)} .dsbig .s{font-size:12.5px; color:var(--muted); margin-top:3px}
+.dsbig.pop .n{animation:dspop .7s ease-out}
+@keyframes dspop{0%{transform:scale(1)} 35%{transform:scale(1.12)} 100%{transform:scale(1)}}
+.dsgroup{display:flex; gap:14px; align-items:stretch; margin-top:12px}
+.dslabel{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.dsgroup>.dslabel{writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; min-width:18px}
+.dsstats{flex:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px}
+.dsstats .stat .n{font-size:clamp(28px,3vw,48px)} .dsstats .stat .l{font-size:clamp(12px,1.05vw,15px)}
+.dsgrid{margin-top:10px; grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.dsgrid .platform{cursor:default} .dsgrid .platform .pname{font-size:clamp(18px,1.7vw,26px)} .dsgrid .platform .meta{font-size:clamp(12.5px,1.05vw,16px)}
+.dsgrid .platform .left{font-family:var(--mono); font-weight:700; font-size:clamp(26px,2.6vw,42px); color:var(--warn); line-height:1.1}
+.dsgrid .platform .left small{font-family:var(--body,inherit); font-weight:500; font-size:13px; color:var(--muted)}
+.dsalldone{grid-column:1/-1; text-align:center; padding:34px; font-size:clamp(20px,2.4vw,34px); border:1px dashed var(--accent-d); border-radius:var(--r); color:var(--accent)}
+@media (prefers-reduced-motion:reduce){ .dstruck i,.dsfill::after,.dspuff{animation:none} }
 .stat .n{font-family:var(--mono); font-weight:700; font-size:30px; letter-spacing:-.02em}
 .stat .l{font-size:12.5px; color:var(--muted); margin-top:3px}
 .stat.ok .n{color:var(--ok)} .stat.err .n{color:var(--err)} .stat.warn .n{color:var(--warn)} .stat.info .n{color:var(--info)}
@@ -722,6 +763,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
       <button class="btn primary lg" id="packingBtn">📦 Packing mode</button>
       <button class="btn lg" id="guideBtn">📖 Product Guidebook</button>
       <button class="btn lg" id="finishBtn">📋 Shift report</button>
+      <button class="btn lg" id="dashBtn">📺 Dashboard</button>
       <button class="btn lg hide" id="packLogBtn">🧾 Pack log</button>
       <button class="btn lg hide" id="removedBtn">🗃 Removed orders</button>
     </div>
@@ -857,6 +899,23 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
   </section>
 
   <!-- ============ REPORT ============ -->
+  <section id="screen-dash" class="hide">
+    <div class="dshead">
+      <button class="btn ghost" id="dsBack">← Pick &amp; pack</button>
+      <div class="dstitle">Packing — live</div>
+      <div class="dsshifts" id="dsShifts"></div>
+      <div style="flex:1"></div>
+      <div class="dsclock" id="dsClock"></div>
+      <button class="btn" id="dsFull" title="Show on the whole screen">⛶ Full screen</button>
+    </div>
+    <div class="dsprog" id="dsProg"></div>
+    <div class="dstoday" id="dsToday"></div>
+    <div class="dsgroup"><div class="dslabel">Orders</div><div class="dsstats" id="dsOrders"></div></div>
+    <div class="dsgroup"><div class="dslabel">Units</div><div class="dsstats" id="dsUnits"></div></div>
+    <div class="dslabel" id="dsPlatLabel" style="margin-top:22px">Still to pack</div>
+    <div class="pgrid dsgrid" id="dsGrid"></div>
+  </section>
+
   <section id="screen-report" class="hide">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px; flex-wrap:wrap">
       <div class="eyebrow" style="margin:0">Shift report</div>
@@ -1011,7 +1070,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-20a · New Shipment: put everything away in one step · find a product by name';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-20b · Pick & Pack: live dashboard for the screen';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -2062,8 +2121,9 @@ function flash(kind){ const w=$('#scanwrap'); if(!w)return; w.classList.remove('
    ============================================================ */
 function show(screen){
   curScreen=screen;
-  ['menu','seed','platforms','pack','picking','packing','guide','reportview','report','packlog','removed','recv'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
+  ['menu','seed','platforms','pack','picking','packing','guide','reportview','report','packlog','removed','recv','dash'].forEach(s=>{ const el=$('#screen-'+s); if(el) el.classList.toggle('hide', s!==screen); });
   if(screen!=='pack') releaseIfHolding();
+  if(screen!=='dash' && typeof dashStop==='function') dashStop();
   if($('#cam') && !$('#cam').classList.contains('hide')) closeCam();
   closeItemPick();
   window.scrollTo({top:0});
@@ -2171,6 +2231,7 @@ function renderCurrent(){
   else if(curScreen==='packing') pgRender();
   else if(curScreen==='guide'){ buildGuideFilters(); renderGuide(); }
   else if(curScreen==='report') renderReport();
+  else if(curScreen==='dash') dashSync();
   else if(curScreen==='packlog') renderPackLog();
   else if(curScreen==='removed') renderRemoved();
   const cb=$('#continueBtn'); if(cb) cb.disabled = !CUR_SHIFT;
@@ -3924,6 +3985,73 @@ function doWipeShift(){
 $('#backBtn').onclick=()=>goPlatforms();
 $('#homeBtn').onclick=goMenu;
 $('#finishBtn').onclick=()=>doShiftReport('platforms');
+
+/* ============================================================
+   LIVE DASHBOARD — Pick & Pack, for a screen on the wall.
+   Read only. While it is open it listens to the orders of EVERY loaded shift,
+   so the numbers move as packers confirm orders; the listeners are dropped
+   when the screen is left.
+   "Today" = orders confirmed (packed or partial) since midnight on this device.
+   ============================================================ */
+const DASH={on:false, refs:{}, raw:{}, tick:null, wake:null, t:null, lastToday:null};
+function openDash(){ show('dash'); DASH.on=true; dashSync(); clearInterval(DASH.tick); DASH.tick=setInterval(()=>{ dashClock(); dashRender(); }, 20000); dashClock(); dashRender(); dashWake(); }
+async function dashWake(){ try{ if(navigator.wakeLock && !DASH.wake){ DASH.wake=await navigator.wakeLock.request('screen'); DASH.wake.addEventListener('release',()=>{ DASH.wake=null; }); } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(DASH.on && document.visibilityState==='visible') dashWake(); });
+function dashStop(){ if(!DASH.on) return; DASH.on=false; clearInterval(DASH.tick); for(const id in DASH.refs){ try{ DASH.refs[id].off(); }catch(e){} } DASH.refs={}; DASH.raw={};
+  try{ if(DASH.wake) DASH.wake.release(); }catch(e){} DASH.wake=null; try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){} }
+/* one live listener per loaded shift; shifts that were cleared are dropped */
+function dashSync(){ if(!DASH.on || !root) return; const ids=shiftIds();
+  for(const id in DASH.refs){ if(!ids.includes(id)){ try{ DASH.refs[id].off(); }catch(e){} delete DASH.refs[id]; delete DASH.raw[id]; } }
+  ids.forEach(id=>{ if(DASH.refs[id]) return; const r=root.child('shifts/'+id+'/orders'); DASH.refs[id]=r;
+    r.on('value', snap=>{ if(!DASH.on) return; DASH.raw[id]=snap.val()||{}; clearTimeout(DASH.t); DASH.t=setTimeout(dashRender,120); }); });
+  dashRender(); }
+function dashClock(){ const el=$('#dsClock'); if(!el) return; const d=new Date(); el.textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function dashRender(){
+  if(!DASH.on || curScreen!=='dash') return;
+  const ids=shiftIds(); let orders=[]; const claims={}; let loading=0; const now=Date.now();
+  ids.forEach(id=>{ const raw=DASH.raw[id]; if(!raw){ loading++; return; }
+    orders=orders.concat(ordersFromRaw(raw, shiftName(id)));
+    for(const k in raw){ const o=raw[k]; if(o && o.claim && now-(o.claim.at||0)<STALE_MS && !['packed','partial','unpacked'].includes(o.status)){ const p=o.platform||'—'; claims[p]=(claims[p]||0)+1; } } });
+  const r=buildReportFromOrders(orders);
+  $('#dsShifts').innerHTML=ids.map(id=>'<span>'+esc(shiftName(id))+'</span>').join('')+(loading?'<span>loading…</span>':'');
+  /* ---- overall progress: orders that are no longer waiting / all orders ---- */
+  const total=orders.length, handled=total-r.ordersPending, pct=total?Math.floor(handled/total*100):0; const done=total>0&&r.ordersPending===0;
+  const pos=Math.max(4, Math.min(100, total?handled/total*100:0));
+  const pg=$('#dsProg');
+  if(!pg.querySelector('.dsroad')) pg.innerHTML='<div class="dsprogtop"><div class="dspct" id="dsPct"></div><div class="dsprogtxt" id="dsProgTxt"></div></div>'+
+    '<div class="dsroad"><div class="dstrack"><div class="dsfill" id="dsFill" style="width:0%"></div></div><div class="dsflag">🏁</div><div class="dstruck" id="dsTruck" style="left:4%"><span class="dspuff">💨</span><i>🚚</i></div></div>';
+  $('#dsPct').textContent=pct+'%';
+  $('#dsProgTxt').innerHTML=!ids.length?'No shift is loaded yet':(done?'🎉 Every order of the loaded shifts is handled — <b>'+fmtN(total)+'</b> orders':'<b>'+fmtN(handled)+'</b> of <b>'+fmtN(total)+'</b> orders handled · <b>'+fmtN(r.ordersPending)+'</b> orders / <b>'+fmtN(r.unitsPending)+'</b> units still to pack');
+  $('#dsFill').style.width=(total?handled/total*100:0)+'%';
+  const tr=$('#dsTruck'); tr.style.left=pos+'%'; tr.classList.toggle('done',done); tr.querySelector('i').textContent=done?'🎉':'🚚'; tr.querySelector('.dspuff').style.display=done?'none':'';
+  /* ---- packed today ---- */
+  const d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime();
+  const today=r.packedOrders.filter(o=>typeof o.packedAt==='number' && o.packedAt>=t0);
+  const tUnits=today.reduce((a,o)=>a+(o.items||[]).reduce((b,it)=>b+(it.packed?(it.qty||1):0),0),0);
+  const first=today.length?Math.min.apply(null,today.map(o=>o.packedAt)):0, last=today.length?Math.max.apply(null,today.map(o=>o.packedAt)):0;
+  const hm=ts=>new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const packers=new Set(today.map(o=>o.packedBy).filter(Boolean)).size;
+  const pop=DASH.lastToday!==null && today.length>DASH.lastToday; DASH.lastToday=today.length;
+  $('#dsToday').innerHTML='<div class="dsbig'+(pop?' pop':'')+'"><div class="n">'+fmtN(today.length)+'</div><div class="l">orders packed today</div><div class="s">'+(today.length?'first at '+hm(first)+' · last at '+hm(last):'nothing confirmed yet today')+'</div></div>'+
+    '<div class="dsbig'+(pop?' pop':'')+'"><div class="n">'+fmtN(tUnits)+'</div><div class="l">units packed today</div><div class="s">'+(packers?packers+' packer'+(packers===1?'':'s')+' today':'&nbsp;')+'</div></div>';
+  /* ---- totals over all loaded shifts, same numbers as the shift report ---- */
+  $('#dsOrders').innerHTML=stat(fmtN(r.ordersPacked),'packed','ok')+stat(fmtN(r.ordersPartial),'partial',r.ordersPartial?'warn':'')+stat(fmtN(r.ordersNotPacked),'marked NOT packed',r.ordersNotPacked?'err':'')+stat(fmtN(r.ordersPending),'waiting',r.ordersPending?'info':'');
+  $('#dsUnits').innerHTML=stat(fmtN(r.unitsPacked),'packed','ok')+stat(fmtN(r.unitsNotPacked),'not packed',r.unitsNotPacked?'err':'')+stat(fmtN(r.unitsPending),'waiting',r.unitsPending?'info':'');
+  /* ---- platforms that still have orders waiting, all shifts together ---- */
+  const P={}; orders.forEach(o=>{ const k=o.platform||'—'; const p=P[k]=P[k]||{all:0,done:0,partial:0,blocked:0,pending:0,unitsPending:0}; p.all++;
+    if(o.status==='packed') p.done++; else if(o.status==='partial') p.partial++; else if(o.status==='unpacked') p.blocked++; else { p.pending++; p.unitsPending+=(o.items||[]).reduce((a,it)=>a+(it.qty||1),0); } });
+  const keys=Object.keys(P).filter(k=>P[k].pending>0).sort((a,b)=>P[b].pending-P[a].pending||a.localeCompare(b));
+  $('#dsPlatLabel').textContent=keys.length?('Still to pack — '+keys.length+' platform'+(keys.length===1?'':'s')):'Platforms';
+  $('#dsGrid').innerHTML=keys.length?keys.map(k=>{ const p=P[k], pc=Math.round(p.done/p.all*100), lk=claims[k]||0;
+      const badge=lk?'<div class="lockbadge">🔒 '+lk+' in progress</div>':((p.partial||p.blocked)?'<div class="lockbadge">'+(p.partial?'◑ '+p.partial+' partial ':'')+(p.blocked?'⛔ '+p.blocked+' not packed':'')+'</div>':'');
+      return '<div class="platform'+(lk?' locked':'')+'">'+badge+'<div class="pname">'+esc(k)+'</div><div class="left">'+fmtN(p.pending)+' <small>order'+(p.pending===1?'':'s')+' · '+fmtN(p.unitsPending)+' unit'+(p.unitsPending===1?'':'s')+' left</small></div>'+
+        '<div class="bar"><i style="width:'+pc+'%"></i></div><div class="meta"><span>Packed <b>'+p.done+'</b> of <b>'+p.all+'</b></span><span>'+pc+'%</span></div></div>'; }).join('')
+    :'<div class="dsalldone">'+(loading?'Loading the shifts…':(total?'🎉 Nothing is waiting — every platform is packed':'No orders are loaded'))+'</div>';
+}
+$('#dashBtn').onclick=openDash;
+$('#dsBack').onclick=()=>goPlatforms();
+$('#dsFull').onclick=()=>{ const el=$('#screen-dash'); try{ if(document.fullscreenElement) document.exitFullscreen(); else (el.requestFullscreen||el.webkitRequestFullscreen).call(el); }catch(e){ toast('Full screen is not available in this browser','warn'); } };
+document.addEventListener('fullscreenchange',()=>{ const b=$('#dsFull'); if(b) b.textContent=document.fullscreenElement?'✕ Exit full screen':'⛶ Full screen'; const k=$('#dsBack'); if(k) k.classList.toggle('hide', !!document.fullscreenElement); });
 $('#loadDataBtn').onclick=()=>show('seed');
 $('#readReportBtn').onclick=()=>doReadReports('platforms');
 $('#rvBack').onclick=()=>{ rvFrom==='menu'?goMenu():goPlatforms(); };
