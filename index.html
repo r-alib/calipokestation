@@ -239,6 +239,10 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 /* ---------- report ---------- */
 .statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin:6px 0 20px}
 .stat{background:var(--panel2); border:1px solid var(--border); border-radius:var(--r-sm); padding:16px}
+/* LIVE STREAM PICK & PACK (?mode=ls): no Picking / Packing modes, orders come from a file */
+body.lsmode #pickingBtn, body.lsmode #packingBtn, body.lsmode #ordUrl, body.lsmode #ordLoad, body.lsmode #ordProxy{display:none!important}
+body.lsmode header, body.lsmode .topbar{box-shadow:inset 0 -3px 0 #B66DFF}
+.lsbadge{display:inline-block; background:#2a1840; color:#D2A8FF; border:1px solid #5b3a8c; border-radius:99px; padding:2px 10px; font-size:11.5px; font-weight:700; letter-spacing:.08em; margin-left:8px; vertical-align:middle}
 /* ---- live dashboard (Pick & Pack) — meant to stay open on a wall screen ---- */
 #screen-dash{background:var(--bg)} #screen-dash:fullscreen{padding:26px 34px; overflow:auto}
 .dshead{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px}
@@ -1070,7 +1074,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-20b · Pick & Pack: live dashboard for the screen';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-23a · new mode: Live Stream Pick & Pack';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1109,6 +1113,13 @@ const INVENTORY_NAMES = ['inventory','stock','catalog'];
 
 /* ---------- runtime state ---------- */
 let db=null, root=null;            // root = the station node (shared across shifts)
+/* LIVE STREAM PICK & PACK is this same page opened with ?mode=ls. It keeps its own shifts,
+   orders, pack log, label index and reports under packstation/livestream — nothing of the
+   warehouse Pick & Pack is read or written — and it takes packed units from the Stockroom
+   in CPH INVENTORY instead of the warehouse shelves. Catalog, logins and scan-only are shared. */
+const LS_MODE=/[?&]mode=ls(&|$)/.test(location.search);
+const LS_ROOM='stockroom';
+let pk=null;                       // where shifts / shiftIndex / trackIndex / reports live: root, or root/livestream
 let shiftRef=null;                 // the shift currently being worked on
 let ordersOff=null;                // detaches the order listener when switching shift
 let MY_NAME='', SID='';
@@ -1123,7 +1134,7 @@ const STATION_PATH = 'packstation';
 const LEGACY_PATH  = 'packstation/current';   // the single-shift layout used before Sep 2026
 let SHIFTS={};                     // id -> index entry
 let CUR_SHIFT='';                  // id of the shift on screen
-const LS_SHIFT='ps_shift';
+const LS_SHIFT=LS_MODE?'ps_shift_ls':'ps_shift';
 const TODAY = (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date());
 const fmtDate = ts => { try{ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }catch(e){ return TODAY; } };
 let S = { date:'', startedAt:null, platforms:{}, inventory:{}, barcodeIdx:{} };
@@ -1318,6 +1329,7 @@ function shelfList(iv){
 }
 /* the location text shown on a product: counted shelves first, sheet column C otherwise */
 function locOf(iv){
+  if(LS_MODE){ const r=(roomsOf(iv)||[]).find(x=>x[0]==='SR'); return 'Stockroom'+(ROOMQ?' · '+fmtN(r?r[1]:0):''); }   // live-stream orders are picked in the Stockroom
   const list=shelfList(iv);
   if(list && list.length){
     const shown=list.slice(0,3).map(x=>x.L).join(' · ');
@@ -1530,7 +1542,8 @@ async function stockLog(rec){
 /* deduct one order. order = {items, trackingId, platform}. Returns the marker written, or null when already done */
 async function deductOrder(shiftId, orderKey, order){
   if(!db || !shiftId || !orderKey) return null;
-  const mref=root.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  if(LS_MODE) return lsDeductOrder(shiftId, orderKey, order);
+  const mref=pk.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
   const claim=await mref.transaction(cur=>{ if(cur) return; return {at:Date.now(), by:MY_NAME||'', pending:true}; });
   if(!claim.committed) return null;                     // someone (or an earlier run) already did it
   const lines=[], skipped=[]; let units=0;
@@ -1582,7 +1595,8 @@ async function deductOrder(shiftId, orderKey, order){
 /* an order is reopened: what was taken goes back to the same shelves */
 async function undeductOrder(shiftId, orderKey, order){
   const m=order.deducted; if(!m) return;
-  const mref=root.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  if(LS_MODE) return lsUndeductOrder(shiftId, orderKey, order);
+  const mref=pk.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
   if(m.deferred){ if(m.pending) await db.ref(STOCK_PATH+'/pending/'+m.pending).remove(); await mref.set(null); return; }
   const lines=m.lines ? (Array.isArray(m.lines)?m.lines:Object.values(m.lines)) : [];
   for(const ln of lines){ if(!ln||!ln.d) continue;
@@ -1591,6 +1605,47 @@ async function undeductOrder(shiftId, orderKey, order){
     const back={}; ['s','b','c','d'].forEach(f=>{ if(ln.d[f]) back[f]=-ln.d[f]; });
     await stockLog({type:'pack', k:ln.k, n:nameOfKey(ln.k), loc:ln.L, qty:ln.qty, d:{[ln.L]:back}, reason:'Order reopened', note:(order.platform?order.platform+' ':'')+(order.trackingId||'')+' · put back', order:orderKey, shift:shiftId, undo:true});
   }
+  await mref.set(null);
+}
+/* ---- LIVE STREAM: packed units leave the Stockroom of CPH INVENTORY ----
+   One "Sale" record per order line in inv/ledger and the Stockroom balance goes down by the same
+   number (below zero when the system has fewer — the next count there puts it right).
+   The order keeps a marker with the lines, so reopening it puts exactly those units back. */
+function lsDay(ts){ const d=new Date(ts), p2=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+async function lsPost(item, name, qty, back, note, ref){
+  const IR=rcInvRoot(); const at=Date.now();
+  const rec=Object.assign({ts:at, day:lsDay(at), item, name, qty, kind:back?'adjust':'sale', by:MY_NAME||'', note, src:'station-ls', srcId:ref, at}, back?{to:LS_ROOM}:{from:LS_ROOM});
+  await IR.child('ledger/ls_'+invFbKey(ref)+'_'+invFbKey(item)+'_'+at+(back?'_b':'')).set(rec);
+  await IR.child('balances/'+LS_ROOM+'/'+invFbKey(item)).transaction(c=>{ const v=(+c||0)+(back?qty:-qty); return v===0?null:v; });
+}
+async function lsDeductOrder(shiftId, orderKey, order){
+  const mref=pk.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  if(!rcInvRoot()){ toast('CPH INVENTORY is not reachable — the stock of this order was NOT taken off the Stockroom','err',6000); return null; }
+  const claim=await mref.transaction(cur=>{ if(cur) return; return {at:Date.now(), by:MY_NAME||'', pending:true}; });
+  if(!claim.committed) return null;
+  const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const lines=[], skipped=[]; let units=0;
+  const sum=new Map();
+  for(const it of (order.items||[])){
+    if(it.packed===false || (it.status && it.status!=='ok')) continue;
+    const qty=Math.max(0, +it.qty||1); if(!qty) continue;
+    const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
+    const va=String(iv.variation||it.variation||'').trim(); const item=keyOf(iv.name||it.name, va||'Default');
+    const e=sum.get(item)||{item, name:(iv.name||it.name)+(va&&norm(va)!=='default'?' · '+va:''), qty:0}; e.qty+=qty; sum.set(item,e);
+  }
+  for(const e of sum.values()){
+    try{ await lsPost(e.item, e.name, e.qty, false, 'Live stream order · '+tag, safeKey(shiftId)+'_'+safeKey(orderKey)); lines.push({item:e.item, n:e.name, qty:e.qty}); units+=e.qty; }
+    catch(err){ skipped.push({name:e.name, qty:e.qty, why:'could not write to CPH INVENTORY'}); }
+  }
+  const marker={at:Date.now(), by:MY_NAME||'', units, room:LS_ROOM, lines:lines.length?lines:null, skipped:skipped.length?skipped:null};
+  await mref.set(marker);
+  if(skipped.length) toast(skipped.length+' line(s) of '+tag+' could not be taken off the Stockroom: '+skipped.map(x=>x.name).join('; '),'warn',6000);
+  return marker;
+}
+async function lsUndeductOrder(shiftId, orderKey, order){
+  const m=order.deducted; const mref=pk.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  const lines=m.lines ? (Array.isArray(m.lines)?m.lines:Object.values(m.lines)) : [];
+  const tag=(order.platform?order.platform+' ':'')+(order.trackingId||'');
+  for(const ln of lines){ if(!ln||!ln.item||!ln.qty) continue; try{ await lsPost(ln.item, ln.n||ln.item, ln.qty, true, 'Order reopened · '+tag+' · put back', safeKey(shiftId)+'_'+safeKey(orderKey)); }catch(e){ toast('Could not put '+(ln.n||ln.item)+' back to the Stockroom','err',5000); } }
   await mref.set(null);
 }
 function deductStats(){
@@ -1620,6 +1675,7 @@ function connect(){
   const app=(firebase.apps||[]).find(a=>a.options.projectId===firebaseConfig.projectId)||firebase.initializeApp(firebaseConfig);
   db = firebase.database(app);
   root = db.ref(STATION_PATH);
+  pk = LS_MODE ? root.child('livestream') : root;
 
   const pRef = root.child('presence/'+SID);
   pRef.set({name:MY_NAME, at:Date.now()});
@@ -1650,12 +1706,12 @@ function connect(){
   // for the shift actually being worked on
   /* the label index of every shift — small enough to hold all of them, which is
      what lets Picking and Packing find a parcel without switching shift */
-  root.child('trackIndex').on('value', snap=>{
+  pk.child('trackIndex').on('value', snap=>{
     XTRACK = snap.val() || {};
     if(curScreen==='picking') renderPicking();
   });
 
-  root.child('shiftIndex').on('value', snap=>{
+  pk.child('shiftIndex').on('value', snap=>{
     SHIFTS = snap.val() || {};
     if(CUR_SHIFT && !SHIFTS[CUR_SHIFT]) setShift(pickDefaultShift());   // someone cleared the open shift
     else if(!CUR_SHIFT) setShift(pickDefaultShift());
@@ -1664,7 +1720,8 @@ function connect(){
 
   rcConnect();   // NEW SHIPMENT shares the same database
 
-  root.child('shiftIndex').once('value').then(async snap=>{
+  pk.child('shiftIndex').once('value').then(async snap=>{
+    if(LS_MODE){ if(!lsAllowed()){ toast('Your role has no access to Live Stream Pick & Pack','warn',4000); setTimeout(()=>{ location.href=location.pathname; },1500); return; } goPlatforms(); return; }
     if(IS_ADMIN && !snap.exists()) await migrateLegacyShift();
     goMenu();
   });
@@ -1693,7 +1750,7 @@ function healTrackIndex(shiftId, platforms){
   const have=XTRACK[shiftId]||{};
   const liveKeys=Object.keys(live), haveKeys=Object.keys(have);
   if(liveKeys.length===haveKeys.length && liveKeys.every(k=>have[k] && have[k].t===live[k].t && have[k].p===live[k].p)) return;
-  root.child('trackIndex/'+shiftId).set(liveKeys.length?live:null).catch(()=>{});
+  pk.child('trackIndex/'+shiftId).set(liveKeys.length?live:null).catch(()=>{});
 }
 /* every order the station knows about, from every loaded shift.
    The open shift contributes real orders; the others contribute stubs that
@@ -1714,7 +1771,7 @@ async function hydrateMatch(x){
   if(!x) return null;
   if(!x.lite) return x;
   try{
-    const snap=await root.child('shifts/'+x.shiftId+'/orders/'+x.order._key).once('value');
+    const snap=await pk.child('shifts/'+x.shiftId+'/orders/'+x.order._key).once('value');
     const v=snap.val(); if(!v) return null;
     return {platform:v.platform||x.platform, shiftId:x.shiftId,
       order:{_key:x.order._key, platform:v.platform||x.platform, trackingId:v.trackingId, items:v.items||[],
@@ -1746,7 +1803,7 @@ let SHIFT_META={};
 async function loadShiftMeta(id){
   if(!id || !root) return null;
   if(SHIFT_META[id]) return SHIFT_META[id];
-  try{ const s=await root.child('shifts/'+id+'/meta').once('value'); SHIFT_META[id]=s.val()||{}; }
+  try{ const s=await pk.child('shifts/'+id+'/meta').once('value'); SHIFT_META[id]=s.val()||{}; }
   catch(e){ SHIFT_META[id]={}; }
   return SHIFT_META[id];
 }
@@ -1758,7 +1815,7 @@ async function resolveShiftSource(id){
   const m=await loadShiftMeta(id);
   const s=(m && m.source && m.source.input) ? m.source : null;
   if(!s) return '';
-  if(IS_ADMIN) root.child('shiftIndex/'+id+'/source').set(s).catch(()=>{});
+  if(IS_ADMIN) pk.child('shiftIndex/'+id+'/source').set(s).catch(()=>{});
   return s.input;
 }
 async function setShiftSource(id, url, fileName){
@@ -1766,7 +1823,7 @@ async function setShiftSource(id, url, fileName){
   SHIFT_META[id]=Object.assign(SHIFT_META[id]||{}, {source:s});
   const up={ ['shifts/'+id+'/meta/source']:s, ['shiftIndex/'+id+'/source']:s };
   if(fileName){ up['shifts/'+id+'/meta/fileName']=fileName; up['shiftIndex/'+id+'/fileName']=fileName; }
-  try{ await root.update(up); }catch(e){}
+  try{ await pk.update(up); }catch(e){}
 }
 function shiftName(id){ const s=SHIFTS[id]; return (s&&s.name)||id||'—'; }
 function pickDefaultShift(){
@@ -1780,7 +1837,7 @@ function setShift(id){
   try{ localStorage.setItem(LS_SHIFT, CUR_SHIFT); }catch(e){}
   flushReportPublish();                      // the previous shift's last changes go out before switching
   S.platforms={}; S.date=''; S.startedAt=null;
-  shiftRef = CUR_SHIFT ? root.child('shifts/'+CUR_SHIFT) : null;
+  shiftRef = CUR_SHIFT ? pk.child('shifts/'+CUR_SHIFT) : null;
   activeOrder=null; activePick=null; curPlatformKey=null;
   if(!shiftRef){ renderCurrent(); return; }
   const meta=SHIFTS[CUR_SHIFT]||{};
@@ -1841,8 +1898,14 @@ function shiftNameFrom(fileName){
 }
 
 /* orders are parsed first and only become a shift once the name is confirmed */
+/* LIVE STREAM: the orders come from a sales-report file. The rules that turn a platform's report into
+   orders are not written yet (waiting for a sample report) — they go into lsConvertReport(), which
+   must return a workbook in the station's own import format (a tab per platform: Tracking ID ·
+   Product Name · Variation · Quantity · Order Number), or null to read the file as it is. */
+function lsConvertReport(buf, fileName){ return null; }
 function stageOrders(buf, sourceMeta, fileName){
-  let platforms; try{ platforms=parseOrders(buf); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord',e.message,'err'); return; }
+  if(LS_MODE){ let conv=null; try{ conv=lsConvertReport(buf, fileName); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord','Could not read the sales report: '+e.message,'err'); return; } if(conv) buf=conv; if(!sourceMeta) sourceMeta={type:'file', name:fileName||''}; }
+  let platforms; try{ platforms=parseOrders(buf); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord',e.message+(LS_MODE?' — For now the file must be in the station import format (a tab per platform with Tracking ID · Product Name · Variation · Quantity · Order Number). Reading the platforms’ own sales reports will be added once a sample report is available.':''),'err'); return; }
   let n=0; for(const pk in platforms) n+=platforms[pk].orders.length;
   const src=fileName||_lastSheetName||'';
   _pendingShift={platforms, source:sourceMeta||null, name:shiftNameFrom(src)||todayUS(), fromName:src, orders:n};
@@ -1877,7 +1940,7 @@ async function createShift(){
     orders[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, orderNo:o.orderNo||null, items:o.items, status:'pending', claim:null, addedAt:Date.now()};
   const meta={name, createdAt:Date.now(), createdBy:MY_NAME, source:_pendingShift.source||null};
   try{
-    await root.update({
+    await pk.update({
       ['shifts/'+id+'/meta']  : meta,
       ['shifts/'+id+'/orders']: orders,
       ['trackIndex/'+id]      : trackRowsFor(orders),
@@ -1899,7 +1962,7 @@ async function clearShift(id){
   if(!confirm('Clear the shift “'+nm+'”?\nIts orders and pack log are deleted for everyone.\nOther shifts, the catalog and New Shipment are not touched.')) return;
   if(!confirm('Are you sure? This cannot be undone.')) return;
   try{
-    await root.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null, ['trackIndex/'+id]:null });
+    await pk.update({ ['shifts/'+id]:null, ['shiftIndex/'+id]:null, ['trackIndex/'+id]:null });
   }catch(e){ toast('Could not clear the shift','err',3600); return; }
   delete SHIFT_META[id];
   toast('Shift “'+nm+'” cleared','ok',3000);
@@ -2037,7 +2100,7 @@ async function syncShiftOrders(buf, label){
   lines.push('', 'Everything else keeps its current status. Continue?');
 
   if(!added.length && !changed.length && !removedPending.length && !removedDone.length){
-    if(orderNos){ try{ await shiftRef.update(updates); if(Object.keys(idx).length) root.update(idx).catch(()=>{}); toast('Order numbers / full tracking ids written for '+orderNos+' order(s)','ok',3600); }catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); } return; }
+    if(orderNos){ try{ await shiftRef.update(updates); if(Object.keys(idx).length) pk.update(idx).catch(()=>{}); toast('Order numbers / full tracking ids written for '+orderNos+' order(s)','ok',3600); }catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); } return; }
     toast('“'+shiftLabel+'” already matches the file'+(skipped.length?(' · '+skipped.length+' being packed'):'')+(noOrderCol.length?' · no Order # column in: '+noOrderCol.join(', '):''),noOrderCol.length?'warn':'info',4200);
     return;
   }
@@ -2057,7 +2120,7 @@ async function syncShiftOrders(buf, label){
 
   try{ await shiftRef.update(updates); }
   catch(e){ toast('Sync failed: '+(e&&e.message||e),'err',4200); return; }
-  if(Object.keys(idx).length) root.update(idx).catch(()=>{});
+  if(Object.keys(idx).length) pk.update(idx).catch(()=>{});
 
   let t='“'+shiftLabel+'”: +'+added.length+' new, '+changed.length+' changed, '+
         (removedPending.length+removedDone.length)+' removed';
@@ -2129,7 +2192,9 @@ function show(screen){
   window.scrollTo({top:0});
 }
 function goPlatforms(){ show('platforms'); gChoice=null; renderGlobalChoice(); renderPlatforms(); setTimeout(gFocus,60); }
-function goMenu(){ show('menu'); renderMenu(); }
+function goMenu(){ if(LS_MODE){ location.href=location.pathname; return; }   // the main menu lives in the plain station
+  show('menu'); renderMenu(); }
+function lsAllowed(){ return !window.CPAuth||!CPAuth.user||((CPAuth.ACCESS.station||{}).pickpack?CPAuth.can('pickpack','station'):CPAuth.isAdmin); }
 
 /* ============================================================
    MAIN MENU
@@ -2140,6 +2205,7 @@ function goMenu(){ show('menu'); renderMenu(); }
 const MODES=[
   {icon:'📖', name:'PRODUCT GUIDEBOOK', desc:'Look up any product — photo, location, stock', go:()=>enterGuide('menu'), feat:'guidebook'},
   {icon:'📦', name:'PICK &amp; PACK',   desc:'Pick and pack customer orders', bar:true, go:goPlatforms, feat:'pickpack'},
+  {icon:'🎬', name:'LIVE STREAM PICK &amp; PACK', desc:'Pack live-stream orders · stock comes off the Stockroom', go:()=>{ location.href=location.pathname+'?mode=ls'; }, feat:'pickpack'},
   {icon:'🚚', name:'NEW SHIPMENT',      desc:'Receive and count new stock', go:enterReceiving, feat:'shipment'},
   {icon:'🏷️', name:'LABEL PRINT',       desc:'Print name and barcode labels', ext:'labels', ready:true, feat:'labels'},
   {icon:'🔢', name:'INVENTORY',         desc:'Count shelves together live · totals vs expected · transfers', ext:'inventory', ready:true, feat:'inventory'},
@@ -2647,7 +2713,7 @@ async function deleteOrder(key){
               'Use this for a row that should not be packed today.')) return;
   try{ await shiftRef.child('orders/'+key).remove(); }
   catch(e){ toast('Could not delete it','err',3200); return; }
-  root.child('trackIndex/'+CUR_SHIFT+'/'+key).remove().catch(()=>{});
+  pk.child('trackIndex/'+CUR_SHIFT+'/'+key).remove().catch(()=>{});
   if(activeOrder && activeOrder.key===key){ activeOrder=null; activePick=null; }
   toast('Order '+o.trackingId+' deleted — Sync orders restores it','ok',3600);
 }
@@ -3254,7 +3320,7 @@ function renderShiftBar(){
       (IS_ADMIN?'<span class="x" data-del="'+esc(id)+'" title="Clear this shift">✕</span>':'')+'</button>';
   }).join('');
   if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
-  if(frozen()) h+='<span class="shiftchip frozen" title="An inventory count is running — orders packed now are queued and applied to the shelves when the count is synced in Inventory">❄ Count in progress · deductions queued</span>';
+  if(!LS_MODE && frozen()) h+='<span class="shiftchip frozen" title="An inventory count is running — orders packed now are queued and applied to the shelves when the count is synced in Inventory">❄ Count in progress · deductions queued</span>';
   if(IS_ADMIN && CUR_SHIFT){ const c=deductStats();
     h+='<button class="shiftchip'+(c.todo?' todo':'')+'" id="deductChip" title="Take the packed units of this shift off the pick shelves (S-/R-). Orders confirmed in this build are deducted automatically; this catches the ones that were not."'+(DEDUCT_BUSY||!c.todo?' disabled':'')+'>📦→ Deduct packed orders <span class="n">'+c.done+' / '+c.total+'</span>'+(c.todo?' · '+c.todo+' to do':'')+'</button>'; }
   bar.innerHTML=h;
@@ -3295,7 +3361,7 @@ async function shiftOrders(id){
   if(id===CUR_SHIFT) return currentOrderList();
   if(SHIFT_CACHE[id] && SHIFT_CACHE[id].orders) return SHIFT_CACHE[id].orders;
   if(!root) return [];
-  const snap=await root.child('shifts/'+id+'/orders').once('value');
+  const snap=await pk.child('shifts/'+id+'/orders').once('value');
   const list=ordersFromRaw(snap.val(), shiftName(id));
   SHIFT_CACHE[id]=Object.assign(SHIFT_CACHE[id]||{}, {orders:list});
   return list;
@@ -3304,7 +3370,7 @@ async function shiftPacklog(id){
   if(SHIFT_CACHE[id] && SHIFT_CACHE[id].packlog && id!==CUR_SHIFT) return SHIFT_CACHE[id].packlog;
   if(id===CUR_SHIFT && SHIFT_CACHE[id]) SHIFT_CACHE[id].packlog=null;
   if(!root) return [];
-  const snap=await root.child('shifts/'+id+'/packlog').once('value');
+  const snap=await pk.child('shifts/'+id+'/packlog').once('value');
   const list=packlogFromRaw(snap.val(), shiftName(id));
   SHIFT_CACHE[id]=Object.assign(SHIFT_CACHE[id]||{}, {packlog:list});
   return list;
@@ -3475,7 +3541,7 @@ async function publishReport(id, orders){ if(!root||!id) return false; const nam
   const list=orders||currentOrderList().map(o=>Object.assign({},o,{shiftDate:S.date||name})); if(!list.length) return false;
   const rows=ordersToCSVRows(list,name); const csv=rowsToCSV(rows); const h=strHash(csv); if(_pubLast[id]===h) return false;
   const meta=SHIFTS[id]||{}; const idx={name, month:reportMonthOf(name, meta.createdAt), file:'pack_report_'+safeFile(name)+'.csv', rows:rows.length-1, hash:h, updatedAt:Date.now(), by:MY_NAME||''};
-  await root.update({['reportFiles/'+id]:{csv}, ['reportIndex/'+id]:idx}); _pubLast[id]=h; return true; }
+  await pk.update({['reportFiles/'+id]:{csv}, ['reportIndex/'+id]:idx}); _pubLast[id]=h; return true; }
 async function publishSelectedReports(){ const ids=RPT.sel.length?RPT.sel:(CUR_SHIFT?[CUR_SHIFT]:[]); if(!ids.length){ toast('Pick a shift first','warn'); return; } let n=0;
   for(const id of ids){ try{ const orders=id===CUR_SHIFT?null:(await shiftOrders(id)).map(o=>Object.assign({},o,{shiftDate:o.shiftDate||shiftName(id)})); delete _pubLast[id]; if(await publishReport(id,orders)) n++; }catch(e){ console.warn(e); } }
   toast(n+' report(s) queued for Drive — they appear there within 15 minutes','ok',4000); }
@@ -3653,7 +3719,7 @@ function doRemoved(from){
 }
 async function shiftRemoved(id){
   if(!root) return [];
-  const snap=await root.child('shifts/'+id+'/removed').once('value');
+  const snap=await pk.child('shifts/'+id+'/removed').once('value');
   const out=[]; const v=snap.val()||{};
   for(const k in v){ const o=v[k]; if(o) out.push(Object.assign({key:k, shiftId:id, shiftName:shiftName(id)}, o)); }
   out.sort((a,b)=>(b.removedAt||0)-(a.removedAt||0));
@@ -3732,7 +3798,7 @@ function renderRemoved(){
     const [sid,key]=btn.dataset.rmdel.split('|');
     const row=(RMV.rows[sid]||[]).find(x=>x.key===key);
     if(!confirm('Delete '+((row&&row.trackingId)||'this order')+' from the removed-orders log?\nThe log entry is gone for good; the order itself is already out of the shift.')) return;
-    root.child('shifts/'+sid+'/removed/'+key).remove()
+    pk.child('shifts/'+sid+'/removed/'+key).remove()
       .then(()=>{ RMV.rows[sid]=(RMV.rows[sid]||[]).filter(x=>x.key!==key); renderRemoved(); toast('Removed from the log','ok',2000); })
       .catch(()=>toast('Could not delete it','err',3000));
   });
@@ -3741,7 +3807,7 @@ function clearRemovedLog(){
   const ids=RMV.sel.slice(); if(!ids.length) return;
   const n=removedEntries().length; if(!n){ toast('The log is already empty','info',2000); return; }
   if(!confirm('Delete all '+n+' entries from the removed-orders log of '+ids.map(shiftName).join(', ')+'?\nExport them first if you still need them.')) return;
-  Promise.all(ids.map(id=>root.child('shifts/'+id+'/removed').remove().catch(()=>{})))
+  Promise.all(ids.map(id=>pk.child('shifts/'+id+'/removed').remove().catch(()=>{})))
     .then(()=>{ ids.forEach(id=>RMV.rows[id]=[]); renderRemoved(); toast('Log cleared','ok',2400); });
 }
 function exportRemovedCSV(){
@@ -3951,6 +4017,7 @@ $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the curre
 function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
 async function doPullOrders(){
   if(!CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
+  if(LS_MODE){ toast('Pick the newer sales-report file for “'+shiftName(CUR_SHIFT)+'” — new orders are added, packed ones are kept','info',4200); $('#syncFile').click(); return; }
   const nm=shiftName(CUR_SHIFT);
   let src=await resolveShiftSource(CUR_SHIFT);
   if(!src){
@@ -3985,6 +4052,20 @@ function doWipeShift(){
 $('#backBtn').onclick=()=>goPlatforms();
 $('#homeBtn').onclick=goMenu;
 $('#finishBtn').onclick=()=>doShiftReport('platforms');
+/* LIVE STREAM PICK & PACK: same screens, its own wording */
+if(LS_MODE){ (function(){
+  document.body.classList.add('lsmode'); document.title='LIVE STREAM PICK & PACK · CALIPOKE STATION';
+  const T=(sel,html)=>{ const e=document.querySelector(sel); if(e) e.innerHTML=html; };
+  const brand=document.querySelector('.brand > div'); if(brand && brand.firstChild) brand.firstChild.nodeValue='LIVE STREAM PICK & PACK';
+  T('#screen-platforms .eyebrow','Live stream pick &amp; pack <span class="lsbadge">STOCKROOM</span>');
+  T('#screen-seed h1','Load a sales report as a new shift');
+  T('#screen-seed h1 + p.sub','Loading a file <b>adds</b> a shift of live-stream orders — the shifts already loaded keep running. The shift is named after the date in the file name; you can correct it before it is created. These shifts are separate from the warehouse Pick &amp; Pack, and packed units come off the <b>Stockroom</b>.');
+  T('#screen-seed .srchead .sub','sales report file · .xlsx / .csv');
+  T('#ordStatus','Choose the sales-report file. Until the report rules are set up, the file must be in the station import format (a tab per platform: Tracking ID · Product Name · Variation · Quantity · Order Number).');
+  const lab=document.querySelector('#ordFile') && document.querySelector('#ordFile').parentNode; if(lab){ lab.classList.remove('ghost'); lab.classList.add('primary'); lab.firstChild.nodeValue='📄 Choose the sales report file'; }
+  T('#screen-dash .dstitle','Live stream packing — live');
+  T('#dsBack','← Live stream pick &amp; pack');
+})(); }
 
 /* ============================================================
    LIVE DASHBOARD — Pick & Pack, for a screen on the wall.
@@ -4002,7 +4083,7 @@ function dashStop(){ if(!DASH.on) return; DASH.on=false; clearInterval(DASH.tick
 /* one live listener per loaded shift; shifts that were cleared are dropped */
 function dashSync(){ if(!DASH.on || !root) return; const ids=shiftIds();
   for(const id in DASH.refs){ if(!ids.includes(id)){ try{ DASH.refs[id].off(); }catch(e){} delete DASH.refs[id]; delete DASH.raw[id]; } }
-  ids.forEach(id=>{ if(DASH.refs[id]) return; const r=root.child('shifts/'+id+'/orders'); DASH.refs[id]=r;
+  ids.forEach(id=>{ if(DASH.refs[id]) return; const r=pk.child('shifts/'+id+'/orders'); DASH.refs[id]=r;
     r.on('value', snap=>{ if(!DASH.on) return; DASH.raw[id]=snap.val()||{}; clearTimeout(DASH.t); DASH.t=setTimeout(dashRender,120); }); });
   dashRender(); }
 function dashClock(){ const el=$('#dsClock'); if(!el) return; const d=new Date(); el.textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
@@ -4082,7 +4163,7 @@ $('#onlinePill').onclick=()=>{ root.child('presence').once('value').then(s=>{ co
 
 $('#pullOrdersBtn').onclick=async()=>{ $('#pullOrdersBtn').disabled=true; await doPullOrders(); $('#pullOrdersBtn').disabled=false; };
 $('#syncFile').addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value='';
-  if(f) readFile(f, buf=>syncShiftOrders(buf, f.name)); });
+  if(f) readFile(f, buf=>{ if(LS_MODE){ try{ const c=lsConvertReport(buf, f.name); if(c) buf=c; }catch(err){ toast('Could not read the sales report: '+err.message,'err',5000); return; } } syncShiftOrders(buf, f.name); }); });
 $('#updInvBtn').onclick=async()=>{ $('#updInvBtn').disabled=true; await doUpdateInventory(); $('#updInvBtn').disabled=false; };
 $('#wipeBtn').onclick=doWipeShift;
 
