@@ -543,9 +543,22 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
   <!-- ============ JOB 2 — ITEM NAMES 6x4 ============ -->
   <div id="job2" hidden>
     <div class="backbar"><button class="btn" type="button" data-back>← Label Print</button></div>
+    <div class="seg mode" id="nmMode" role="group" aria-label="Input mode">
+      <button type="button" data-m="one" aria-pressed="true">One label</button>
+      <button type="button" data-m="list" aria-pressed="false">Paste a list</button>
+    </div>
     <div class="grid">
       <section>
-        <div class="card">
+        <div class="card" id="nmListCard" hidden>
+          <p class="eyebrow"><span>Paste the names</span><span class="count" id="nmListCount"></span></p>
+          <div class="field" style="margin-bottom:0">
+            <label for="nmPaste">One name per line <span class="hint">— every line becomes its own label · copy a column from Google Sheets and paste here</span></label>
+            <textarea id="nmPaste" spellcheck="false" autocomplete="off" style="min-height:220px;font-family:var(--body);font-size:14px"
+                      placeholder="151 box&#10;fuggler squishy&#10;charizard ex special collection"></textarea>
+          </div>
+          <p class="parseline" id="nmListInfo" style="margin-top:10px">Nothing pasted yet.</p>
+        </div>
+        <div class="card" id="nmFindCard">
           <p class="eyebrow"><span>Find the item</span><span class="count" id="nmCount"></span></p>
           <div class="field" style="margin-bottom:0">
             <label for="nmSearch">Search <span class="hint">— type a name or scan a barcode</span></label>
@@ -558,7 +571,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 
         <div class="card">
           <p class="eyebrow"><span>Label text</span></p>
-          <div class="field">
+          <div class="field" id="nmTextField">
             <label for="nmText">Printed on the box <span class="hint">— edit freely · Enter starts a new line</span></label>
             <textarea id="nmText" spellcheck="false" style="min-height:76px;white-space:pre-wrap;font-family:var(--body);font-size:14px"
                       placeholder="Pick an item above, or just type a name"></textarea>
@@ -577,7 +590,7 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
           <p class="eyebrow"><span>Print</span></p>
           <div class="row">
             <div class="field qty-wrap" style="margin-bottom:0">
-              <label for="nmQty">Copies</label>
+              <label for="nmQty" id="nmQtyLabel">Copies</label>
               <input id="nmQty" class="small" type="number" min="1" max="500" step="1" value="1">
             </div>
             <div class="chips" id="nmChips" style="padding-bottom:1px">
@@ -594,7 +607,12 @@ td.text{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowra
 
       <section>
         <div class="card">
-          <p class="eyebrow"><span>Preview</span></p>
+          <p class="eyebrow"><span>Preview</span>
+            <span class="rownav" id="nmNav" hidden>
+              <button class="navbtn" id="nmPrev" type="button" aria-label="Previous label">‹</button>
+              <span class="pos" id="nmPos">1 / 1</span>
+              <button class="navbtn" id="nmNext" type="button" aria-label="Next label">›</button>
+            </span></p>
           <div class="stage">
             <div class="bigwrap"><div class="biglabel empty" id="nmLabel"><div class="fitbox"><div class="fittxt" id="nmFit">PICK AN ITEM</div></div></div></div>
             <p class="scale-note" id="nmScaleNote">6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label</p>
@@ -1891,7 +1909,7 @@ function setJob(j){
                                            : "6 × 4 in, landscape · shown at 72 % · the text is sized to fill the label";
     $("nmPaperTip").innerHTML = nmSmall ? 'Paper size <strong>2.25 × 1.25 in</strong> (or "Label"), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.'
                                         : 'Paper size <strong>6 × 4 in</strong> (landscape), margins <strong>None / 0</strong>, scale <strong>100 %</strong>.';
-    refreshProducts(); renderNmSearch(); renderNamePreview(); $("nmSearch").focus();
+    refreshProducts(); renderNmSearch(); renderNamePreview(); (nmList ? $("nmPaste") : $("nmSearch")).focus();
   }
   if (j === 3){ renderPalletRecent(); renderPalletPreview(); $("plCode").focus(); }
   window.scrollTo({ top: 0 });
@@ -1983,27 +2001,58 @@ function nmQty(){
   return n;
 }
 function nmTextValue(){ return ($("nmText").value || "").replace(/\r\n?/g, "\n").trim(); }
+/* list mode: every non-empty pasted line is one label. Cells of a spreadsheet row (tabs) are joined with a space. */
+var nmList = false, nmIdx = 0;
+function nmLines(){
+  var raw = ($("nmPaste").value || "").replace(/\r\n?/g, "\n").replace(/ /g, " ").split("\n"), out = [];
+  for (var i = 0; i < raw.length; i++){ var t = raw[i].replace(/\t+/g, " ").replace(/ {2,}/g, " ").trim(); if (t) out.push(t); }
+  return out;
+}
+/* the labels of this print run: [text, text, …] before copies */
+function nmTexts(){ if (nmList) return nmLines(); var t = nmTextValue(); return t ? [t] : []; }
+function setNmMode(list){
+  nmList = !!list; nmIdx = 0;
+  var b = $("nmMode").children;
+  for (var i = 0; i < b.length; i++) b[i].setAttribute("aria-pressed", (b[i].dataset.m === "list") === nmList ? "true" : "false");
+  $("nmListCard").hidden = !nmList; $("nmFindCard").hidden = nmList; $("nmTextField").hidden = nmList;
+  $("nmQtyLabel").textContent = nmList ? "Copies of each" : "Copies";
+  renderNamePreview();
+  (nmList ? $("nmPaste") : $("nmSearch")).focus();
+}
 function renderNamePreview(){
-  var t = nmTextValue();
+  var texts = nmTexts();
+  if (nmIdx >= texts.length) nmIdx = Math.max(0, texts.length - 1);
+  var t = texts[nmIdx] || "";
   var lbl = $("nmLabel"), fit = $("nmFit");
   lbl.className = t ? "biglabel" : "biglabel empty";
-  fit.textContent = t || "PICK AN ITEM";
+  fit.textContent = t || (nmList ? "PASTE THE NAMES" : "PICK AN ITEM");
   fit.parentNode.className = "fitbox" + alignClass();
   renderAlignChips();
   fitText(fit, fit.parentNode, nmSmall ? 14 : 40);
-  var n = t ? nmQty() : 0;
-  $("nmBtnN").textContent = n + (n === 1 ? " label" : " labels");
-  $("nmPrint").disabled = !t;
+  var total = texts.length * nmQty(), over = total > MAX_PAGES;
+  $("nmBtnN").textContent = total + (total === 1 ? " label" : " labels");
+  $("nmPrint").disabled = !texts.length || over;
+  $("nmNav").hidden = !(nmList && texts.length > 1);
+  $("nmPos").textContent = (texts.length ? nmIdx + 1 : 0) + " / " + texts.length;
+  $("nmPrev").disabled = nmIdx <= 0; $("nmNext").disabled = nmIdx >= texts.length - 1;
+  if (nmList){
+    $("nmListCount").textContent = texts.length ? texts.length + (texts.length === 1 ? " name" : " names") : "";
+    $("nmListInfo").textContent = !texts.length ? "Nothing pasted yet."
+      : texts.length + (texts.length === 1 ? " name" : " names") + " × " + nmQty() + (nmQty() === 1 ? " copy" : " copies") + " = " + total + (total === 1 ? " label" : " labels") +
+        (over ? " · over the " + MAX_PAGES + "-label limit — print the list in parts or lower the copies" : " · empty lines are skipped");
+  }
   var chips = $("nmChips").children;
   for (var i = 0; i < chips.length; i++)
     chips[i].setAttribute("aria-pressed", (+chips[i].dataset.q === nmQty()) ? "true" : "false");
 }
 function buildNamePages(){
-  var t = nmTextValue();
-  if (!t) return false;
+  var texts = nmTexts();
+  if (!texts.length) return false;
   var n = nmQty(), out = "";
-  for (var i = 0; i < n; i++)
-    out += '<div class="plabel ' + (nmSmall ? "sm" : "lg") + '"><div class="fitbox' + alignClass() + '"><div class="fittxt">' + esc(t) + "</div></div></div>";
+  if (texts.length * n > MAX_PAGES) return false;
+  for (var j = 0; j < texts.length; j++)          // copies of one name come out together
+    for (var i = 0; i < n; i++)
+      out += '<div class="plabel ' + (nmSmall ? "sm" : "lg") + '"><div class="fitbox' + alignClass() + '"><div class="fittxt">' + esc(texts[j]) + "</div></div></div>";
   $("printArea").innerHTML = out;
   var boxes = $("printArea").querySelectorAll(".fitbox");
   for (var k = 0; k < boxes.length; k++){
@@ -2240,6 +2289,15 @@ document.querySelectorAll("[data-back]").forEach(function(b){
 });
 $("nmSearch").addEventListener("input", renderNmSearch);
 $("nmText").addEventListener("input", renderNamePreview);
+$("nmPaste").addEventListener("input", function(){ renderNamePreview(); });
+$("nmMode").addEventListener("click", function(e){ var b = e.target.closest("button[data-m]"); if (b) setNmMode(b.dataset.m === "list"); });
+$("nmPrev").addEventListener("click", function(){ if (nmIdx > 0){ nmIdx--; renderNamePreview(); } });
+$("nmNext").addEventListener("click", function(){ nmIdx++; renderNamePreview(); });
+/* the preview follows the line the cursor is on */
+function nmFollowCaret(){ if (!nmList) return; var el = $("nmPaste"), before = el.value.slice(0, el.selectionStart).replace(/\r\n?/g, "\n").split("\n"), n = -1;
+  for (var i = 0; i < before.length; i++) if (before[i].replace(/\t+/g, " ").trim()) n++;
+  if (n < 0) n = 0; if (n !== nmIdx){ nmIdx = n; renderNamePreview(); } }
+$("nmPaste").addEventListener("keyup", nmFollowCaret); $("nmPaste").addEventListener("click", nmFollowCaret);
 $("nmQty").addEventListener("input", renderNamePreview);
 $("nmChips").addEventListener("click", function(e){
   var b = e.target.closest(".chip"); if (!b) return;
