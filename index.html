@@ -1075,7 +1075,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-24a · Guide Book: click a product name to copy it';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-25a · security: sign-in for every read, CPH Inventory data in this database';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1279,7 +1279,8 @@ function stockKeyFor(iv){
    STOCK IN THE ROOMS — read from CPH INVENTORY (never written here)
    balances of every location + what sits in the open games / shows there
    ============================================================ */
-const INV_CONFIG={apiKey:"AIzaSyAsTYwU0qABmXKuYSpyendwHw3djJc-Bqo",authDomain:"calipoke-inventory.firebaseapp.com",databaseURL:"https://calipoke-inventory-default-rtdb.firebaseio.com",projectId:"calipoke-inventory",storageBucket:"calipoke-inventory.firebasestorage.app",messagingSenderId:"156640764541",appId:"1:156640764541:web:833f96e4b0849b53454714"};
+/* CPH INVENTORY data lives in this same database (packstation/inv) since 2026-11-25 — it needs the sign-in */
+const INV_PATH='packstation/inv';
 const ROOM_TAGS=[['stockroom','SR','Stockroom'],['tiktok1','TT1','TikTok 1'],['ebay','EB','Ebay'],['whatnot','WN','WhatNot'],['singleslab','S&S','Single & Slab'],['gamearea','SG','Streaming Game Area'],['cardshow','CS','Card Show']];
 const invFbKey=k=>String(k).replace(/[.#$\/\[\]]/g,'_');
 let ROOM_BAL=null, ROOM_SUBS=null, ROOMQ=null;   // ROOMQ: item key → {location id: units}
@@ -1292,7 +1293,7 @@ function roomsRebuild(){
   if(['guide','pack','picking'].includes(curScreen)) renderCurrent();
 }
 function roomsWatch(){
-  try{ const a=(firebase.apps||[]).find(x=>x.name==='cphinv')||firebase.initializeApp(INV_CONFIG,'cphinv'); const R=firebase.database(a).ref('inv');
+  try{ const R=db.ref(INV_PATH);
     R.child('balances').on('value',sn=>{ ROOM_BAL=sn.val()||{}; roomsRebuild(); },e=>console.warn('rooms',e));
     R.child('subs').on('value',sn=>{ ROOM_SUBS=sn.val()||{}; roomsRebuild(); },e=>console.warn('rooms',e));
   }catch(e){ console.warn('rooms',e); }
@@ -4714,7 +4715,6 @@ const RC_ARCHIVE_MAX = 30;
 /* Receiving bot — Google Apps Script web app that posts the report to Slack (text + Excel)
    and checks the products against the listings / Daily SOH (see receiving-bot.gs) */
 const RC_SLACK_URL = 'https://script.google.com/macros/s/AKfycbxFbfpn7ZtQwfF8I4p-WXr-A7uNcGl_ENyJSDZ1dh4TRpY_XOSkg-rA4KGQkRGUWNk1/exec';
-const RC_SLACK_SECRET = 'POKE';
 
 let RC = { sessions:[], learned:{}, pkg:{} };   // every receiving, open and finished, newest first
 let RCCAT = { main:[], pending:[], at:0, sharedAt:0, source:'' };
@@ -5779,7 +5779,7 @@ function rcOpenPutaway(id){
 /* a room of CPH INVENTORY (Stockroom, TikTok 1 …): the goods are added to the room's stock there,
    as a "Receiving" record in its ledger — the same way a finished transfer is posted */
 let RC_IR=null;
-function rcInvRoot(){ if(RC_IR) return RC_IR; try{ const a=(firebase.apps||[]).find(x=>x.name==='cphinv')||firebase.initializeApp(INV_CONFIG,'cphinv'); RC_IR=firebase.database(a).ref('inv'); }catch(e){ console.warn('inventory db',e); } return RC_IR; }
+function rcInvRoot(){ if(RC_IR) return RC_IR; try{ if(db) RC_IR=db.ref(INV_PATH); }catch(e){ console.warn('inventory',e); RC_IR=null; } return RC_IR; }
 async function rcPutRoom(s, t, qty, room, tag){
   const key=rcPutKey(t.name,t.variation); const by=MY_NAME||'', at=Date.now();
   const ref=rcRef ? rcRef.child('sessions/'+safeKey(s.id)+'/putaway/'+key) : null;
@@ -6312,7 +6312,8 @@ async function rcPostSlack(s){
   let xlsx='';
   try{ const ws=XLSX.utils.aoa_to_sheet(rcReportRows(s)); ws['!cols']=[{wch:46},{wch:20},{wch:14},{wch:11},{wch:6},{wch:7}];
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Receiving'); xlsx=XLSX.write(wb,{bookType:'xlsx',type:'base64'}); }catch(e){ xlsx=''; }
-  const body={secret:RC_SLACK_SECRET, sessionId:s.id, supplier:s.supplier||'', date:s.dateStr||'', by:MY_NAME||'',
+  let idToken=''; try{ idToken=await CPAuth.idToken(); }catch(e){}
+  const body={idToken, sessionId:s.id, supplier:s.supplier||'', date:s.dateStr||'', by:MY_NAME||'',
     text:rcSlackReport(s), filename:rcFileBase(s)+'.xlsx', xlsxBase64:xlsx, items:rcTotals(s).map(t=>t.name)};
   try{
     const r=await fetch(RC_SLACK_URL,{method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'text/plain;charset=utf-8'}, redirect:'follow'});

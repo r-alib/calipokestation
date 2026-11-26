@@ -8,6 +8,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -533,8 +535,7 @@ function initCloud() {
     setSync('off', 'offline · this browser only'); return;
   }
   try {
-    const app = (firebase.apps && firebase.apps.length) ? firebase.app() : firebase.initializeApp(FB_CFG);
-    const db = firebase.database(app);
+    const db = CPAuth.db;
     fbRef = db.ref(FB_PATH);
     setSync('busy', 'connecting…');
     fbRef.on('value', snap => onRemote(snap.val()),
@@ -784,11 +785,10 @@ function sysRebuild() {
 }
 function initSystemStock() {
   try {
-    const p = firebase.database();
+    const p = CPAuth.db;
     p.ref('packstation/stockCount/base/items').on('value', s => { SYS_RAW.base = s.val() || {}; sysRebuild(); }, () => {});
     p.ref('packstation/stockCount/counts').on('value', s => { SYS_RAW.counts = s.val() || {}; sysRebuild(); }, () => {});
-    const a = (firebase.apps || []).find(x => x.name === 'cphinv') || firebase.initializeApp(INV_CFG, 'cphinv');
-    const R = firebase.database(a).ref('inv');
+    const R = CPAuth.db.ref(CPAuth.INV);      // CPH INVENTORY data lives in the station database since 2026-11-25
     R.child('balances').on('value', s => { SYS_RAW.bal = s.val() || {}; sysRebuild(); }, () => {});
     R.child('subs').on('value', s => { SYS_RAW.subs = s.val() || {}; sysRebuild(); }, () => {});
   } catch (e) { console.warn('system stock', e); }
@@ -1288,6 +1288,13 @@ function wireReportButtons(enabled) {
    ========================================================================== */
 function renderAll() { renderNav(); renderEditor(); renderReport(); }
 
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
 (function boot() {
   loadState();
   TABS.forEach(t => reconcile(t.id));
@@ -1304,8 +1311,11 @@ function renderAll() { renderNav(); renderEditor(); renderReport(); }
   });
   setSync('off', 'starting…');
   renderAll();
-  initCloud();
-  initSystemStock();
+  cpaStart('stockup', 'Stock Up Report', '.topbar', u => {
+    if (!DEVICE || /^device/i.test(DEVICE)) { DEVICE = u.name; try { localStorage.setItem('cps-stockup-device', DEVICE); } catch (e) {} }
+    initCloud();
+    initSystemStock();
+  });
   loadDailySoh(false);
   addEventListener('beforeunload', writeLocal);
 })();

@@ -9,6 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -128,12 +130,7 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
 <section id="gate" class="gate">
   <div class="gbox">
     <div class="eyebrow">CaliPoke Station · Return Tracker</div>
-    <h1 style="margin-bottom:6px">Admin only</h1>
-    <p class="sub">Returns are entered by the admin. Sign in with the admin name and the PIN.</p>
-    <input id="nameInput" class="tin" style="margin-top:12px" placeholder="Name" autocomplete="off">
-    <input id="pinInput" class="tin" style="margin-top:8px" placeholder="PIN" inputmode="numeric" type="password" autocomplete="off">
-    <p class="sub" id="gateErr" style="color:var(--err); margin-top:8px"></p>
-    <button class="btn primary" id="nameGo" style="margin-top:12px; width:100%">Continue</button>
+    <p class="sub">Signing in…</p>
   </div>
 </section>
 
@@ -195,7 +192,7 @@ table.t td input,table.t td select{width:100%; min-width:70px; background:var(--
    Products for the item search come from packstation/inventory (what the
    station loaded) with the company inventory sheet as fallback.
    ============================================================ */
-const BUILD='2026-10-27d · item name only (no variation) · admin + PIN · sheet-like copy';
+const BUILD='2026-11-25a · shared sign-in (no PIN) · item name only · sheet-like copy';
 const STATION_FILE='index.html';
 const DB_PATH='packstation/returns';
 const INV_PATH='packstation/inventory';
@@ -272,7 +269,7 @@ function itemLabel(x){ return x.name; }                        // the row carrie
 function setDb(on,txt){ const p=$('#dbPill'); p.classList.toggle('on',on); $('#dbTxt').textContent=txt; }
 function connect(){
   if(typeof firebase==='undefined' || !firebase.database){ setDb(false,'offline'); return; }
-  try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); R=db.ref(DB_PATH); }catch(e){ setDb(false,'offline'); return; }
+  try{ db=CPAuth.db; R=db.ref(DB_PATH); }catch(e){ setDb(false,'offline'); return; }
   db.ref('.info/connected').on('value', s=>setDb(!!s.val(), s.val()?'live':'reconnecting…'));
   R.on('value', s=>{ const a=[]; s.forEach(c=>{ const v=c.val(); if(v && typeof v==='object'){ v.id=c.key; a.push(v); } }); ROWS=a; try{ localStorage.setItem('rt.rows', JSON.stringify(a)); }catch(e){} render(); });
   db.ref(INV_PATH).on('value', s=>{ const list=[]; s.forEach(c=>{ const v=c.val(); if(v && v.name) list.push({name:v.name, variation:v.variation||'', barcode:v.barcode||'', image:v.image||'', key:v.ikey||''}); });
@@ -549,17 +546,16 @@ function start(){
   applyTab(); resetForm(false); render(); connect();
   if(!CAT.length) loadCatalogFromSheet();
 }
-const ADMIN_PIN='0515';
-$('#nameGo').onclick=()=>{ const v=$('#nameInput').value.trim(), pin=$('#pinInput').value.trim(); const err=$('#gateErr');
-  if(norm(v)!=='admin'){ err.textContent='This section is for the admin only.'; $('#nameInput').focus(); return; }
-  if(pin!==ADMIN_PIN){ err.textContent='Wrong PIN.'; $('#pinInput').value=''; $('#pinInput').focus(); return; }
-  WHO=v; try{ sessionStorage.setItem('rt.ok','1'); localStorage.setItem('ps_name',v); }catch(e){} start(); };
-$('#nameInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#pinInput').focus(); });
-$('#pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#nameGo').click(); });
 $('#homeBtn').onclick=()=>{ try{ window.close(); }catch(e){} setTimeout(()=>{ if(!window.closed) location.href=STATION_FILE; },150); };
-(function(){ let n='', ok=''; try{ n=localStorage.getItem('ps_name')||''; ok=sessionStorage.getItem('rt.ok')||''; }catch(e){}
-  if(n) $('#nameInput').value=n;
-  if(norm(n)==='admin' && ok){ WHO=n; start(); } else { if(norm(n)==='admin') $('#pinInput').focus(); else $('#nameInput').focus(); } })();
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
+/* who may open it: Roles & access in Calipoke Admin (feature "returns", Admin + WH Backend by default) */
+cpaStart('returns','Return Tracker','#hdr',u=>{ WHO=u.name; start(); });
 </script>
 </body>
 </html>

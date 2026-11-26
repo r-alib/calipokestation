@@ -7,6 +7,10 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>CALIPOKE STATION · Supplier Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -180,15 +184,12 @@ footer b{color:var(--ink); font-family:var(--mono)}
 </head>
 <body>
 
-<!-- ============ PASSWORD GATE ============ -->
+<!-- ============ SIGN-IN (shared CALIPOKE account) ============ -->
 <div id="gate">
   <div class="gatebox">
     <div class="lock">🔒</div>
     <h1>SUPPLIER TRACKER</h1>
-    <p>Restricted mode — enter the password</p>
-    <input id="pw" type="password" autocomplete="off" placeholder="••••••••" autofocus>
-    <button class="btn primary" id="pwBtn" style="width:100%">Unlock</button>
-    <div class="gateerr" id="pwErr"></div>
+    <p>Signing in…</p>
   </div>
 </div>
 
@@ -275,8 +276,7 @@ footer b{color:var(--ink); font-family:var(--mono)}
    ============================================================ */
 const SUPPLIER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1RdNxH6LhMhJx7aUh43G7i4tV4zulw8tc489cSngmDKM/edit?usp=sharing';
 const SHIPMENT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1yDd4Yvbpc-F3M5ISvQ1ebM5697uVtOIUfH-p-CbrdsI/edit?usp=sharing';
-const PASSWORD  = 'Poke0515';
-const BUILD     = '2026-09-15a';
+const BUILD     = '2026-11-25a';
 const CACHE_TTL = 12*60*60*1000;      // cached copy older than this is refreshed on open
 const ROWH      = 32;
 
@@ -327,24 +327,18 @@ function cellText(v,type){
 }
 
 /* ============================================================
-   PASSWORD GATE — once per browser tab session
+   SIGN-IN — the shared CALIPOKE account; who may open it is set in
+   Calipoke Admin → Roles & access (feature "supplier", Admin by default)
    ============================================================ */
-function tryUnlock(){
-  const v=$('#pw').value;
-  if(v===PASSWORD){
-    try{ sessionStorage.setItem('cps_st_unlock','1'); }catch(e){}
-    openApp();
-  }else{
-    $('#pwErr').textContent='Wrong password';
-    $('#pw').value=''; $('#pw').focus();
-  }
-}
-$('#pwBtn').onclick=tryUnlock;
-$('#pw').addEventListener('keydown',e=>{ if(e.key==='Enter') tryUnlock(); });
 function openApp(){ $('#gate').classList.add('hide'); $('#app').classList.remove('hide'); boot(); }
-let alreadyUnlocked=false;
-try{ alreadyUnlocked = sessionStorage.getItem('cps_st_unlock')==='1'; }catch(e){}
-if(alreadyUnlocked) openApp(); else $('#pw').focus();
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
+cpaStart('supplier','Supplier Tracker','#app header',()=>openApp());
 
 /* ============================================================
    CACHE (IndexedDB — raw workbook bytes, so nothing is re-downloaded

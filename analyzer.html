@@ -308,11 +308,11 @@ const CFG = {
   DEFAULT_WEEKS: 3,
   /* new-item shipping data (size, weight, estimated shipment cost) — entered by the admin in
      CALIPOKE STATION → New Shipment → New items; read-only here, straight from the station database */
-  NI_URL : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/receiving/newItems.json',
+  NI_PATH: 'packstation/receiving/newItems',
   CACHE_VERSION: 4,
-  /* average cost per unit (USD) — Supabase table `baseline`, matched on item_name */
-  SB_URL : 'https://xxshkycsdedbynnswwuz.supabase.co',
-  SB_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4c2hreWNzZGVkYnlubnN3d3V6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNzc0MDksImV4cCI6MjEwNDg1MzQwOX0.WZ0uaDDNRsRXkKagiPBbNZ7om_3VVqlsPZSQJz1kFi0',
+  /* average cost per unit (USD) — a copy of the Supabase table, refreshed hourly by the Apps Script of the
+     CPH Inventory Tracker into the station database (costs/latest_avg_cost, admins only). No Supabase key here. */
+  COST_PATH: 'costs/latest_avg_cost',
   /* platform listings workbook — which products are listed where */
   LST_ID : '1WQQxRWnDicFsuYE_98InYhVFeeEL8FEI5nDircmtmOA',
   LST_COL: 'SOH/内部库存名称',          // column with the Daily SOH item name(s); bundles are "a, b, c"
@@ -702,10 +702,10 @@ function indexListings(d) {
    WH    = the warehouse inventory count of the Pack Station
    rooms = CPH INVENTORY balances + what sits in the open games / shows   */
 const LOC_DB = {
-  bal  : 'https://calipoke-inventory-default-rtdb.firebaseio.com/inv/balances.json',
-  subs : 'https://calipoke-inventory-default-rtdb.firebaseio.com/inv/subs.json',
-  base : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/stockCount/base/items.json',
-  cnt  : 'https://calipoke-packstation-default-rtdb.firebaseio.com/packstation/stockCount/counts.json'
+  bal  : 'packstation/inv/balances',
+  subs : 'packstation/inv/subs',
+  base : 'packstation/stockCount/base/items',
+  cnt  : 'packstation/stockCount/counts'
 };
 const LOC_TAGS = [['stockroom', 'SR', 'Stockroom'], ['tiktok1', 'TT1', 'TikTok 1'], ['ebay', 'EB', 'Ebay'], ['whatnot', 'WN', 'WhatNot'],
   ['singleslab', 'S&S', 'Single & Slab'], ['gamearea', 'SG', 'Streaming Game Area'], ['cardshow', 'CS', 'Card Show']];
@@ -717,7 +717,7 @@ async function loadLocStock(force) {
   const key = 'locs2';
   if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < LOC_FRESH_MS) return hit.data; }
   try {
-    const get = async u => { const r = await fetch(u + '?_=' + Date.now(), {cache: 'no-store', credentials: 'omit'}); if (!r.ok) throw new Error('HTTP ' + r.status); return (await r.json()) || {}; };
+    const get = async u => { const r = await fetch((await CPAuth.rest(u)) + '&_=' + Date.now(), {cache: 'no-store', credentials: 'omit'}); if (!r.ok) throw new Error('HTTP ' + r.status); return (await r.json()) || {}; };
     const [bal, subs, base, cnt] = await Promise.all([get(LOC_DB.bal), get(LOC_DB.subs), get(LOC_DB.base), get(LOC_DB.cnt)]);
     const rooms = {}, wh = {}, dmg = {}, conf = {};
     const add = (loc, k, q) => { q = +q || 0; if (!q) return; const nm = String(k).split('||')[0]; (rooms[nm] = rooms[nm] || {})[loc] = ((rooms[nm] || {})[loc] || 0) + q; };
@@ -783,7 +783,7 @@ async function loadShipInfo(force) {
   const key = 'ship1';
   if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
   try {
-    const r = await fetch(CFG.NI_URL + '?_=' + Date.now(), {cache: 'no-store', credentials: 'omit'});
+    const r = await fetch((await CPAuth.rest(CFG.NI_PATH)) + '&_=' + Date.now(), {cache: 'no-store', credentials: 'omit'});
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = {rows: (await r.json()) || {}, at: Date.now()};
     await IDB.set(key, {ts: Date.now(), data});
@@ -843,22 +843,16 @@ function setUser(u) {
 }
 
 /* ------------------------------- average cost ----------------------------- */
-/* Supabase REST (read-only anon key). Rows: item_key, item_name, baseline_date,
-   soh, avg_cost, updated_at. Paged 1000 at a time; cached for offline use. */
+/* Copy of the Supabase table in the station database (costs/latest_avg_cost = {at, rows}); cached for offline use. */
 async function loadCosts(force) {
   const key = 'cost2:' + CFG.SB_TABLE;
   if (!force) { const hit = await IDB.get(key); if (hit && (Date.now() - hit.ts) < CFG.FRESH_MS) return hit.data; }
   try {
-    const rows = []; const page = 1000;
-    for (let from = 0; from < 50000; from += page) {
-      const cols = [CFG.SB_NAME, CFG.SB_COST].concat(CFG.SB_DATE ? [CFG.SB_DATE] : []).join(',');
-      const r = await fetch(CFG.SB_URL + '/rest/v1/' + CFG.SB_TABLE + '?select=' + cols + '&order=' + CFG.SB_NAME,
-        {headers: {apikey: CFG.SB_KEY, Authorization: 'Bearer ' + CFG.SB_KEY, Range: from + '-' + (from + page - 1), 'Range-Unit': 'items'}, cache: 'no-store'});
-      if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); if (j && j.message) m += ' — ' + j.message; } catch (e) {} throw new Error(m); }
-      const part = await r.json();
-      rows.push.apply(rows, part);
-      if (part.length < page) break;
-    }
+    const r = await fetch((await CPAuth.rest(CFG.COST_PATH)) + '&_=' + Date.now(), {cache: 'no-store', credentials: 'omit'});
+    if (!r.ok) throw new Error('HTTP ' + r.status + (r.status === 401 ? ' — admins only' : ''));
+    const j = await r.json();
+    if (!j || !j.rows) throw new Error('the cost table has not been copied to the station database yet');
+    const rows = Array.isArray(j.rows) ? j.rows.filter(Boolean) : Object.values(j.rows);
     const data = {rows, at: Date.now()};
     await IDB.set(key, {ts: Date.now(), data});
     return data;
@@ -2497,7 +2491,7 @@ async function reload(force) {
             ' · ' + DATA.days.length + ' days · ' + DATA.channels.size + ' platforms', '');
   costP.then(() => {
     if (COST_OK && DATA.costErr && !DATA.cost.size) {
-      const box = el('div', {class: 'errbox', html: 'Average cost (Supabase “' + esc(CFG.SB_TABLE) + '”) could not be loaded: ' + esc(DATA.costErr) +
+      const box = el('div', {class: 'errbox', html: 'Average cost (“' + esc(CFG.SB_TABLE) + '”) could not be loaded: ' + esc(DATA.costErr) +
         '. Cost columns stay empty until it loads — press Refresh data to retry.'});
       $('#views').insertBefore(box, $('#views').firstChild);
     }

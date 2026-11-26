@@ -11,6 +11,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -690,7 +692,7 @@ let mirrorT=null; function mirrorSoon(){ clearTimeout(mirrorT); mirrorT=setTimeo
 
 function connectDB(){
   if(typeof firebase==='undefined' || !firebase.database){ setDb(false,'offline'); return; }
-  try{ firebase.initializeApp(firebaseConfig); db=firebase.database(); R=db.ref(DB_PATH); }
+  try{ db=CPAuth.db; R=db.ref(DB_PATH); }
   catch(e){ setDb(false,'offline'); return; }
   db.ref('.info/connected').on('value', s=>setDb(!!s.val(), s.val()?'live':'reconnecting…'));
   R.child('base').on('value', s=>{
@@ -2386,14 +2388,22 @@ function start(){
   refreshDSOH(false);                      // the Store column everywhere is the Daily SOH
   if(!(BASE && BASE.items) && (!R || BASE_EMPTY)) firstLoad();
 }
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
 loadMirror();
 applyStationLogo();
-connectDB();
-loadCatalog();
-WHO = (()=>{ try{ return localStorage.getItem(LS_STATION_NAME)||''; }catch(e){ return ''; } })();
-setWho(WHO);
-window.addEventListener('storage', e=>{ if(e.key===LS_STATION_NAME && e.newValue) setWho(e.newValue); });
-if(WHO){ $('#nameInput').value=WHO; start(); } else { showOnly('gate'); }
+showOnly('load');
+cpaStart('inventory','Inventory','header',u=>{
+  connectDB();
+  loadCatalog();
+  WHO=u.name; setWho(WHO); try{ localStorage.setItem(LS_STATION_NAME,WHO); }catch(e){}
+  start();
+});
 console.log('CALIPOKE STATION · INVENTORY ·', BUILD);
 
 </script>

@@ -9,6 +9,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* ============================================================
@@ -843,8 +845,7 @@ function connect(){
     return false;
   }
   try{
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
+    db = CPAuth.db;
     saRef = db.ref(SA_PATH);
   }catch(e){
     showFatal('Could not connect to the database: '+e.message);
@@ -3578,8 +3579,15 @@ $('#sumClose').onclick = ()=>{ if(confirm('Close this stream? The report stays a
 /* ============================================================
    BOOT
    ============================================================ */
-(function boot(){
-  try{ MY_NAME = localStorage.getItem(LS_NAME)||''; }catch(e){}
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
+cpaStart('streamer','Streamer Assist','.topbar',u=>{ MY_NAME=u.name; try{ localStorage.setItem(LS_NAME,MY_NAME); }catch(e){} boot(); });
+function boot(){
   if(!connect()) return;
   renderRoomPill();
   if(!MY_NAME){ openGate(); return; }
@@ -3594,7 +3602,7 @@ $('#sumClose').onclick = ()=>{ if(confirm('Close this stream? The report stays a
       else openSetup();
     });
   } else openSetup();
-})();
+}
 </script>
 </body>
 </html>

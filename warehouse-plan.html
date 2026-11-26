@@ -6,6 +6,8 @@
 <title>Warehouse Plan</title>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -1698,9 +1700,9 @@ function refreshInvPill(){
 }
 function connectDB(){
   if (typeof firebase === "undefined" || !firebase.database){ setInvStat("Firebase did not load — showing the last saved copy.", true); return; }
-  try{ if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig); R = firebase.database().ref(DB_PATH); }
-  catch(e){ try{ R = firebase.database().ref(DB_PATH); }catch(e2){ setInvStat("Could not connect: " + esc(e.message), true); return; } }
-  firebase.database().ref(".info/connected").on("value", s => { DB_ON = !!s.val(); refreshInvPill();
+  try{ R = CPAuth.db.ref(DB_PATH); }
+  catch(e){ setInvStat("Could not connect: " + esc(e.message), true); return; }
+  CPAuth.db.ref(".info/connected").on("value", s => { DB_ON = !!s.val(); refreshInvPill();
     setInvStat(DB_ON ? "Live — locations come from the inventory count and update by themselves." : "Reconnecting… showing the last known data.", !DB_ON); });
   R.child("base").on("value", s => { const b = s.val(); if (b){ b.locs = arr(b.locs); b.tabs = arr(b.tabs); BASE = b; } onLive(); });
   R.child("counts").on("value", s => { const v = s.val() || {}; const m = {};
@@ -2708,7 +2710,7 @@ function adoptRemote(d){
 }
 function connectPlan(){
   if (typeof firebase === "undefined" || !firebase.database){ setSyncState("offline — saved on this device only"); return; }
-  try{ PR = firebase.database().ref(PLAN_PATH); }catch(e){ setSyncState("offline — saved on this device only"); return; }
+  try{ PR = CPAuth.db.ref(PLAN_PATH); }catch(e){ setSyncState("offline — saved on this device only"); return; }
   let first = true;
   PR.on("value", snap => {
     const d = snap.val();
@@ -2765,6 +2767,13 @@ $("newSwatches").addEventListener("click", e => {
   S.newHue = +b.dataset.h;
   [...$("newSwatches").children].forEach(c => c.setAttribute("aria-pressed", String(+c.dataset.h === S.newHue)));
 });
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
 const hadStock = loadStock(); loadCatCache();
 let savedMode = "stock"; try{ savedMode = localStorage.getItem(LS_MODE) || "stock"; }catch(e){}
 applyFieldSize();
@@ -2773,9 +2782,12 @@ refreshUndoBtns();
 refreshInvPill();
 if (hadStock) setInvStat("Last saved copy from " + hhmm(hadStock) + " — connecting…");
 buildHoldings(); paintStock();
-connectDB();
 flagSaved("connecting…");
-connectPlan();
+cpaStart("plan", "Warehouse Plan", "header", u => {
+  try{ if (!localStorage.getItem("ps_name")) localStorage.setItem("ps_name", u.name); }catch(e){}
+  connectDB();
+  connectPlan();
+});
 loadCatalog().then(afterStockChange).catch(() => {});
 requestAnimationFrame(() => { if (!hadSave) fitZoom(); });
 

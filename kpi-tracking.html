@@ -7,6 +7,8 @@
 <title>CALIPOKE STATION — KPI Tracking</title>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://r-alib.github.io/calipoke-admin/calipoke-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -231,8 +233,7 @@ function setStatus(txt, kind){ const p=$('#statusPill'); p.className='pill '+(ki
 function connect(){
   if(typeof firebase==='undefined'||!firebase.initializeApp){ fail('Firebase library did not load — check the connection.'); return; }
   try{
-    const app=(firebase.apps&&firebase.apps.length)?firebase.app():firebase.initializeApp(FB_CFG);
-    root=firebase.database(app).ref(STATION);
+    root=CPAuth.db.ref(STATION);
   }catch(e){ fail(e.message); return; }
   setStatus('loading…');
   const need=['packing/sessions','packing/events','packing/misscans','shiftIndex'];
@@ -750,6 +751,13 @@ function exportCSV(){
 }
 
 /* --------------------------------- boot ----------------------------------- */
+/* ---- shared CALIPOKE sign-in (calipoke-auth.js): nothing is read before it ---- */
+function cpaStart(feature, label, hdr, run){
+  CPAuth.init({app:'station', header:hdr, onReady:u=>{
+    if(!CPAuth.can(feature,'station')){ document.querySelectorAll('body > *').forEach(e=>{ if(e.tagName!=='SCRIPT') e.style.display='none'; });
+      const d=document.createElement('div'); d.style.cssText='max-width:520px;margin:60px auto;font-family:Inter,system-ui,sans-serif'; document.body.appendChild(d); CPAuth.denied(d,label); return; }
+    run(u); }});
+}
 (function boot(){
   $$('.nav button').forEach(b=>b.addEventListener('click',()=>{
     $$('.nav button').forEach(x=>x.setAttribute('aria-selected', x===b));
@@ -763,7 +771,7 @@ function exportCSV(){
   $('#btnCsv').addEventListener('click', exportCSV);
   $('#btnMenu').addEventListener('click',()=>{ if(history.length>1) history.back(); else location.href='index.html'; });
   addEventListener('resize',()=>{ clearTimeout(boot._t); boot._t=setTimeout(render,220); });
-  connect();
+  cpaStart('kpi','KPI Tracking','.topbar',()=>connect());
 })();
 </script>
 </body>
