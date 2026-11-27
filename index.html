@@ -1108,7 +1108,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-27a · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-27b · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1365,7 +1365,7 @@ function shelfList(iv){
 /* the location text shown on a product: counted shelves first, sheet column C otherwise */
 function locOf(iv){
   if(LS_MODE){ const gs=lsShiftGames(CUR_SHIFT);
-    if(gs.length&&iv){ const fk=invFbKey(iv.ikey||keyOf(iv.name,iv.variation)); let n=0; for(const id of gs){ const sb=(ROOM_SUBS||{})[id]; if(sb&&sb.items) n+=+sb.items[fk]||0; } return '🎲 Game'+(gs.length>1?'s':'')+(ROOM_SUBS?' · '+fmtN(n):''); }   // picked from the games of the shift
+    if(gs.length&&iv){ const fk=invFbKey(iv.ikey||keyOf(iv.name,iv.variation)); let n=0; for(const id of gs){ const sb=(ROOM_SUBS||{})[id]; if(sb&&sb.items) n+=lsCanonMap(sb.items)[lsCanon(fk)]||0; } return '🎲 Game'+(gs.length>1?'s':'')+(ROOM_SUBS?' · '+fmtN(n):''); }   // picked from the games of the shift
     const r=(roomsOf(iv)||[]).find(x=>x[0]==='SR'); return 'Stockroom'+(ROOMQ?' · '+fmtN(r?r[1]:0):''); }   // no game linked → the Stockroom
   const list=shelfList(iv);
   if(list && list.length){
@@ -1959,8 +1959,11 @@ function lsWatch(){
 }
 function lsRefresh(){ if(LSR) lsRenderReview(); const m=$('#lsRules'); if(m&&!m.classList.contains('hide')) lsRenderRules(); if(curScreen==='platforms') renderShiftBar(); }
 const lsRuleKey=(n,va)=>safeKey(norm(n)+(va&&norm(va)!=='default'?'||'+norm(va):''));
+/* a blank variation and “Default” are the same product: games may hold “name||” while the catalog says “name||default” */
+const lsCanon=k=>String(k).replace(/\|\|default$/,'||');
+function lsCanonMap(obj){ const m={}; for(const k in (obj||{})){ const c=lsCanon(k); m[c]=(m[c]||0)+(+obj[k]||0); } return m; }
 function lsFbMap(){ const n=Object.keys(S.inventory).length; if(lsFbMap._n===n&&lsFbMap._m) return lsFbMap._m; const m={}; for(const k in S.inventory) m[invFbKey(k)]=k; lsFbMap._m=m; lsFbMap._n=n; return m; }
-function lsItemName(fk){ const ik=lsFbMap()[fk]||fk; const iv=S.inventory[ik]; if(iv) return iv.name+(iv.variation&&norm(iv.variation)!=='default'?' · '+iv.variation:''); const p=String(fk).split('||'); return p[0]+(p[1]&&p[1]!=='default'?' · '+p[1]:''); }
+function lsItemName(fk){ const fm=lsFbMap(); const ik=fm[fk]||fm[lsCanon(fk)]||fm[lsCanon(fk)+'default']||fk; const iv=S.inventory[ik]; if(iv) return iv.name+(iv.variation&&norm(iv.variation)!=='default'?' · '+iv.variation:''); const p=String(fk).split('||'); return p[0]+(p[1]&&p[1]!=='default'?' · '+p[1]:''); }
 function lsBundleText(def){ const c=(def&&def.items)||{}; return Object.keys(c).map(k=>(+c[k]||1)+' × '+lsItemName(k)).join(' + '); }
 
 /* ---- dates: the report file name ↔ the game name ---- */
@@ -2050,13 +2053,13 @@ function lsStart(buf, fileName, mode){
   if(mode==='sync'){ const g=lsShiftGames(CUR_SHIFT); if(g.length) LSR.games=new Set(g); }
   lsRenderReview(); $('#lsReview').classList.remove('hide');
 }
-function lsNeeds(){ const need={}; for(const p of LSR.prods){ const c=lsComp(lsResolve(p.name,p.variation)); for(const k in c) need[k]=(need[k]||0)+c[k]*p.units; } return need; }
+function lsNeeds(){ const need={}; for(const p of LSR.prods){ const c=lsComp(lsResolve(p.name,p.variation)); for(const k in c){ const ck=lsCanon(k); need[ck]=(need[ck]||0)+c[k]*p.units; } } return need; }
 function lsCandidates(){
   const need=lsNeeds(), keys=Object.keys(need), d=LSR.rep.date; const all=lsOpenGames();
   const dated=all.filter(g=>{ const gd=lsGameDate(g.name); return d&&gd&&gd.m===d.m&&gd.d===d.d&&(!gd.y||gd.y===d.y); });
-  const cover=g=>keys.filter(k=>+((g.items||{})[k])>0).length;
+  const cover=g=>{ const m=lsCanonMap(g.items); return keys.filter(k=>m[k]>0).length; };
   const groups=new Map(); for(const g of dated){ const b=lsGameBase(g.name); if(!groups.has(b)) groups.set(b,[]); groups.get(b).push(g); }
-  const gl=[...groups.entries()].map(([base,list])=>{ list.sort((a,b)=>lsGameBatch(a.name)-lsGameBatch(b.name)||String(a.name).localeCompare(b.name)); const have=new Set(); for(const g of list) for(const k of keys) if(+((g.items||{})[k])>0) have.add(k);
+  const gl=[...groups.entries()].map(([base,list])=>{ list.sort((a,b)=>lsGameBatch(a.name)-lsGameBatch(b.name)||String(a.name).localeCompare(b.name)); const have=new Set(); for(const g of list){ const m=lsCanonMap(g.items); for(const k of keys) if(m[k]>0) have.add(k); }
     return {base, list, covered:have.size, full:keys.length>0&&have.size===keys.length&&!LSR.prods.some(p=>!lsResolve(p.name,p.variation).t)}; }).sort((a,b)=>b.covered-a.covered||a.base.localeCompare(b.base));
   return {need, keys, all, dated, groups:gl, cover};
 }
@@ -2065,11 +2068,11 @@ function lsRenderReview(){
   if(LSR.games===null){ LSR.games=new Set(); const best=C.groups[0]; if(best&&best.covered>0) best.list.forEach(g=>LSR.games.add(g.id)); LSR.autoFull=!!(best&&best.full); }
   for(const id of [...LSR.games]) if(!C.all.some(g=>g.id===id)) LSR.games.delete(id);          // a game closed meanwhile
   const sel=C.all.filter(g=>LSR.games.has(g.id));
-  const have={}; for(const g of sel) for(const k in (g.items||{})) have[k]=(have[k]||0)+(+g.items[k]||0);
+  const have={}; for(const g of sel){ const m=lsCanonMap(g.items); for(const k in m) have[k]=(have[k]||0)+m[k]; }
   let bad=0, short=0, skipU=0; const tracks=new Set(), orders=new Set();
   const rows=LSR.prods.map((p,i)=>{ const res=lsResolve(p.name,p.variation); const comp=lsComp(res); if(!res.t) bad++; if(res.t==='skip') skipU+=p.units;
     let gm='<span class="lsmut">—</span>';
-    if(res.t&&res.t!=='skip'&&sel.length){ const parts=Object.keys(comp).map(k=>{ const n=have[k]||0, w=C.need[k]||0; const ok=n>=w; if(!ok) short++; return '<span class="'+(ok?'lsok':'lswarn')+'" title="'+esc(lsItemName(k))+': the report needs '+fmtN(w)+', the selected games hold '+fmtN(n)+'">'+fmtN(n)+' / '+fmtN(w)+'</span>'; }); gm=parts.join(' · '); }
+    if(res.t&&res.t!=='skip'&&sel.length){ const parts=Object.keys(comp).map(k0=>{ const k=lsCanon(k0); const n=have[k]||0, w=C.need[k]||0; const ok=n>=w; if(!ok) short++; return '<span class="'+(ok?'lsok':'lswarn')+'" title="'+esc(lsItemName(k))+': the report needs '+fmtN(w)+', the selected games hold '+fmtN(n)+'">'+fmtN(n)+' / '+fmtN(w)+'</span>'; }); gm=parts.join(' · '); }
     const tag=res.src==='rule'?'<span class="lstag rule">rule</span>':res.t?'<span class="lstag">same name</span>':'';
     let sug=''; if(!res.t){ const sg=lsSuggest(p.name,2).filter(x=>x.sc>=.34); LSR.sug=LSR.sug||{}; LSR.sug[i]=sg;
       sug=sg.length?'<div class="lssug">Looks like: '+sg.map((x,j)=>'<button class="lschip" data-lsuse="'+i+':'+j+'" title="Use this and remember it">'+(x.t==='bundle'?'🧩 ':'')+esc(x.label)+(x.t==='item'&&x.sub&&norm(x.sub)!=='default'?' · '+esc(x.sub):'')+'</button>').join(' ')+'</div>':''; }
@@ -2199,7 +2202,9 @@ async function lsGameMove(IR, sid, fk, qty, note, ref, back){
 }
 async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
   const IR=rcInvRoot(); const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const ref=safeKey(shiftId)+'_'+safeKey(orderKey);
-  const G={}; for(const sid of games){ try{ const v=(await IR.child('subs/'+sid).once('value')).val(); if(v&&v.kind==='game') G[sid]={items:Object.assign({},v.items||{}), bundles:JSON.parse(JSON.stringify(v.bundles||{})), raw:v}; }catch(e){} }
+  const G={}; for(const sid of games){ try{ const v=(await IR.child('subs/'+sid).once('value')).val(); if(v&&v.kind==='game'){ const g=G[sid]={items:Object.assign({},v.items||{}), bundles:JSON.parse(JSON.stringify(v.bundles||{})), raw:v, ck:{}};
+      for(const src of [v.sold, v.start, v.items]) for(const k in (src||{})) g.ck[lsCanon(k)]=k;                 // the key this game really uses for the product
+      g.key=fk=>g.ck[lsCanon(fk)]||fk; } }catch(e){} }
   const ids=games.filter(s=>G[s]);
   if(!ids.length){ await mref.set(null); toast('The games of this shift were not found in CPH INVENTORY — the units of '+tag+' were NOT written anywhere','err',7000); return null; }
   /* what the order needs */
@@ -2207,7 +2212,7 @@ async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
   for(const it of (order.items||[])){
     if(it.packed===false || (it.status && it.status!=='ok')) continue;
     const qty=Math.max(0, +it.qty||1); if(!qty) continue;
-    const ik=S.inventory[it.invKey]?it.invKey:keyOf(it.name, it.variation||''); const fk=invFbKey(ik);
+    const ik=S.inventory[it.invKey]?it.invKey:keyOf(it.name, it.variation||''); const fk=lsCanon(invFbKey(ik));
     if(it.bd&&+it.per>0){ const e=bun.get(it.bd)||[]; e.push({fk, qty, per:+it.per}); bun.set(it.bd,e); } else loose.set(fk,(loose.get(fk)||0)+qty);
   }
   const ops=[], short=[];
@@ -2219,11 +2224,11 @@ async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
       ops.push({t:'b', sub:sid, bid, n:t, comp, nm:b.name||''}); b.count-=t; for(const k in comp) G[sid].items[k]=(+G[sid].items[k]||0)-t*comp[k]; n-=t; } }
     if(n>0) for(const l of lines) loose.set(l.fk,(loose.get(l.fk)||0)+n*l.per);          // no prepared bundle left → single units
   }
-  const reserved=(sid,fk)=>{ let r=0; for(const bid in G[sid].bundles){ const b=G[sid].bundles[bid]; if(b&&b.items&&b.items[fk]) r+=(+b.count||0)*(+b.items[fk]||1); } return r; };
+  const reserved=(sid,fk)=>{ let r=0; for(const bid in G[sid].bundles){ const b=G[sid].bundles[bid]; if(b&&b.items) for(const k in b.items) if(lsCanon(k)===fk) r+=(+b.count||0)*(+b.items[k]||1); } return r; };
   for(const [fk,need0] of loose){ let need=need0;
-    for(const sid of ids){ if(need<=0) break; const fr=(+G[sid].items[fk]||0)-reserved(sid,fk); const t=Math.min(Math.max(fr,0), need); if(t>0){ ops.push({t:'s', sub:sid, fk, qty:t}); G[sid].items[fk]=(+G[sid].items[fk]||0)-t; need-=t; } }
-    if(need>0){ const sid=ids.find(s=>fk in (G[s].raw.items||{})||fk in (G[s].raw.start||{})||fk in (G[s].raw.sold||{}))||ids[0];        // the games are short → the game goes below zero
-      const ex=ops.find(o=>o.t==='s'&&o.sub===sid&&o.fk===fk); if(ex) ex.qty+=need; else ops.push({t:'s', sub:sid, fk, qty:need}); short.push({name:lsItemName(fk), qty:need}); }
+    for(const sid of ids){ if(need<=0) break; const gk=G[sid].key(fk); const fr=(+G[sid].items[gk]||0)-reserved(sid,fk); const t=Math.min(Math.max(fr,0), need); if(t>0){ ops.push({t:'s', sub:sid, fk:gk, qty:t}); G[sid].items[gk]=(+G[sid].items[gk]||0)-t; need-=t; } }
+    if(need>0){ const sid=ids.find(s=>lsCanon(fk) in G[s].ck)||ids[0]; const gk=G[sid].key(fk);        // the games are short → the game goes below zero
+      const ex=ops.find(o=>o.t==='s'&&o.sub===sid&&o.fk===gk); if(ex) ex.qty+=need; else ops.push({t:'s', sub:sid, fk:gk, qty:need}); short.push({name:lsItemName(fk), qty:need}); }
   }
   /* write */
   const done=[], skipped=[]; let units=0; const note='Live stream order · '+tag;
