@@ -243,6 +243,33 @@ h2{font-family:var(--disp); font-weight:600; font-size:19px; margin:0 0 4px; let
 /* LIVE STREAM PICK & PACK (?mode=ls): no Picking / Packing modes, orders come from a file */
 body.lsmode #pickingBtn, body.lsmode #packingBtn, body.lsmode #ordUrl, body.lsmode #ordLoad, body.lsmode #ordProxy{display:none!important}
 body.lsmode header, body.lsmode .topbar{box-shadow:inset 0 -3px 0 #B66DFF}
+.pickbox.lsbox{width:min(1080px,96vw); max-width:none; max-height:92vh; overflow:auto}
+.pickbox.lsbox.sm{width:min(640px,96vw)}
+.lsmeta{display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--muted); margin:2px 0 10px}
+.lsmeta b{color:var(--text)}
+.lsnote{border-radius:10px; padding:9px 12px; font-size:13px; margin:8px 0; border:1px solid var(--line)}
+.lsnote.err{border-color:var(--err); background:rgba(229,83,75,.10)} .lsnote.warn{border-color:var(--warn); background:rgba(210,153,34,.10)} .lsnote.ok{border-color:rgba(46,160,90,.5); background:rgba(46,160,90,.08)}
+.lsscroll{max-height:44vh; overflow:auto; border:1px solid var(--line); border-radius:10px}
+.lstable{width:100%; border-collapse:collapse; font-size:13.5px}
+.lstable th{position:sticky; top:0; background:var(--panel,#161b22); text-align:left; font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint); padding:8px 10px; border-bottom:1px solid var(--line)}
+.lstable td{padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:middle}
+.lstable .num{text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums} .lstable .act{text-align:right; white-space:nowrap}
+.lsrow-bad td{background:rgba(229,83,75,.12)} .lsrow-skip td{opacity:.55}
+.lsbad{color:var(--err); font-weight:700} .lswarn{color:var(--warn); font-weight:700} .lsok{color:var(--ok); font-weight:700} .lsmut{color:var(--muted); font-size:12.5px}
+.lstag{display:inline-block; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; border:1px solid var(--line); border-radius:99px; padding:1px 7px; color:var(--faint); margin-left:4px}
+.lstag.rule{color:#D2A8FF; border-color:#5b3a8c}
+.lssug{margin-top:4px; font-size:12.5px; color:var(--muted)}
+.lschip{background:none; border:1px dashed var(--line); color:var(--text); border-radius:99px; padding:2px 10px; font:inherit; font-size:12.5px; cursor:pointer; margin:2px 2px 0 0}
+.lschip:hover{border-color:var(--ok); border-style:solid}
+.lsgroup{margin:6px 0 10px} .lsghead{font-size:12px; margin-bottom:4px}
+.lsgame{display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--line); border-radius:10px; padding:8px 12px; margin-bottom:6px; cursor:pointer}
+.lsgame.on{border-color:var(--ok); background:rgba(46,160,90,.08)} .lsgame .gn{font-weight:700; flex:1; min-width:220px} .lsgame input{width:18px; height:18px}
+.lsdet{margin-top:10px; font-size:13px} .lsdet summary{cursor:pointer; color:var(--muted)}
+.lsfoot{display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap}
+.lsplist{max-height:42vh; overflow:auto; border:1px solid var(--line); border-radius:10px; margin-top:8px}
+.lspitem{display:block; width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--line); color:var(--text); padding:9px 12px; font:inherit; cursor:pointer}
+.lspitem:hover{background:rgba(255,255,255,.04)} .lspitem.on{background:rgba(46,160,90,.16); box-shadow:inset 3px 0 0 var(--ok)}
+.lsprow{display:flex; gap:10px; align-items:center; margin-top:10px}
 .lsbadge{display:inline-block; background:#2a1840; color:#D2A8FF; border:1px solid #5b3a8c; border-radius:99px; padding:2px 10px; font-size:11.5px; font-weight:700; letter-spacing:.08em; margin-left:8px; vertical-align:middle}
 /* ---- live dashboard (Pick & Pack) — meant to stay open on a wall screen ---- */
 #screen-dash{background:var(--bg)} #screen-dash:fullscreen{padding:26px 34px; overflow:auto}
@@ -719,6 +746,7 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap">
       <div class="eyebrow" style="margin:0">New shift</div>
       <div class="spacer" style="flex:1"></div>
+      <button class="btn ghost hide" id="lsRulesBtn">🔗 Name rules</button>
       <button class="btn ghost" id="seedShiftsBtn">🗓 Loaded shifts</button>
     </div>
     <h1>Load an orders workbook as a new shift</h1>
@@ -990,6 +1018,11 @@ th .sarrow{opacity:.55; font-size:10px; margin-left:3px}
   </section>
 </main>
 
+<!-- ============ LIVE STREAM: sales report review · name picker · name rules ============ -->
+<div id="lsReview" class="pickmodal hide"><div class="pickbox lsbox" id="lsReviewBox"></div></div>
+<div id="lsRules" class="pickmodal hide" style="z-index:216"><div class="pickbox lsbox" id="lsRulesBox"></div></div>
+<div id="lsPicker" class="pickmodal hide" style="z-index:217"><div class="pickbox lsbox sm" id="lsPickerBox"></div></div>
+
 <!-- ============ SHIFT PICKER ============ -->
 <div id="shiftModal" class="pickmodal hide">
   <div class="pickbox">
@@ -1075,7 +1108,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-25a · security: sign-in for every read, CPH Inventory data in this database';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-27a · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1331,7 +1364,9 @@ function shelfList(iv){
 }
 /* the location text shown on a product: counted shelves first, sheet column C otherwise */
 function locOf(iv){
-  if(LS_MODE){ const r=(roomsOf(iv)||[]).find(x=>x[0]==='SR'); return 'Stockroom'+(ROOMQ?' · '+fmtN(r?r[1]:0):''); }   // live-stream orders are picked in the Stockroom
+  if(LS_MODE){ const gs=lsShiftGames(CUR_SHIFT);
+    if(gs.length&&iv){ const fk=invFbKey(iv.ikey||keyOf(iv.name,iv.variation)); let n=0; for(const id of gs){ const sb=(ROOM_SUBS||{})[id]; if(sb&&sb.items) n+=+sb.items[fk]||0; } return '🎲 Game'+(gs.length>1?'s':'')+(ROOM_SUBS?' · '+fmtN(n):''); }   // picked from the games of the shift
+    const r=(roomsOf(iv)||[]).find(x=>x[0]==='SR'); return 'Stockroom'+(ROOMQ?' · '+fmtN(r?r[1]:0):''); }   // no game linked → the Stockroom
   const list=shelfList(iv);
   if(list && list.length){
     const shown=list.slice(0,3).map(x=>x.L).join(' · ');
@@ -1625,6 +1660,7 @@ async function lsDeductOrder(shiftId, orderKey, order){
   if(!rcInvRoot()){ toast('CPH INVENTORY is not reachable — the stock of this order was NOT taken off the Stockroom','err',6000); return null; }
   const claim=await mref.transaction(cur=>{ if(cur) return; return {at:Date.now(), by:MY_NAME||'', pending:true}; });
   if(!claim.committed) return null;
+  { const games=lsShiftGames(shiftId); if(games.length) return lsDeductFromGames(shiftId, orderKey, order, games, mref); }   // the shift is linked to games → their Sales report
   const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const lines=[], skipped=[]; let units=0;
   const sum=new Map();
   for(const it of (order.items||[])){
@@ -1645,6 +1681,7 @@ async function lsDeductOrder(shiftId, orderKey, order){
 }
 async function lsUndeductOrder(shiftId, orderKey, order){
   const m=order.deducted; const mref=pk.child('shifts/'+shiftId+'/orders/'+orderKey+'/deducted');
+  if(m.games){ if(!rcInvRoot()){ toast('CPH INVENTORY is not reachable — the units were NOT put back','err',6000); return; } return lsUndeductFromGames(shiftId, orderKey, order, mref); }
   const lines=m.lines ? (Array.isArray(m.lines)?m.lines:Object.values(m.lines)) : [];
   const tag=(order.platform?order.platform+' ':'')+(order.trackingId||'');
   for(const ln of lines){ if(!ln||!ln.item||!ln.qty) continue; try{ await lsPost(ln.item, ln.n||ln.item, ln.qty, true, 'Order reopened · '+tag+' · put back', safeKey(shiftId)+'_'+safeKey(orderKey)); }catch(e){ toast('Could not put '+(ln.n||ln.item)+' back to the Stockroom','err',5000); } }
@@ -1702,6 +1739,7 @@ function connect(){
   db.ref('packstation/transfers').orderByChild('status').equalTo('ready').on('value', snap=>{ WH_TR=snap.val()||{}; whTransfersIn(); });
   /* stock in the rooms — live from CPH INVENTORY (read only) */
   roomsWatch();
+  lsWatch();
   root.child('settings/scanOnly').on('value', snap=>{ const v=snap.val(); scanOnly = (v===null||v===undefined) ? true : !!v; applyScanOnly(); });
 
   // the list of shifts is a small index node — the heavy order data is only fetched
@@ -1900,14 +1938,341 @@ function shiftNameFrom(fileName){
 }
 
 /* orders are parsed first and only become a shift once the name is confirmed */
-/* LIVE STREAM: the orders come from a sales-report file. The rules that turn a platform's report into
-   orders are not written yet (waiting for a sample report) — they go into lsConvertReport(), which
-   must return a workbook in the station's own import format (a tab per platform: Tracking ID ·
-   Product Name · Variation · Quantity · Order Number), or null to read the file as it is. */
-function lsConvertReport(buf, fileName){ return null; }
+/* =====================================================================================
+   LIVE STREAM: SALES REPORT → ORDERS
+   • Only Surprise Set sales are loaded: product names that start with “s-”. After the
+     “s-” comes the product name as in Daily SOH / Guide Book.
+   • The data tab is the last tab that has them; tabs called “To Ship order-…” are never read.
+   • Columns used: Order ID (report only) · Tracking (the scanned barcode) · Product Name ·
+     Variation · Quantity.
+   • A name that is not in the inventory is matched by hand once — the rule is kept in
+     packstation/livestream/nameRules and used from then on (🔗 Name rules).
+   • The shift is linked to the games of CPH INVENTORY of the same date (… Batch 1, Batch 2):
+     packed units are written to the Sales report of those games, not taken off the Stockroom.
+   ===================================================================================== */
+let LS_BDEFS={}, LS_RULES={}, LSR=null, LSP=null;
+const LS_LOCN={stockroom:'Stockroom', gamearea:'Streaming Game Area', tiktok1:'TikTok 1', ebay:'eBay', whatnot:'WhatNot', singleslab:'Slab & Single', cardshow:'Card Show'};
+function lsWatch(){
+  if(!LS_MODE) return;
+  try{ db.ref(INV_PATH+'/bundleDefs').on('value',sn=>{ LS_BDEFS=sn.val()||{}; lsRefresh(); },e=>console.warn('bundles',e)); }catch(e){ console.warn('bundles',e); }
+  pk.child('nameRules').on('value',sn=>{ LS_RULES=sn.val()||{}; lsRefresh(); },e=>console.warn('rules',e));
+}
+function lsRefresh(){ if(LSR) lsRenderReview(); const m=$('#lsRules'); if(m&&!m.classList.contains('hide')) lsRenderRules(); if(curScreen==='platforms') renderShiftBar(); }
+const lsRuleKey=(n,va)=>safeKey(norm(n)+(va&&norm(va)!=='default'?'||'+norm(va):''));
+function lsFbMap(){ const n=Object.keys(S.inventory).length; if(lsFbMap._n===n&&lsFbMap._m) return lsFbMap._m; const m={}; for(const k in S.inventory) m[invFbKey(k)]=k; lsFbMap._m=m; lsFbMap._n=n; return m; }
+function lsItemName(fk){ const ik=lsFbMap()[fk]||fk; const iv=S.inventory[ik]; if(iv) return iv.name+(iv.variation&&norm(iv.variation)!=='default'?' · '+iv.variation:''); const p=String(fk).split('||'); return p[0]+(p[1]&&p[1]!=='default'?' · '+p[1]:''); }
+function lsBundleText(def){ const c=(def&&def.items)||{}; return Object.keys(c).map(k=>(+c[k]||1)+' × '+lsItemName(k)).join(' + '); }
+
+/* ---- dates: the report file name ↔ the game name ---- */
+function lsFileDate(fn){ const s=String(fn||''); let m=/(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})/.exec(s); if(m) return {m:+m[2], d:+m[3], y:+m[1]};
+  m=/(\d{1,2})[\/\-_. ](\d{1,2})[\/\-_. ](\d{4}|\d{2})(?!\d)/.exec(s); if(m) return {m:+m[1], d:+m[2], y:+(m[3].length===2?'20'+m[3]:m[3])};
+  m=/(?:^|\D)(\d{2})(\d{2})(20\d{2})(?!\d)/.exec(s); if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31) return {m:+m[1], d:+m[2], y:+m[3]};
+  m=/(?:^|\D)(\d{2})(\d{2})(\d{2})(?!\d)/.exec(s); if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31) return {m:+m[1], d:+m[2], y:2000+ +m[3]};
+  return null; }
+const LS_GDATE=/^\s*(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{4}|\d{2}))?/;
+function lsGameDate(name){ const m=LS_GDATE.exec(String(name||'')); if(!m) return null; return {m:+m[1], d:+m[2], y:m[3]?+(m[3].length===2?'20'+m[3]:m[3]):0}; }
+function lsGameBase(name){ return norm(String(name||'').replace(LS_GDATE,'').replace(/\bbatch\s*#?\s*\d+\b/i,'').replace(/\s*·\s*/g,' · ').replace(/\s+/g,' ')); }
+function lsGameBatch(name){ const m=/\bbatch\s*#?\s*(\d+)\b/i.exec(String(name||'')); return m?+m[1]:0; }
+function lsOpenGames(){ const out=[]; for(const id in (ROOM_SUBS||{})){ const s=ROOM_SUBS[id]; if(!s||s.kind!=='game'||s.status==='closed'||!s.name) continue; out.push(Object.assign({id},s)); } return out; }
+
+/* ---- read the file ---- */
+function lsReadReport(buf, fileName){
+  const wb=XLSX.read(buf,{type:'array'});
+  const find=(h,exact,part)=>{ const hs=h.map(norm); for(const w of exact){ const i=hs.indexOf(w); if(i>=0) return i; } for(let i=0;i<hs.length;i++) if(part.some(w=>hs[i].includes(w))) return i; return -1; };
+  let pick=null; const seen=[];
+  for(let si=wb.SheetNames.length-1; si>=0; si--){
+    const sn=wb.SheetNames[si];
+    if(/^\s*to ship order-/i.test(sn)){ seen.push('“'+sn+'” — a “To Ship order-” tab, never read'); continue; }
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''}); if(rows.length<2) continue;
+    const h=rows[0];
+    const ci={tr:find(h,['tracking','tracking id','tracking number','tracking #'],['tracking']), nm:find(h,['product name','item name'],['product name']),
+              va:find(h,['variation'],['variation']), q:find(h,['quantity','qty'],[]), on:find(h,['order id','order number','order #'],['order id']), st:find(h,['order status'],[])};
+    if(ci.tr<0||ci.nm<0){ seen.push('“'+sn+'” — no Tracking / Product Name columns'); continue; }
+    if(!rows.slice(1).some(r=>/^\s*s\s*-\s*\S/i.test(String(r[ci.nm]||'')))){ seen.push('“'+sn+'” — no “s-” products'); continue; }
+    pick={sn, rows, ci, raw:XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''})}; break;
+  }
+  if(!pick) throw new Error('No tab with Surprise Set sales was found — it needs the columns Tracking and Product Name, and product names that start with “s-”. Tabs checked: '+(seen.join('; ')||'none'));
+  const {rows, raw, ci}=pick; const lines=[], other=new Map(); let noTrack=0, cancelled=0;
+  const id=(r,c)=>c<0?'':String(idCell(rows,raw,r,c)||'').replace(/[\s ]+/g,'');
+  for(let r=1;r<rows.length;r++){ const row=rows[r]; const pn=String(row[ci.nm]??'').trim(); if(!pn) continue;
+    const qty=ci.q>=0?(parseInt(row[ci.q],10)||1):1; const m=/^s\s*-\s*(\S.*)$/i.exec(pn);
+    if(!m){ other.set(pn,(other.get(pn)||0)+qty); continue; }                       // a regular sale — not a Surprise Set
+    if(ci.st>=0&&/cancel/i.test(String(row[ci.st]||''))){ cancelled+=qty; continue; }
+    const tr=id(r,ci.tr); if(!tr){ noTrack+=qty; continue; }
+    lines.push({orderId:id(r,ci.on), tracking:tr, name:m[1].trim().replace(/\s+/g,' '), variation:ci.va>=0?String(row[ci.va]??'').trim():'', qty});
+  }
+  const fn=String(fileName||''); const platform=/tik\s*-?_?tok|(^|[^a-z])tt\d/i.test(fn)?'TikTok':/ebay/i.test(fn)?'eBay':/whatnot|(^|[^a-z])wn([^a-z]|$)/i.test(fn)?'Whatnot':'Live Stream';
+  return {fileName:fn, tab:pick.sn, lines, other, noTrack, cancelled, platform, date:lsFileDate(fn), hasOrderCol:ci.on>=0};
+}
+
+/* ---- what is a report product in our inventory? ---- */
+function lsResolve(name, variation){
+  const r=LS_RULES[lsRuleKey(name,variation)]||LS_RULES[lsRuleKey(name,'')];
+  if(r){
+    if(r.t==='skip') return {t:'skip', src:'rule'};
+    if(r.t==='bundle'){ if(LS_BDEFS[r.b]) return {t:'bundle', b:r.b, src:'rule'}; return {t:null, src:'rule', broken:'the bundle of the saved rule no longer exists'}; }
+    if(r.t==='item'){ if(S.inventory[r.k]) return {t:'item', k:r.k, m:Math.max(1,+r.m||1), src:'rule'}; return {t:null, src:'rule', broken:'the product of the saved rule is no longer in the inventory'}; }
+  }
+  for(const va of [variation,'Default','']){ const k=keyOf(name,va); if(S.inventory[k]) return {t:'item', k, m:1, src:'exact'}; }
+  const same=Object.keys(S.inventory).filter(k=>norm(S.inventory[k].name)===norm(name)); if(same.length===1) return {t:'item', k:same[0], m:1, src:'exact'};
+  const bd=Object.keys(LS_BDEFS).filter(id=>norm(LS_BDEFS[id].name)===norm(name)); if(bd.length===1) return {t:'bundle', b:bd[0], src:'exact'};
+  return {t:null};
+}
+const LS_SYN={cn:'chinese', jp:'japanese', jpn:'japanese', eng:'english', en:'english', coll:'collection', bb:'booster box', '3pack':'3 pack'};
+function lsTokens(s){ return norm(s).replace(/[^a-z0-9]+/g,' ').split(' ').filter(Boolean).map(t=>LS_SYN[t]||t).join(' ').split(' ').filter(Boolean); }
+function lsScore(q, cand){ const a=lsTokens(q), b=lsTokens(cand); if(!a.length||!b.length) return 0; const sb=new Set(b); let hit=0; for(const t of a) if(sb.has(t)) hit++; else if(b.some(x=>x.length>3&&(x.startsWith(t)||t.startsWith(x)))) hit+=.6;
+  return hit/Math.max(a.length,b.length)*.7 + hit/a.length*.3; }
+function lsSuggest(q, limit){ const out=[];
+  for(const id in LS_BDEFS){ const d=LS_BDEFS[id]; const sc=Math.max(lsScore(q,d.name||''), lsScore(q,lsBundleText(d))*.9); if(sc>0) out.push({t:'bundle', b:id, sc, label:d.name||'bundle', sub:lsBundleText(d)}); }
+  for(const k in S.inventory){ const iv=S.inventory[k]; const sc=lsScore(q, iv.name+' '+(norm(iv.variation)!=='default'?iv.variation||'':'')); if(sc>0) out.push({t:'item', k, sc, label:iv.name, sub:iv.variation||''}); }
+  out.sort((x,y)=>y.sc-x.sc||x.label.localeCompare(y.label)); return out.slice(0,limit||40); }
+function lsTargetHTML(res){
+  if(!res||!res.t) return '<span class="lsbad">not recognised'+(res&&res.broken?' — '+esc(res.broken):'')+'</span>';
+  if(res.t==='skip') return '<span class="lsmut">not imported (rule)</span>';
+  if(res.t==='bundle'){ const d=LS_BDEFS[res.b]||{}; return '🧩 <b>'+esc(d.name||'bundle')+'</b> <span class="lsmut">'+esc(lsBundleText({items:lsComp(res)}))+'</span>'; }
+  const iv=S.inventory[res.k]||{}; return (res.m>1?'<b>'+res.m+' ×</b> ':'')+'<b>'+esc(iv.name||res.k)+'</b>'+(iv.variation&&norm(iv.variation)!=='default'?' <span class="lsmut">· '+esc(iv.variation)+'</span>':'');
+}
+/* units of inventory products one sold unit of a resolved report product stands for: {fbKey: n} */
+function lsComp(res){ if(!res||!res.t||res.t==='skip') return {}; if(res.t==='item') return {[invFbKey(res.k)]:res.m||1};
+  let c=(LS_BDEFS[res.b]||{}).items||{};
+  /* the bundles actually prepared in the ticked games say what is inside (the catalog entry may have been edited since) */
+  if(LSR&&LSR.games) for(const id of LSR.games){ const bl=((ROOM_SUBS||{})[id]||{}).bundles||{}; const bid=Object.keys(bl).find(x=>bl[x]&&bl[x].def===res.b&&bl[x].items); if(bid){ c=bl[bid].items; break; } }
+  const o={}; for(const k in c) o[k]=+c[k]||1; return o; }
+
+/* ---- the review screen ---- */
+function lsStart(buf, fileName, mode){
+  let rep; try{ rep=lsReadReport(buf, fileName); }catch(e){ gstatus('ord','Could not read the sales report: '+e.message,'err'); toast('Could not read the sales report: '+e.message,'err',7000); return; }
+  if(!rep.lines.length){ const msg='No Surprise Set lines with a tracking number in “'+rep.tab+'”.'; gstatus('ord',msg,'err'); toast(msg,'err',5000); return; }
+  const pm=new Map();
+  for(const ln of rep.lines){ const k=norm(ln.name)+'||'+norm(ln.variation); let p=pm.get(k); if(!p){ p={name:ln.name, variation:ln.variation, units:0, lines:0}; pm.set(k,p); } p.units+=ln.qty; p.lines++; }
+  const prods=[...pm.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  LSR={rep, prods, mode, games:null, showAll:false, shift:mode==='sync'?CUR_SHIFT:null};
+  if(mode==='sync'){ const g=lsShiftGames(CUR_SHIFT); if(g.length) LSR.games=new Set(g); }
+  lsRenderReview(); $('#lsReview').classList.remove('hide');
+}
+function lsNeeds(){ const need={}; for(const p of LSR.prods){ const c=lsComp(lsResolve(p.name,p.variation)); for(const k in c) need[k]=(need[k]||0)+c[k]*p.units; } return need; }
+function lsCandidates(){
+  const need=lsNeeds(), keys=Object.keys(need), d=LSR.rep.date; const all=lsOpenGames();
+  const dated=all.filter(g=>{ const gd=lsGameDate(g.name); return d&&gd&&gd.m===d.m&&gd.d===d.d&&(!gd.y||gd.y===d.y); });
+  const cover=g=>keys.filter(k=>+((g.items||{})[k])>0).length;
+  const groups=new Map(); for(const g of dated){ const b=lsGameBase(g.name); if(!groups.has(b)) groups.set(b,[]); groups.get(b).push(g); }
+  const gl=[...groups.entries()].map(([base,list])=>{ list.sort((a,b)=>lsGameBatch(a.name)-lsGameBatch(b.name)||String(a.name).localeCompare(b.name)); const have=new Set(); for(const g of list) for(const k of keys) if(+((g.items||{})[k])>0) have.add(k);
+    return {base, list, covered:have.size, full:keys.length>0&&have.size===keys.length&&!LSR.prods.some(p=>!lsResolve(p.name,p.variation).t)}; }).sort((a,b)=>b.covered-a.covered||a.base.localeCompare(b.base));
+  return {need, keys, all, dated, groups:gl, cover};
+}
+function lsRenderReview(){
+  if(!LSR) return; const box=$('#lsReviewBox'); if(!box) return; const rep=LSR.rep; const C=lsCandidates();
+  if(LSR.games===null){ LSR.games=new Set(); const best=C.groups[0]; if(best&&best.covered>0) best.list.forEach(g=>LSR.games.add(g.id)); LSR.autoFull=!!(best&&best.full); }
+  for(const id of [...LSR.games]) if(!C.all.some(g=>g.id===id)) LSR.games.delete(id);          // a game closed meanwhile
+  const sel=C.all.filter(g=>LSR.games.has(g.id));
+  const have={}; for(const g of sel) for(const k in (g.items||{})) have[k]=(have[k]||0)+(+g.items[k]||0);
+  let bad=0, short=0, skipU=0; const tracks=new Set(), orders=new Set();
+  const rows=LSR.prods.map((p,i)=>{ const res=lsResolve(p.name,p.variation); const comp=lsComp(res); if(!res.t) bad++; if(res.t==='skip') skipU+=p.units;
+    let gm='<span class="lsmut">—</span>';
+    if(res.t&&res.t!=='skip'&&sel.length){ const parts=Object.keys(comp).map(k=>{ const n=have[k]||0, w=C.need[k]||0; const ok=n>=w; if(!ok) short++; return '<span class="'+(ok?'lsok':'lswarn')+'" title="'+esc(lsItemName(k))+': the report needs '+fmtN(w)+', the selected games hold '+fmtN(n)+'">'+fmtN(n)+' / '+fmtN(w)+'</span>'; }); gm=parts.join(' · '); }
+    const tag=res.src==='rule'?'<span class="lstag rule">rule</span>':res.t?'<span class="lstag">same name</span>':'';
+    let sug=''; if(!res.t){ const sg=lsSuggest(p.name,2).filter(x=>x.sc>=.34); LSR.sug=LSR.sug||{}; LSR.sug[i]=sg;
+      sug=sg.length?'<div class="lssug">Looks like: '+sg.map((x,j)=>'<button class="lschip" data-lsuse="'+i+':'+j+'" title="Use this and remember it">'+(x.t==='bundle'?'🧩 ':'')+esc(x.label)+(x.t==='item'&&x.sub&&norm(x.sub)!=='default'?' · '+esc(x.sub):'')+'</button>').join(' ')+'</div>':''; }
+    return '<tr class="'+(!res.t?'lsrow-bad':res.t==='skip'?'lsrow-skip':'')+'"><td><b>'+esc(p.name)+'</b>'+(p.variation&&norm(p.variation)!=='default'?' <span class="lsmut">· '+esc(p.variation)+'</span>':'')+'</td><td class="num">'+fmtN(p.units)+'</td><td>'+lsTargetHTML(res)+' '+tag+sug+'</td><td class="num">'+gm+'</td><td class="act"><button class="btn sm'+(!res.t?' primary':'')+'" data-lsfix="'+i+'">'+(!res.t?'Match…':'Change')+'</button></td></tr>'; }).join('');
+  for(const ln of rep.lines){ const r=lsResolve(ln.name,ln.variation); if(r.t!=='skip'){ tracks.add(ln.tracking); if(ln.orderId) orders.add(ln.orderId); } }
+  const gameRow=g=>{ const n=C.cover(g), u=Object.values(g.items||{}).reduce((a,b)=>a+(+b||0),0); const loc=LS_LOCN[g.at]||g.at||'';
+    return '<label class="lsgame'+(LSR.games.has(g.id)?' on':'')+'"><input type="checkbox" data-lsgame="'+esc(g.id)+'"'+(LSR.games.has(g.id)?' checked':'')+'><span class="gn">🎲 '+esc(g.name)+'</span><span class="lsmut">'+esc(g.status||'planning')+(loc?' · '+esc(loc):'')+' · '+fmtN(u)+' units</span><span class="'+(C.keys.length&&n===C.keys.length?'lsok':n?'lswarn':'lsbad')+'">'+n+' of '+C.keys.length+' products</span></label>'; };
+  let gh='';
+  if(C.groups.length){ gh=C.groups.map(gr=>'<div class="lsgroup"><div class="lsghead">'+(gr.full?'<span class="lsok">✓ has every product of the report</span>':'<span class="lswarn">'+gr.covered+' of '+C.keys.length+' products</span>')+'</div>'+gr.list.map(gameRow).join('')+'</div>').join(''); }
+  else gh='<div class="lsnote warn">'+(rep.date?'No open game dated '+pad2(rep.date.m)+'/'+pad2(rep.date.d)+' was found in CPH INVENTORY.':'The file name has no date, so the games cannot be found by date.')+' Tick the games by hand below, or create them in CPH INVENTORY first.</div>';
+  const others=C.all.filter(g=>!C.dated.some(x=>x.id===g.id)).sort((a,b)=>String(a.name).localeCompare(b.name));
+  if(others.length) gh+='<div class="lsgroup"><button class="btn ghost sm" id="lsAllGames">'+(LSR.showAll?'▾ Hide':'▸ Show')+' the other open games ('+others.length+')</button>'+(LSR.showAll||others.some(g=>LSR.games.has(g.id))?others.filter(g=>LSR.showAll||LSR.games.has(g.id)).map(gameRow).join(''):'')+'</div>';
+  const oth=[...rep.other.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const dateTxt=rep.date?pad2(rep.date.m)+'/'+pad2(rep.date.d)+'/'+rep.date.y:'—';
+  const noGames=!sel.length;
+  box.innerHTML='<div class="pickhead">📄 '+(LSR.mode==='sync'?'Update “'+esc(shiftName(LSR.shift))+'” from the sales report':'Sales report — check before it becomes a shift')+'</div>'+
+    '<div class="lsmeta"><span>File <b>'+esc(rep.fileName||'—')+'</b></span><span>Tab <b>'+esc(rep.tab)+'</b></span><span>Date <b>'+dateTxt+'</b></span><span>Platform <b>'+esc(rep.platform)+'</b></span><span><b>'+fmtN(tracks.size)+'</b> parcels (tracking numbers)</span><span><b>'+fmtN(orders.size)+'</b> orders</span><span><b>'+fmtN(LSR.prods.reduce((a,p)=>a+p.units,0)-skipU)+'</b> units</span></div>'+
+    (bad?'<div class="lsnote err"><b>'+bad+' product name(s) are not in the inventory.</b> Press <b>Match…</b> and pick the product or bundle — the choice is remembered and used for every next report.</div>':'<div class="lsnote ok">Every product of the report is recognised.</div>')+
+    '<div class="lsscroll"><table class="lstable"><thead><tr><th>In the report (after “s-”)</th><th class="num">Sold</th><th>Our inventory</th><th class="num" title="Units in the selected games / units the report needs">In the games / needed</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div class="eyebrow" style="margin:16px 0 6px">Games the packed units are written to</div>'+
+    '<p class="sub" style="font-size:12.5px;margin:0 0 8px">Found by the date of the file and the products inside. Packed units go to the <b>Sales report</b> of these games in CPH INVENTORY (Batch 1 first, then Batch 2), so the leftovers can be returned to the Stockroom from there.</p>'+gh+
+    (noGames?'<div class="lsnote warn">No game is ticked — packed units would be taken straight off the <b>Stockroom</b> instead.</div>':short?'<div class="lsnote warn">'+short+' product(s) are short in the ticked games (orange numbers). You can go on: the missing units are written to the first game and it goes below zero for them.</div>':'')+
+    (oth.length||rep.noTrack||rep.cancelled?'<details class="lsdet"><summary>Not imported: '+(oth.length?fmtN(oth.reduce((a,x)=>a+x[1],0))+' unit(s) of regular sales (no “s-”)':'')+(rep.noTrack?(oth.length?' · ':'')+fmtN(rep.noTrack)+' unit(s) without a tracking number':'')+(rep.cancelled?' · '+fmtN(rep.cancelled)+' cancelled':'')+'</summary>'+oth.map(x=>'<div class="lsmut">'+fmtN(x[1])+' × '+esc(x[0])+'</div>').join('')+'</details>':'')+
+    '<div class="lsfoot"><button class="btn ghost" id="lsRulesFromReview">🔗 Name rules</button><div class="spacer" style="flex:1"></div><button class="btn ghost" id="lsCancel">Cancel</button><button class="btn primary lg" id="lsConfirm"'+(bad||!tracks.size?' disabled':'')+'>'+(LSR.mode==='sync'?'Update the shift':'Confirm')+' · '+fmtN(tracks.size)+' parcels</button></div>';
+  $$('#lsReviewBox [data-lsuse]').forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.lsuse.split(':').map(Number); const p=LSR.prods[i], x=(LSR.sug[i]||[])[j]; if(!p||!x) return; LSP={name:p.name, variation:p.variation}; lsSaveRule(x.t==='bundle'?{t:'bundle', b:x.b}:{t:'item', k:x.k, m:1}); });
+  $$('#lsReviewBox [data-lsfix]').forEach(b=>b.onclick=()=>{ const p=LSR.prods[+b.dataset.lsfix]; lsOpenPicker(p.name,p.variation); });
+  $$('#lsReviewBox [data-lsgame]').forEach(c=>c.onchange=()=>{ if(c.checked) LSR.games.add(c.dataset.lsgame); else LSR.games.delete(c.dataset.lsgame); lsRenderReview(); });
+  const ag=$('#lsAllGames'); if(ag) ag.onclick=()=>{ LSR.showAll=!LSR.showAll; lsRenderReview(); };
+  $('#lsCancel').onclick=()=>{ LSR=null; $('#lsReview').classList.add('hide'); gstatus('ord','Cancelled.','info'); };
+  $('#lsConfirm').onclick=lsConfirm; $('#lsRulesFromReview').onclick=lsOpenRules;
+}
+function lsBuildPlatforms(){
+  const rep=LSR.rep, fb=lsFbMap(); const by=new Map();
+  for(const ln of rep.lines){ const res=lsResolve(ln.name,ln.variation); if(!res.t||res.t==='skip') continue;
+    let o=by.get(ln.tracking); if(!o){ o={trackingId:ln.tracking, orderNos:[], lines:new Map()}; by.set(ln.tracking,o); }
+    if(ln.orderId&&!o.orderNos.includes(ln.orderId)) o.orderNos.push(ln.orderId);
+    const comp=lsComp(res);
+    for(const fk in comp){ const ik=fb[fk]||fk; const iv=S.inventory[ik]||{name:lsItemName(fk), variation:''}; const lk=ik+'|'+(res.t==='bundle'?res.b:'');
+      let it=o.lines.get(lk); if(!it){ it={name:iv.name, variation:iv.variation||'', qty:0, invKey:ik, src:ln.name}; if(res.t==='bundle'){ it.bd=res.b; it.per=comp[fk]; it.bn=(LS_BDEFS[res.b]||{}).name||''; } o.lines.set(lk,it); }
+      it.qty+=comp[fk]*ln.qty; }
+  }
+  const orders=[...by.values()].map(o=>({trackingId:o.trackingId, orderNo:o.orderNos.join(', '), items:[...o.lines.values()], legacyTid:''}));
+  return {[rep.platform]:{name:rep.platform, orders, orderCol:rep.hasOrderCol?'Order ID':''}};
+}
+async function lsConfirm(){
+  if(!LSR) return; const rep=LSR.rep; const platforms=lsBuildPlatforms(); const games=[...LSR.games]; const all=lsOpenGames();
+  games.sort((a,b)=>{ const A=all.find(g=>g.id===a)||{}, B=all.find(g=>g.id===b)||{}; return lsGameBatch(A.name)-lsGameBatch(B.name)||String(A.name||'').localeCompare(String(B.name||'')); });
+  const gameNames=games.map(id=>(all.find(g=>g.id===id)||{}).name||id);
+  const n=platforms[rep.platform].orders.length; const mode=LSR.mode, shift=LSR.shift;
+  LSR=null; $('#lsReview').classList.add('hide');
+  if(mode==='sync'){
+    if(shift!==CUR_SHIFT){ toast('The open shift changed — nothing was updated','warn',4000); return; }
+    try{ await pk.update({['shiftIndex/'+shift+'/games']:games.length?games:null, ['shiftIndex/'+shift+'/gameNames']:games.length?gameNames:null, ['shifts/'+shift+'/meta/games']:games.length?games:null}); }catch(e){ toast('Could not save the games of the shift','err',4000); }
+    await syncShiftOrders({__ls:true, platforms}, rep.fileName); return;
+  }
+  const d=rep.date;
+  _pendingShift={platforms, source:{type:'file', name:rep.fileName||''}, name:d?pad2(d.m)+'/'+pad2(d.d)+'/'+d.y:todayUS(), fromName:rep.fileName||'', orders:n, games, gameNames};
+  gstatus('ord','✓ Read '+n+' parcels from “'+rep.fileName+'” (tab “'+rep.tab+'”)'+(games.length?' · games: '+gameNames.join(', '):' · no game linked — units leave the Stockroom')+'.','ok');
+  renderShiftStage();
+}
+
+/* ---- pick the product / bundle for a report name (and remember it) ---- */
+function lsOpenPicker(name, variation){
+  const res=lsResolve(name,variation);
+  LSP={name, variation, q:name, sel:res.t==='item'?{t:'item',k:res.k}:res.t==='bundle'?{t:'bundle',b:res.b}:null, m:res.t==='item'?res.m||1:1};
+  $('#lsPicker').classList.remove('hide'); lsRenderPicker(true);
+}
+function lsRenderPicker(full){
+  if(!LSP) return; const box=$('#lsPickerBox');
+  if(full){ box.innerHTML='<div class="pickhead">🔗 What is “'+esc(LSP.name)+(LSP.variation&&norm(LSP.variation)!=='default'?' · '+esc(LSP.variation):'')+'” in our inventory?</div>'+
+    '<input id="lsPq" class="tinput" autocomplete="off" spellcheck="false" placeholder="Search a product or a bundle…">'+
+    '<div id="lsPlist" class="lsplist"></div>'+
+    '<div class="lsprow"><label class="lsmut" for="lsPm">Units of the product in one sold “'+esc(LSP.name)+'”</label><input id="lsPm" class="tinput" type="number" min="1" step="1" style="width:90px" value="'+(LSP.m||1)+'"></div>'+
+    '<div class="lsfoot"><button class="btn ghost" id="lsPskip" title="Lines with this name are left out of the shift">Don’t import this name</button><div class="spacer" style="flex:1"></div><button class="btn ghost" id="lsPcancel">Cancel</button><button class="btn primary" id="lsPsave">Save the rule</button></div>';
+    const q=$('#lsPq'); q.value=LSP.q; q.oninput=()=>{ LSP.q=q.value; lsRenderPicker(false); }; setTimeout(()=>{ q.focus(); q.select(); },30);
+    $('#lsPm').oninput=()=>{ LSP.m=Math.max(1,parseInt($('#lsPm').value,10)||1); };
+    $('#lsPcancel').onclick=()=>{ LSP=null; $('#lsPicker').classList.add('hide'); };
+    $('#lsPskip').onclick=()=>lsSaveRule({t:'skip'});
+    $('#lsPsave').onclick=()=>{ if(!LSP.sel){ toast('Pick a product or a bundle in the list first','warn',2600); return; } lsSaveRule(LSP.sel.t==='bundle'?{t:'bundle', b:LSP.sel.b}:{t:'item', k:LSP.sel.k, m:Math.max(1,parseInt($('#lsPm').value,10)||1)}); };
+  }
+  const list=lsSuggest(LSP.q||LSP.name, 40); const isSel=x=>LSP.sel&&LSP.sel.t===x.t&&(x.t==='bundle'?LSP.sel.b===x.b:LSP.sel.k===x.k);
+  $('#lsPlist').innerHTML=list.length?list.map((x,i)=>'<button class="lspitem'+(isSel(x)?' on':'')+'" data-i="'+i+'">'+(x.t==='bundle'?'🧩 ':'')+'<b>'+esc(x.label)+'</b>'+(x.sub?' <span class="lsmut">'+(x.t==='bundle'?'':'· ')+esc(x.sub)+'</span>':'')+'</button>').join(''):'<div class="lsmut" style="padding:14px">Nothing found — try another word.</div>';
+  $$('#lsPlist [data-i]').forEach(b=>b.onclick=()=>{ const x=list[+b.dataset.i]; LSP.sel=x.t==='bundle'?{t:'bundle',b:x.b}:{t:'item',k:x.k}; $('#lsPm').closest('.lsprow').style.visibility=x.t==='bundle'?'hidden':'visible'; lsRenderPicker(false); });
+  $('#lsPm').closest('.lsprow').style.visibility=LSP.sel&&LSP.sel.t==='bundle'?'hidden':'visible';
+}
+async function lsSaveRule(rule){
+  const p=LSP; if(!p) return; const rec=Object.assign({name:p.name, variation:norm(p.variation)==='default'?'':(p.variation||''), at:Date.now(), by:MY_NAME||''}, rule);
+  if(rule.t==='item'){ const iv=S.inventory[rule.k]||{}; rec.label=(rule.m>1?rule.m+' × ':'')+(iv.name||rule.k)+(iv.variation&&norm(iv.variation)!=='default'?' · '+iv.variation:''); }
+  if(rule.t==='bundle') rec.label='🧩 '+((LS_BDEFS[rule.b]||{}).name||'bundle');
+  try{ await pk.child('nameRules/'+lsRuleKey(p.name,p.variation)).set(rec); }catch(e){ toast('Could not save the rule: '+(e.message||e),'err',4000); return; }
+  LS_RULES[lsRuleKey(p.name,p.variation)]=rec; LSP=null; $('#lsPicker').classList.add('hide'); toast('Rule saved — “'+p.name+'” is recognised from now on','ok',2600); lsRefresh();
+}
+/* ---- 🔗 Name rules ---- */
+function lsOpenRules(){ $('#lsRules').classList.remove('hide'); lsRenderRules(); }
+function lsRenderRules(){
+  const box=$('#lsRulesBox'); const keys=Object.keys(LS_RULES).sort((a,b)=>String(LS_RULES[a].name).localeCompare(String(LS_RULES[b].name)));
+  box.innerHTML='<div class="pickhead">🔗 Name rules — report name → our inventory</div>'+
+    '<p class="sub" style="font-size:12.5px;margin:0 0 10px">Used when the name after “s-” is not exactly a name of the inventory. A rule is made the first time you match a name while loading a report; here you can change or delete it, or add one in advance.</p>'+
+    (keys.length?'<div class="lsscroll"><table class="lstable"><thead><tr><th>In the report (after “s-”)</th><th>Our inventory</th><th>Saved</th><th></th></tr></thead><tbody>'+keys.map(k=>{ const r=LS_RULES[k]; const res=lsResolve(r.name,r.variation);
+      return '<tr class="'+(!res.t?'lsrow-bad':'')+'"><td><b>'+esc(r.name)+'</b>'+(r.variation?' <span class="lsmut">· '+esc(r.variation)+'</span>':'')+'</td><td>'+lsTargetHTML(res)+'</td><td class="lsmut">'+esc(r.by||'')+(r.at?' · '+new Date(r.at).toLocaleDateString('en-US'):'')+'</td><td class="act"><button class="btn sm" data-re="'+esc(k)+'">Change</button> <button class="btn sm ghost" data-rd="'+esc(k)+'">Delete</button></td></tr>'; }).join('')+'</tbody></table></div>':'<div class="empty">No rules yet.</div>')+
+    '<div class="lsprow" style="margin-top:12px"><input id="lsRnew" class="tinput" autocomplete="off" spellcheck="false" placeholder="A report name (without “s-”) to add a rule for…" style="flex:1"><button class="btn" id="lsRadd">＋ Add rule</button></div>'+
+    '<div class="lsfoot"><div class="spacer" style="flex:1"></div><button class="btn ghost" id="lsRclose">Close</button></div>';
+  $$('#lsRulesBox [data-re]').forEach(b=>b.onclick=()=>{ const r=LS_RULES[b.dataset.re]; lsOpenPicker(r.name, r.variation||''); });
+  $$('#lsRulesBox [data-rd]').forEach(b=>b.onclick=async()=>{ const r=LS_RULES[b.dataset.rd]; if(!confirm('Delete the rule for “'+r.name+'”?')) return; try{ await pk.child('nameRules/'+b.dataset.rd).remove(); }catch(e){ toast('Could not delete the rule','err'); } });
+  $('#lsRadd').onclick=()=>{ const v=$('#lsRnew').value.trim().replace(/^s\s*-\s*/i,''); if(!v){ toast('Type the name as it is written in the report','warn'); return; } lsOpenPicker(v,''); };
+  $('#lsRnew').addEventListener('keydown',e=>{ if(e.key==='Enter') $('#lsRadd').click(); });
+  $('#lsRclose').onclick=()=>$('#lsRules').classList.add('hide');
+}
+
+/* ---- packed units → the Sales report of the linked games ---- */
+function lsShiftGames(shiftId){ const g=(SHIFTS[shiftId]||{}).games; return g?(Array.isArray(g)?g:Object.values(g)).filter(Boolean):[]; }
+async function lsGameStart(IR, sid, s){
+  if(Object.values(s.start||{}).some(v=>+v)) return;
+  const start={}; let tot=0; for(const k in (s.items||{})) if(+s.items[k]){ start[k]=+s.items[k]; tot+=+s.items[k]; }
+  const at=Date.now(); const up={start, startedAt:at, startedBy:MY_NAME||'', room:s.at||null};
+  if(s.status!=='live'){ up.status='ended'; up.endedAt=at; up.endedBy=MY_NAME||''; up.editing=null; }
+  await IR.child('subs/'+sid).update(up); Object.assign(s,up);
+  IR.child('subs/'+sid+'/log').push({at, by:MY_NAME||'', text:'sales report opened by Live Stream Pick & Pack · starting stock fixed at '+fmtN(tot)+' units'}).catch(()=>{});
+}
+async function lsGameMove(IR, sid, fk, qty, note, ref, back){
+  const ik=lsFbMap()[fk]||fk; const iv=S.inventory[ik]; const at=Date.now();
+  const rec={ts:at, day:lsDay(at), item:ik, name:iv?iv.name:String(fk).split('||')[0], qty, kind:'sale', by:MY_NAME||'', note, src:'station-ls', srcId:ref, ch:'game', at};
+  if(back) rec.to='sub:'+sid; else rec.from='sub:'+sid;
+  await IR.child('ledger').push(rec);
+  await IR.child('subs/'+sid+'/items/'+fk).transaction(c=>{ const v=(+c||0)+(back?qty:-qty); return v===0?null:v; });
+  await IR.child('subs/'+sid+'/sold/'+fk).transaction(c=>{ const v=(+c||0)+(back?-qty:qty); return v===0?null:v; });
+}
+async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
+  const IR=rcInvRoot(); const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const ref=safeKey(shiftId)+'_'+safeKey(orderKey);
+  const G={}; for(const sid of games){ try{ const v=(await IR.child('subs/'+sid).once('value')).val(); if(v&&v.kind==='game') G[sid]={items:Object.assign({},v.items||{}), bundles:JSON.parse(JSON.stringify(v.bundles||{})), raw:v}; }catch(e){} }
+  const ids=games.filter(s=>G[s]);
+  if(!ids.length){ await mref.set(null); toast('The games of this shift were not found in CPH INVENTORY — the units of '+tag+' were NOT written anywhere','err',7000); return null; }
+  /* what the order needs */
+  const loose=new Map(), bun=new Map();
+  for(const it of (order.items||[])){
+    if(it.packed===false || (it.status && it.status!=='ok')) continue;
+    const qty=Math.max(0, +it.qty||1); if(!qty) continue;
+    const ik=S.inventory[it.invKey]?it.invKey:keyOf(it.name, it.variation||''); const fk=invFbKey(ik);
+    if(it.bd&&+it.per>0){ const e=bun.get(it.bd)||[]; e.push({fk, qty, per:+it.per}); bun.set(it.bd,e); } else loose.set(fk,(loose.get(fk)||0)+qty);
+  }
+  const ops=[], short=[];
+  for(const [bd,lines] of bun){
+    let n=Math.min(...lines.map(l=>Math.floor(l.qty/l.per)));
+    for(const l of lines){ const rest=l.qty-n*l.per; if(rest>0) loose.set(l.fk,(loose.get(l.fk)||0)+rest); }
+    for(const sid of ids){ if(n<=0) break; for(const bid in G[sid].bundles){ if(n<=0) break; const b=G[sid].bundles[bid]; if(!b||b.def!==bd||!(+b.count>0)) continue;
+      const t=Math.min(+b.count, n); const comp={}; for(const k in (b.items||{})) comp[k]=+b.items[k]||1;
+      ops.push({t:'b', sub:sid, bid, n:t, comp, nm:b.name||''}); b.count-=t; for(const k in comp) G[sid].items[k]=(+G[sid].items[k]||0)-t*comp[k]; n-=t; } }
+    if(n>0) for(const l of lines) loose.set(l.fk,(loose.get(l.fk)||0)+n*l.per);          // no prepared bundle left → single units
+  }
+  const reserved=(sid,fk)=>{ let r=0; for(const bid in G[sid].bundles){ const b=G[sid].bundles[bid]; if(b&&b.items&&b.items[fk]) r+=(+b.count||0)*(+b.items[fk]||1); } return r; };
+  for(const [fk,need0] of loose){ let need=need0;
+    for(const sid of ids){ if(need<=0) break; const fr=(+G[sid].items[fk]||0)-reserved(sid,fk); const t=Math.min(Math.max(fr,0), need); if(t>0){ ops.push({t:'s', sub:sid, fk, qty:t}); G[sid].items[fk]=(+G[sid].items[fk]||0)-t; need-=t; } }
+    if(need>0){ const sid=ids.find(s=>fk in (G[s].raw.items||{})||fk in (G[s].raw.start||{})||fk in (G[s].raw.sold||{}))||ids[0];        // the games are short → the game goes below zero
+      const ex=ops.find(o=>o.t==='s'&&o.sub===sid&&o.fk===fk); if(ex) ex.qty+=need; else ops.push({t:'s', sub:sid, fk, qty:need}); short.push({name:lsItemName(fk), qty:need}); }
+  }
+  /* write */
+  const done=[], skipped=[]; let units=0; const note='Live stream order · '+tag;
+  for(const sid of new Set(ops.map(o=>o.sub))){ try{ await lsGameStart(IR, sid, G[sid].raw); }catch(e){} }
+  for(const o of ops){
+    try{
+      if(o.t==='s'){ await lsGameMove(IR, o.sub, o.fk, o.qty, note, ref, false); await IR.child('subs/'+o.sub+'/sales').push({ts:Date.now(), by:MY_NAME||'', item:o.fk, name:lsItemName(o.fk), qty:o.qty, report:true, src:'station-ls', ref:tag}); units+=o.qty; done.push({t:'s', sub:o.sub, fk:o.fk, qty:o.qty}); }
+      else { for(const k in o.comp){ await lsGameMove(IR, o.sub, k, o.n*o.comp[k], note+' · bundle '+o.nm, ref, false); units+=o.n*o.comp[k]; }
+        await IR.child('subs/'+o.sub+'/bundles/'+o.bid+'/count').transaction(c=>Math.max(0,(+c||0)-o.n));
+        await IR.child('subs/'+o.sub+'/soldBundles/'+o.bid).transaction(c=>(+c||0)+o.n);
+        await IR.child('subs/'+o.sub+'/sales').push({ts:Date.now(), by:MY_NAME||'', bundle:o.bid, name:o.nm, qty:o.n, items:o.comp, report:true, src:'station-ls', ref:tag});
+        done.push({t:'b', sub:o.sub, bid:o.bid, n:o.n, comp:o.comp, nm:o.nm}); }
+    }catch(err){ skipped.push({name:o.t==='s'?lsItemName(o.fk):'bundle '+o.nm, qty:o.t==='s'?o.qty:o.n, why:'could not write to CPH INVENTORY'}); }
+  }
+  const marker={at:Date.now(), by:MY_NAME||'', units, games:true, ops:done.length?done:null, short:short.length?short:null, skipped:skipped.length?skipped:null};
+  await mref.set(marker);
+  if(skipped.length) toast(skipped.length+' line(s) of '+tag+' could not be written to the games: '+skipped.map(x=>x.name).join('; '),'warn',6000);
+  else if(short.length) toast('Not enough in the games for '+tag+': '+short.map(x=>x.qty+' × '+x.name).join('; ')+' — written anyway, the game is below zero','warn',6000);
+  return marker;
+}
+async function lsUndeductFromGames(shiftId, orderKey, order, mref){
+  const IR=rcInvRoot(); const m=order.deducted; const ops=m.ops?(Array.isArray(m.ops)?m.ops:Object.values(m.ops)):[];
+  const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const ref=safeKey(shiftId)+'_'+safeKey(orderKey); const note='Order reopened · '+tag+' · put back';
+  for(const o of ops){ if(!o) continue;
+    try{
+      if(o.t==='s'){ await lsGameMove(IR, o.sub, o.fk, o.qty, note, ref, true); await IR.child('subs/'+o.sub+'/sales').push({ts:Date.now(), by:MY_NAME||'', item:o.fk, name:lsItemName(o.fk)+' · order reopened', qty:-o.qty, report:true, reversed:true, src:'station-ls', ref:tag}); }
+      else { const comp=o.comp||{}; for(const k in comp) await lsGameMove(IR, o.sub, k, o.n*(+comp[k]||1), note+' · bundle '+(o.nm||''), ref, true);
+        await IR.child('subs/'+o.sub+'/bundles/'+o.bid+'/count').transaction(c=>(+c||0)+o.n);
+        await IR.child('subs/'+o.sub+'/soldBundles/'+o.bid).transaction(c=>{ const v=(+c||0)-o.n; return v>0?v:null; });
+        await IR.child('subs/'+o.sub+'/sales').push({ts:Date.now(), by:MY_NAME||'', bundle:o.bid, name:(o.nm||'bundle')+' · order reopened', qty:-o.n, items:comp, report:true, reversed:true, src:'station-ls', ref:tag}); }
+    }catch(e){ toast('Could not put a line of '+tag+' back into the game','err',5000); }
+  }
+  await mref.set(null);
+}
+/* a scanned bundle label (98…): one scan fills one whole bundle of the order */
+function lsScanBundle(order, val){
+  const code=String(val||'').trim(); const bd=Object.keys(LS_BDEFS).find(id=>String(LS_BDEFS[id].bc||'')===code); if(!bd) return false;
+  const d=LS_BDEFS[bd]; const idxs=order.items.map((it,i)=>it.bd===bd?i:-1).filter(i=>i>=0);
+  if(!idxs.length){ flash('err');beep('err'); scanFx('err', null, '✕ Not in this order', '🧩 '+(d.name||code)); toast('Bundle “'+(d.name||code)+'” is not in this order','err',3200); return true; }
+  const open=idxs.filter(i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1));
+  if(!open.length){ flash('err');beep('warn'); scanFx('warn', null, '✓ All bundles already scanned', '🧩 '+(d.name||code)); toast('All “'+(d.name||code)+'” of this order are already scanned','warn',2400); return true; }
+  for(const i of open){ const pkk=activePick[i]; pkk.count=Math.min(pkk.qty||1, pkk.count+Math.max(1,+order.items[i].per||1)); }
+  const it=order.items[open[0]]; const iv=S.inventory[it.invKey]||{name:it.name, variation:it.variation};
+  flash('ok');beep('ok'); scanFx('ok', iv, '✓ 🧩 '+(d.name||'bundle')); toast('✓ 🧩 '+(d.name||'bundle'),'ok',1400); renderOrderArea(); closeCamIfOpen(); return true;
+}
+
 function stageOrders(buf, sourceMeta, fileName){
-  if(LS_MODE){ let conv=null; try{ conv=lsConvertReport(buf, fileName); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord','Could not read the sales report: '+e.message,'err'); return; } if(conv) buf=conv; if(!sourceMeta) sourceMeta={type:'file', name:fileName||''}; }
-  let platforms; try{ platforms=parseOrders(buf); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord',e.message+(LS_MODE?' — For now the file must be in the station import format (a tab per platform with Tracking ID · Product Name · Variation · Quantity · Order Number). Reading the platforms’ own sales reports will be added once a sample report is available.':''),'err'); return; }
+  if(LS_MODE){ lsStart(buf, fileName, 'new'); return; }      // the report is checked first (products, games), then it becomes a shift
+  let platforms; try{ platforms=parseOrders(buf); }catch(e){ _pendingShift=null; renderShiftStage(); gstatus('ord',e.message,'err'); return; }
   let n=0; for(const pk in platforms) n+=platforms[pk].orders.length;
   const src=fileName||_lastSheetName||'';
   _pendingShift={platforms, source:sourceMeta||null, name:shiftNameFrom(src)||todayUS(), fromName:src, orders:n};
@@ -1941,13 +2306,15 @@ async function createShift(){
   for(const pk in platforms) for(const o of platforms[pk].orders)
     orders[safeKey(pk+'__'+o.trackingId)]={platform:pk, trackingId:o.trackingId, orderNo:o.orderNo||null, items:o.items, status:'pending', claim:null, addedAt:Date.now()};
   const meta={name, createdAt:Date.now(), createdBy:MY_NAME, source:_pendingShift.source||null};
+  const lsg=(_pendingShift.games&&_pendingShift.games.length)?_pendingShift.games:null, lsgn=lsg?_pendingShift.gameNames:null;   // live stream: the games the packed units are written to
+  if(lsg) meta.games=lsg;
   try{
     await pk.update({
       ['shifts/'+id+'/meta']  : meta,
       ['shifts/'+id+'/orders']: orders,
       ['trackIndex/'+id]      : trackRowsFor(orders),
       ['shiftIndex/'+id]      : {name, createdAt:meta.createdAt, createdBy:MY_NAME, orders:_pendingShift.orders,
-                                 source:_pendingShift.source||null, fileName:_pendingShift.fromName||''}
+                                 source:_pendingShift.source||null, fileName:_pendingShift.fromName||'', games:lsg, gameNames:lsgn}
     });
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Create shift'; } toast('Could not create the shift: '+(e&&e.message||e),'err',4200); return; }
   _pendingShift=null; renderShiftStage();
@@ -2035,7 +2402,7 @@ function statusFromItems(items, prev){
 async function syncShiftOrders(buf, label){
   if(!shiftRef || !CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
   const shiftLabel=shiftName(CUR_SHIFT);
-  let platforms; try{ platforms=parseOrders(buf); }catch(e){ toast(e.message,'err',4200); return; }
+  let platforms; try{ platforms=(buf&&buf.__ls)?buf.platforms:parseOrders(buf); }catch(e){ toast(e.message,'err',4200); return; }
 
   const sheetPlatforms=new Set(Object.keys(platforms));
   const sheet={};                      // key -> {platform, trackingId, items}
@@ -2478,6 +2845,7 @@ function scanItem(val){
   }
   if(bkeys.length===1){ return applyScannedProduct(order, bkeys[0], val); }
 
+  if(LS_MODE && lsScanBundle(order, val)) return;      // a bundle label (🧩) of CPH INVENTORY
   // no barcode match → fallback: match by item name (manual/typed)
   const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
   const t=norm(val); const idx=order.items.findIndex((it,i)=>room(i) && (norm(it.name)===t||norm(it.name).includes(t)));
@@ -2660,7 +3028,7 @@ function renderOrderArea(){
     html+='<div class="item '+cls+'">'+
       control+
       '<img class="thumb" src="'+esc(img)+'" alt="'+esc(it.name)+(it.variation?' · '+esc(it.variation):'')+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
-      '<div><div class="iname">'+esc(it.name)+qtyMark+'</div>'+(it.variation?'<div class="ivar">'+esc(it.variation)+'</div>':'')+
+      '<div><div class="iname">'+esc(it.name)+qtyMark+'</div>'+(it.variation?'<div class="ivar">'+esc(it.variation)+'</div>':'')+(it.bd?'<div class="ivar" style="color:#D2A8FF">🧩 '+esc(it.bn||'bundle')+(+it.per>0?' · '+fmtN((+it.qty||1)/(+it.per))+' bundle(s) — scan the bundle label or the product':'')+'</div>':(it.src&&norm(it.src)!==norm(it.name)?'<div class="ivar" style="opacity:.7">sold as “'+esc(it.src)+'”</div>':''))+
       '<div class="ichips"><span class="chip loc">📍 '+esc(loc)+'</span>'+(multi?'':'<span class="chip qty">qty <b>'+q+'</b></span>')+stockChip+
       (pk.status!=='ok'?'<span class="reasontag">⛔ '+reasonLabel(pk.status)+(pk.reason?': '+esc(pk.reason):'')+'</span>':'')+'</div></div>'+
       '<div class="iact">'+
@@ -3325,11 +3693,15 @@ function renderShiftBar(){
       (IS_ADMIN?'<span class="x" data-del="'+esc(id)+'" title="Clear this shift">✕</span>':'')+'</button>';
   }).join('');
   if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
+  if(LS_MODE && CUR_SHIFT){ const gn=(SHIFTS[CUR_SHIFT]||{}).gameNames; const names=gn?(Array.isArray(gn)?gn:Object.values(gn)):[];
+    h+='<span class="shiftchip frozen" style="cursor:default" title="'+esc(names.length?'Packed units are written to the Sales report of: '+names.join(' · '):'No game is linked to this shift — packed units are taken off the Stockroom')+'">'+(names.length?'🎲 '+esc(names.length===1?names[0]:names.length+' games'):'🗄 Stockroom')+'</span>';
+    if(IS_ADMIN) h+='<button class="shiftchip" id="lsRulesChip">🔗 Name rules</button>'; }
   if(!LS_MODE && frozen()) h+='<span class="shiftchip frozen" title="An inventory count is running — orders packed now are queued and applied to the shelves when the count is synced in Inventory">❄ Count in progress · deductions queued</span>';
   if(IS_ADMIN && CUR_SHIFT){ const c=deductStats();
     h+='<button class="shiftchip'+(c.todo?' todo':'')+'" id="deductChip" title="Take the packed units of this shift off the pick shelves (S-/R-). Orders confirmed in this build are deducted automatically; this catches the ones that were not."'+(DEDUCT_BUSY||!c.todo?' disabled':'')+'>📦→ Deduct packed orders <span class="n">'+c.done+' / '+c.total+'</span>'+(c.todo?' · '+c.todo+' to do':'')+'</button>'; }
   bar.innerHTML=h;
   const dc=$('#deductChip'); if(dc) dc.onclick=deductAllPacked;
+  { const rc=$('#lsRulesChip'); if(rc) rc.onclick=lsOpenRules; }
   $$('#shiftBar [data-sh]').forEach(b=>b.onclick=e=>{
     if(e.target.closest('[data-del]')){ e.stopPropagation(); clearShift(e.target.getAttribute('data-del')); return; }
     switchShift(b.dataset.sh);
@@ -4062,11 +4434,12 @@ if(LS_MODE){ (function(){
   document.body.classList.add('lsmode'); document.title='LIVE STREAM PICK & PACK · CALIPOKE STATION';
   const T=(sel,html)=>{ const e=document.querySelector(sel); if(e) e.innerHTML=html; };
   const brand=document.querySelector('.brand > div'); if(brand && brand.firstChild) brand.firstChild.nodeValue='LIVE STREAM PICK & PACK';
-  T('#screen-platforms .eyebrow','Live stream pick &amp; pack <span class="lsbadge">STOCKROOM</span>');
+  T('#screen-platforms .eyebrow','Live stream pick &amp; pack <span class="lsbadge">SURPRISE SETS</span>');
   T('#screen-seed h1','Load a sales report as a new shift');
-  T('#screen-seed h1 + p.sub','Loading a file <b>adds</b> a shift of live-stream orders — the shifts already loaded keep running. The shift is named after the date in the file name; you can correct it before it is created. These shifts are separate from the warehouse Pick &amp; Pack, and packed units come off the <b>Stockroom</b>.');
-  T('#screen-seed .srchead .sub','sales report file · .xlsx / .csv');
-  T('#ordStatus','Choose the sales-report file. Until the report rules are set up, the file must be in the station import format (a tab per platform: Tracking ID · Product Name · Variation · Quantity · Order Number).');
+  T('#screen-seed h1 + p.sub','Only <b>Surprise Set</b> sales are loaded — product names that start with <b>s-</b>. After you choose the file you check how every product was recognised and which games of CPH INVENTORY the parcels belong to; then the shift is created. Packed units are written to the <b>Sales report</b> of those games.');
+  T('#screen-seed .srchead .sub','sales report file · .xlsx');
+  T('#ordStatus','Choose the sales-report file (for example Tiktok_Livestream_11252026.xlsx). Tabs named “To Ship order-…” are never read. Columns used: Order ID · Tracking · Product Name · Variation · Quantity.');
+  { const rb=document.querySelector('#lsRulesBtn'); if(rb){ rb.classList.remove('hide'); rb.onclick=()=>lsOpenRules(); } }
   const lab=document.querySelector('#ordFile') && document.querySelector('#ordFile').parentNode; if(lab){ lab.classList.remove('ghost'); lab.classList.add('primary'); lab.firstChild.nodeValue='📄 Choose the sales report file'; }
   T('#screen-dash .dstitle','Live stream packing — live');
   T('#dsBack','← Live stream pick &amp; pack');
@@ -4168,7 +4541,7 @@ $('#onlinePill').onclick=()=>{ root.child('presence').once('value').then(s=>{ co
 
 $('#pullOrdersBtn').onclick=async()=>{ $('#pullOrdersBtn').disabled=true; await doPullOrders(); $('#pullOrdersBtn').disabled=false; };
 $('#syncFile').addEventListener('change',e=>{ const f=e.target.files[0]; e.target.value='';
-  if(f) readFile(f, buf=>{ if(LS_MODE){ try{ const c=lsConvertReport(buf, f.name); if(c) buf=c; }catch(err){ toast('Could not read the sales report: '+err.message,'err',5000); return; } } syncShiftOrders(buf, f.name); }); });
+  if(f) readFile(f, buf=>{ if(LS_MODE){ lsStart(buf, f.name, 'sync'); return; } syncShiftOrders(buf, f.name); }); });
 $('#updInvBtn').onclick=async()=>{ $('#updInvBtn').disabled=true; await doUpdateInventory(); $('#updInvBtn').disabled=false; };
 $('#wipeBtn').onclick=doWipeShift;
 
