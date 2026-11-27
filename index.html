@@ -1108,7 +1108,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-27b · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-27c · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1961,8 +1961,10 @@ function lsRefresh(){ if(LSR) lsRenderReview(); const m=$('#lsRules'); if(m&&!m.
 const lsRuleKey=(n,va)=>safeKey(norm(n)+(va&&norm(va)!=='default'?'||'+norm(va):''));
 /* a blank variation and “Default” are the same product: games may hold “name||” while the catalog says “name||default” */
 const lsCanon=k=>String(k).replace(/\|\|default$/,'||');
+const lsSame=(a,b)=>a===b||(LS_MODE&&lsCanon(a)===lsCanon(b));
 function lsCanonMap(obj){ const m={}; for(const k in (obj||{})){ const c=lsCanon(k); m[c]=(m[c]||0)+(+obj[k]||0); } return m; }
 function lsFbMap(){ const n=Object.keys(S.inventory).length; if(lsFbMap._n===n&&lsFbMap._m) return lsFbMap._m; const m={}; for(const k in S.inventory) m[invFbKey(k)]=k; lsFbMap._m=m; lsFbMap._n=n; return m; }
+function lsInvKey(fk){ const fm=lsFbMap(), c=lsCanon(fk); return fm[fk]||fm[c+'default']||fm[c]||fk; }      // the catalog product behind a key of a game
 function lsItemName(fk){ const fm=lsFbMap(); const ik=fm[fk]||fm[lsCanon(fk)]||fm[lsCanon(fk)+'default']||fk; const iv=S.inventory[ik]; if(iv) return iv.name+(iv.variation&&norm(iv.variation)!=='default'?' · '+iv.variation:''); const p=String(fk).split('||'); return p[0]+(p[1]&&p[1]!=='default'?' · '+p[1]:''); }
 function lsBundleText(def){ const c=(def&&def.items)||{}; return Object.keys(c).map(k=>(+c[k]||1)+' × '+lsItemName(k)).join(' + '); }
 
@@ -2037,9 +2039,10 @@ function lsTargetHTML(res){
 }
 /* units of inventory products one sold unit of a resolved report product stands for: {fbKey: n} */
 function lsComp(res){ if(!res||!res.t||res.t==='skip') return {}; if(res.t==='item') return {[invFbKey(res.k)]:res.m||1};
-  let c=(LS_BDEFS[res.b]||{}).items||{};
-  /* the bundles actually prepared in the ticked games say what is inside (the catalog entry may have been edited since) */
-  if(LSR&&LSR.games) for(const id of LSR.games){ const bl=((ROOM_SUBS||{})[id]||{}).bundles||{}; const bid=Object.keys(bl).find(x=>bl[x]&&bl[x].def===res.b&&bl[x].items); if(bid){ c=bl[bid].items; break; } }
+  return lsBundleComp(res.b, LSR&&LSR.games?[...LSR.games]:[]); }
+/* what is inside a bundle: the catalog entry (🧩 Bundles) or the bundle prepared in a game — whichever was saved last */
+function lsBundleComp(bd, gameIds){ const d=LS_BDEFS[bd]||{}; let c=d.items||{}, at=+d.at||0;
+  for(const id of (gameIds||[])){ const bl=((ROOM_SUBS||{})[id]||{}).bundles||{}; for(const bid in bl){ const x=bl[bid]; if(x&&x.def===bd&&x.items&&(+x.at||0)>at){ c=x.items; at=+x.at||0; } } }
   const o={}; for(const k in c) o[k]=+c[k]||1; return o; }
 
 /* ---- the review screen ---- */
@@ -2110,9 +2113,9 @@ function lsBuildPlatforms(){
     let o=by.get(ln.tracking); if(!o){ o={trackingId:ln.tracking, orderNos:[], lines:new Map()}; by.set(ln.tracking,o); }
     if(ln.orderId&&!o.orderNos.includes(ln.orderId)) o.orderNos.push(ln.orderId);
     const comp=lsComp(res);
-    for(const fk in comp){ const ik=fb[fk]||fk; const iv=S.inventory[ik]||{name:lsItemName(fk), variation:''}; const lk=ik+'|'+(res.t==='bundle'?res.b:'');
-      let it=o.lines.get(lk); if(!it){ it={name:iv.name, variation:iv.variation||'', qty:0, invKey:ik, src:ln.name}; if(res.t==='bundle'){ it.bd=res.b; it.per=comp[fk]; it.bn=(LS_BDEFS[res.b]||{}).name||''; } o.lines.set(lk,it); }
-      it.qty+=comp[fk]*ln.qty; }
+    for(const fk in comp){ const ik=lsInvKey(fk); const iv=S.inventory[ik]||{name:lsItemName(fk), variation:''}; const lk=ik+'|'+(res.t==='bundle'?res.b:'');
+      let it=o.lines.get(lk); if(!it){ it={name:iv.name, variation:iv.variation||'', qty:0, invKey:ik, src:ln.name}; if(res.t==='bundle'){ it.bd=res.b; it.per=comp[fk]; it.bq=0; it.bn=(LS_BDEFS[res.b]||{}).name||''; } o.lines.set(lk,it); }
+      it.qty+=comp[fk]*ln.qty; if(res.t==='bundle') it.bq+=ln.qty; }
   }
   const orders=[...by.values()].map(o=>({trackingId:o.trackingId, orderNo:o.orderNos.join(', '), items:[...o.lines.values()], legacyTid:''}));
   return {[rep.platform]:{name:rep.platform, orders, orderCol:rep.hasOrderCol?'Order ID':''}};
@@ -2202,9 +2205,10 @@ async function lsGameMove(IR, sid, fk, qty, note, ref, back){
 }
 async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
   const IR=rcInvRoot(); const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const ref=safeKey(shiftId)+'_'+safeKey(orderKey);
+  const orig={};          // canon key → the catalog key, for a product no game has a line for
   const G={}; for(const sid of games){ try{ const v=(await IR.child('subs/'+sid).once('value')).val(); if(v&&v.kind==='game'){ const g=G[sid]={items:Object.assign({},v.items||{}), bundles:JSON.parse(JSON.stringify(v.bundles||{})), raw:v, ck:{}};
       for(const src of [v.sold, v.start, v.items]) for(const k in (src||{})) g.ck[lsCanon(k)]=k;                 // the key this game really uses for the product
-      g.key=fk=>g.ck[lsCanon(fk)]||fk; } }catch(e){} }
+      g.key=fk=>g.ck[lsCanon(fk)]||orig[lsCanon(fk)]||fk; } }catch(e){} }
   const ids=games.filter(s=>G[s]);
   if(!ids.length){ await mref.set(null); toast('The games of this shift were not found in CPH INVENTORY — the units of '+tag+' were NOT written anywhere','err',7000); return null; }
   /* what the order needs */
@@ -2212,7 +2216,7 @@ async function lsDeductFromGames(shiftId, orderKey, order, games, mref){
   for(const it of (order.items||[])){
     if(it.packed===false || (it.status && it.status!=='ok')) continue;
     const qty=Math.max(0, +it.qty||1); if(!qty) continue;
-    const ik=S.inventory[it.invKey]?it.invKey:keyOf(it.name, it.variation||''); const fk=lsCanon(invFbKey(ik));
+    const ik=S.inventory[it.invKey]?it.invKey:keyOf(it.name, it.variation||''); const fk=lsCanon(invFbKey(ik)); if(!orig[fk]) orig[fk]=invFbKey(ik);
     if(it.bd&&+it.per>0){ const e=bun.get(it.bd)||[]; e.push({fk, qty, per:+it.per}); bun.set(it.bd,e); } else loose.set(fk,(loose.get(fk)||0)+qty);
   }
   const ops=[], short=[];
@@ -2262,6 +2266,31 @@ async function lsUndeductFromGames(shiftId, orderKey, order, mref){
     }catch(e){ toast('Could not put a line of '+tag+' back into the game','err',5000); }
   }
   await mref.set(null);
+}
+/* ---- waiting orders follow the catalog: a bundle whose contents were changed, or a product whose catalog line changed ---- */
+function lsLineFix(o){
+  const games=lsShiftGames(CUR_SHIFT), out=[], seen=new Set(), items=o.items||[];
+  for(const it of items){
+    if(it.bd){ if(seen.has(it.bd)) continue; seen.add(it.bd);
+      const lines=items.filter(x=>x.bd===it.bd); const n=+lines[0].bq||Math.max(1,...lines.map(l=>Math.round((+l.qty||1)/(+l.per||1))));
+      const comp=lsBundleComp(it.bd, games), ks=Object.keys(comp); if(!ks.length){ lines.forEach(l=>out.push(l)); continue; }
+      for(const fk of ks){ const ik=lsInvKey(fk); const iv=S.inventory[ik]||{name:lsItemName(fk), variation:''};
+        out.push({name:iv.name, variation:iv.variation||'', qty:comp[fk]*n, invKey:ik, src:it.src||'', bd:it.bd, per:comp[fk], bq:n, bn:(LS_BDEFS[it.bd]||{}).name||it.bn||''}); }
+    } else { const ik=S.inventory[it.invKey]?it.invKey:lsInvKey(invFbKey(it.invKey||keyOf(it.name, it.variation||'')));
+      if(ik!==it.invKey&&S.inventory[ik]){ const iv=S.inventory[ik]; out.push(Object.assign({}, it, {invKey:ik, name:iv.name, variation:iv.variation||''})); } else out.push(it); }
+  }
+  const sig=a=>a.map(x=>[x.invKey, +x.qty||1, x.bd||'', +x.per||'', x.bn||''].join('|')).sort().join(';');
+  return sig(out)!==sig(items)?out:null;
+}
+function lsStaleOrders(){ const out=[]; if(!LS_MODE||!CUR_SHIFT||!Object.keys(S.inventory).length) return out; const now=Date.now();
+  for(const pkk in S.platforms) for(const o of S.platforms[pkk].orders){ if(o.status!=='pending'||o.deducted) continue; if(o.claim&&(now-(o.claim.at||0))<STALE_MS) continue; const fx=lsLineFix(o); if(fx) out.push({key:o._key, items:fx}); }
+  return out; }
+async function lsApplyLineFix(){
+  const list=lsStaleOrders(); if(!list.length){ toast('Every waiting order is up to date','info'); return; }
+  if(!confirm('Update the product lines of '+list.length+' waiting order(s) to the bundles and products as they are now?\n\nOrders already packed or being packed right now are not touched.')) return;
+  const up={}; for(const x of list) up['orders/'+x.key+'/items']=x.items;
+  try{ await shiftRef.update(up); toast('✓ '+list.length+' order(s) updated','ok',3000); }catch(e){ toast('Could not update the orders: '+(e.message||e),'err',5000); }
+  renderShiftBar();
 }
 /* a scanned bundle label (98…): one scan fills one whole bundle of the order */
 function lsScanBundle(order, val){
@@ -2381,7 +2410,7 @@ function mergeItems(existing, sheetItems){
     if(!ex){ out.push(Object.assign({}, s, {packed:false, status:'ok', reason:'', count:0}));
       addedNames.push(s.name+(s.variation?' · '+s.variation:'')); continue; }
     if((+ex.qty||1)!==(+s.qty||1)) reqtyNames.push(s.name+' ('+(+ex.qty||1)+'→'+(+s.qty||1)+')');
-    out.push(Object.assign({}, ex, {name:s.name, variation:s.variation, qty:s.qty, invKey:s.invKey||ex.invKey}));
+    out.push(Object.assign({}, ex, {name:s.name, variation:s.variation, qty:s.qty, invKey:s.invKey||ex.invKey}, s.bd?{bd:s.bd, per:s.per, bq:s.bq||null, bn:s.bn||''}:{}, s.src?{src:s.src}:{}));
   }
   for(const k in have) if(!seen[k]) removedNames.push(have[k].name+(have[k].variation?' · '+have[k].variation:''));
   return {items:out, added:addedNames, removed:removedNames, reqty:reqtyNames,
@@ -2841,7 +2870,7 @@ function scanItem(val){
     // several products in the table carry this barcode → the employee must pick which one.
     // Only open the chooser if at least one of them belongs to this order; otherwise it's
     // simply not in the order and we report it (using the Default-variation product).
-    const anyInOrder = bkeys.some(ik=>order.items.some(it=>it.invKey===ik));
+    const anyInOrder = bkeys.some(ik=>order.items.some(it=>lsSame(it.invKey,ik)));
     if(anyInOrder){ openBarcodePick(order, bkeys, val); return; }
     flash('err');beep('err'); const disp=wrongScanDisplay(val, bkeys);
     scanFx('err', disp, '✕ Not in this order');
@@ -2863,10 +2892,10 @@ function scanItem(val){
 /* apply a single, unambiguous inventory product (scanned or chosen) to the order */
 function applyScannedProduct(order, ik, val){
   const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
-  const idxRoom=order.items.findIndex((it,i)=>it.invKey===ik && room(i));
+  const idxRoom=order.items.findIndex((it,i)=>lsSame(it.invKey,ik) && room(i));
   if(idxRoom>=0){ bumpItem(order, idxRoom); return true; }
   const iv=S.inventory[ik]||{};
-  const idxAny=order.items.findIndex(it=>it.invKey===ik);
+  const idxAny=order.items.findIndex(it=>lsSame(it.invKey,ik));
   if(idxAny>=0){ // in the order but nothing left to pick
     flash('err');beep('warn');
     if(activePick[idxAny].status!=='ok'){ scanFx('warn', iv, '⛔ Marked “can’t pack”'); toast('Item is marked as “can’t pack”','warn',2400); }
@@ -2910,7 +2939,7 @@ function openBarcodePick(order, ikeys, val){
   grid.innerHTML='';
   ikeys.forEach(ik=>{
     const iv=S.inventory[ik]||{}; const img=iv.image||PLACEHOLDER; const loc=locOf(iv);
-    const inOrder=order.items.some(it=>it.invKey===ik);
+    const inOrder=order.items.some(it=>lsSame(it.invKey,ik));
     const b=document.createElement('button'); b.className='pickitem';
     b.innerHTML='<img src="'+esc(img)+'" onerror="this.src=\''+PLACEHOLDER+'\'">'+
       '<div class="pickmeta"><div class="pickname">'+esc(iv.name||ik)+'</div>'+
@@ -2924,10 +2953,10 @@ function openBarcodePick(order, ikeys, val){
 }
 function chooseBarcodeProduct(order, ik, val){
   const room=i=>activePick[i].status==='ok' && activePick[i].count<(activePick[i].qty||1);
-  const idxRoom=order.items.findIndex((it,i)=>it.invKey===ik && room(i));
+  const idxRoom=order.items.findIndex((it,i)=>lsSame(it.invKey,ik) && room(i));
   const iv=S.inventory[ik]||{};
   if(idxRoom>=0){ closeItemPick(); bumpItem(order, idxRoom); return; }
-  const idxAny=order.items.findIndex(it=>it.invKey===ik);
+  const idxAny=order.items.findIndex(it=>lsSame(it.invKey,ik));
   if(idxAny>=0){ // chosen product is in the order but nothing left to pick
     beep('warn'); toast(activePick[idxAny].status!=='ok' ? 'Item is marked as “can’t pack”' : 'All unit(s) already scanned','warn',2400);
     return; // keep the chooser open
@@ -3700,13 +3729,14 @@ function renderShiftBar(){
   if(IS_ADMIN) h+='<button class="shiftchip" id="shiftAddChip">＋ New shift</button>';
   if(LS_MODE && CUR_SHIFT){ const gn=(SHIFTS[CUR_SHIFT]||{}).gameNames; const names=gn?(Array.isArray(gn)?gn:Object.values(gn)):[];
     h+='<span class="shiftchip frozen" style="cursor:default" title="'+esc(names.length?'Packed units are written to the Sales report of: '+names.join(' · '):'No game is linked to this shift — packed units are taken off the Stockroom')+'">'+(names.length?'🎲 '+esc(names.length===1?names[0]:names.length+' games'):'🗄 Stockroom')+'</span>';
-    if(IS_ADMIN) h+='<button class="shiftchip" id="lsRulesChip">🔗 Name rules</button>'; }
+    if(IS_ADMIN) h+='<button class="shiftchip" id="lsRulesChip">🔗 Name rules</button>';
+    if(IS_ADMIN){ const st=lsStaleOrders().length; if(st) h+='<button class="shiftchip todo" id="lsFixChip" title="A bundle or a product of the catalog was changed after these orders were loaded">🧩 Update '+st+' waiting order(s) — bundle / product changed</button>'; } }
   if(!LS_MODE && frozen()) h+='<span class="shiftchip frozen" title="An inventory count is running — orders packed now are queued and applied to the shelves when the count is synced in Inventory">❄ Count in progress · deductions queued</span>';
   if(IS_ADMIN && CUR_SHIFT){ const c=deductStats();
     h+='<button class="shiftchip'+(c.todo?' todo':'')+'" id="deductChip" title="Take the packed units of this shift off the pick shelves (S-/R-). Orders confirmed in this build are deducted automatically; this catches the ones that were not."'+(DEDUCT_BUSY||!c.todo?' disabled':'')+'>📦→ Deduct packed orders <span class="n">'+c.done+' / '+c.total+'</span>'+(c.todo?' · '+c.todo+' to do':'')+'</button>'; }
   bar.innerHTML=h;
   const dc=$('#deductChip'); if(dc) dc.onclick=deductAllPacked;
-  { const rc=$('#lsRulesChip'); if(rc) rc.onclick=lsOpenRules; }
+  { const rc=$('#lsRulesChip'); if(rc) rc.onclick=lsOpenRules; const fc=$('#lsFixChip'); if(fc) fc.onclick=lsApplyLineFix; }
   $$('#shiftBar [data-sh]').forEach(b=>b.onclick=e=>{
     if(e.target.closest('[data-del]')){ e.stopPropagation(); clearShift(e.target.getAttribute('data-del')); return; }
     switchShift(b.dataset.sh);
