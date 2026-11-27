@@ -1108,7 +1108,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-27c · Live Stream: sales report import (s- products), name rules, games';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-27d · admin can take over an order left “in progress” · Live Stream: sales report import';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1889,6 +1889,7 @@ function setShift(id){
     snap.forEach(c=>{ const v=c.val(); if(!v) return; const pk=v.platform; (platforms[pk]=platforms[pk]||{name:pk,orders:[]});
       platforms[pk].orders.push({_key:c.key, platform:pk, trackingId:v.trackingId, orderNo:v.orderNo||'', items:v.items||[], status:v.status||'pending', claim:v.claim||null, packedBy:v.packedBy||'', blockReason:v.blockReason||'', packedAt:v.packedAt||null, addedAt:v.addedAt||null, pickStartedAt:v.pickStartedAt||null, packing:v.packing||null, syncNote:v.syncNote||null, deducted:v.deducted||null}); });
     S.platforms=platforms;
+    claimLostCheck();
     scheduleReportPublish();
     healTrackIndex(CUR_SHIFT, platforms);      // the open shift keeps its index honest
     renderCurrent();
@@ -2827,8 +2828,17 @@ async function claimAndOpen(key){
   try{ res=await cRef.transaction(cur=>{ if(!cur || cur.sid===SID || (Date.now()-(cur.at||0))>STALE_MS) return {by:MY_NAME, at:Date.now(), sid:SID}; return; }); }
   catch(e){ toast('Network unavailable, try again','err'); return; }
 
-  const got = res.committed && res.snapshot.val() && res.snapshot.val().sid===SID;
-  if(!got){ const h=res.snapshot.val(); flash('err');beep('warn'); toast('Order taken: '+((h&&h.by)||'another packer'),'warn',3500); renderOrderArea(); return; }
+  let got = res.committed && res.snapshot.val() && res.snapshot.val().sid===SID;
+  if(!got && IS_ADMIN){
+    /* ADMIN TAKE-OVER: an order somebody left open (their screen keeps it "in progress") can be taken by an admin.
+       The other screen sees it at once, drops the order and says who took it. */
+    const h=res.snapshot.val()||{}; flash('err');beep('warn');
+    if(confirm('Order '+order.trackingId+' is open on another screen — '+(h.by||'another packer')+'.\n\nTake it over and pack it here? What was scanned on the other screen is not kept.')){
+      try{ await cRef.set({by:MY_NAME, at:Date.now(), sid:SID, tookFrom:h.by||''}); got=true; alog('order_takeover',{text:order.trackingId+' taken over from '+(h.by||'another packer'), ref:order._key}); toast('Order taken over from '+(h.by||'another packer'),'info',3000); }
+      catch(e){ toast('Could not take the order over: '+(e.message||e),'err',4000); renderOrderArea(); return; }
+    } else { renderOrderArea(); return; }
+  }
+  if(!got){ const h=res.snapshot.val(); flash('err');beep('warn'); toast('Order taken: '+((h&&h.by)||'another packer')+' — an admin can take it over','warn',3500); renderOrderArea(); return; }
 
   claimRef=cRef; cRef.onDisconnect().set(null); startHeartbeat();
   activeOrder={key:order._key, platform:curPlatformKey, trackingId:order.trackingId};
@@ -2844,7 +2854,14 @@ async function claimAndOpen(key){
   closeCamIfOpen();                 // order opened → close the camera
 }
 
-function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(()=>{ if(claimRef) claimRef.child('at').set(Date.now()); }, HEARTBEAT_MS); }
+function startHeartbeat(){ stopHeartbeat(); hbTimer=setInterval(()=>{ if(claimRef) claimRef.transaction(c=>(c&&c.sid===SID)?Object.assign({},c,{at:Date.now()}):undefined).catch(()=>{}); }, HEARTBEAT_MS); }   // only while the order is still ours
+/* the order open on this screen was taken over by an admin → let it go here */
+function claimLostCheck(){
+  if(!activeOrder||!claimRef) return; const o=findByKey(activeOrder.key); const c=o&&o.claim; if(!c||!c.sid||c.sid===SID) return;
+  try{ claimRef.onDisconnect().cancel(); }catch(e){} claimRef=null; stopHeartbeat(); const tid=activeOrder.trackingId; activeOrder=null; activePick=null; pendingChoice=null;
+  try{ flash('err'); beep('warn'); }catch(e){} toast('Order '+tid+' was taken over by '+(c.by||'an admin')+' — it is closed on this screen','warn',7000);
+  if(curScreen==='pack') setMode('label');
+}
 function stopHeartbeat(){ if(hbTimer){clearInterval(hbTimer); hbTimer=null;} }
 function releaseIfHolding(){ if(claimRef){ try{claimRef.onDisconnect().cancel(); claimRef.set(null);}catch(e){} claimRef=null; } stopHeartbeat(); activeOrder=null; activePick=null; }
 
@@ -3125,7 +3142,7 @@ function orderStatusTag(o){
   if(o.status==='packed') return '<span class="statustag st-packed">packed</span>';
   if(o.status==='partial') return '<span class="statustag st-partial">partial</span>';
   if(o.status==='unpacked') return '<span class="statustag st-blocked">not packed</span>';
-  const now=Date.now(); if(o.claim && now-(o.claim.at||0)<STALE_MS) return '<span class="statustag st-pending">in progress</span>';
+  const now=Date.now(); if(o.claim && now-(o.claim.at||0)<STALE_MS) return '<span class="statustag st-pending"'+(IS_ADMIN&&o.claim.sid!==SID?' title="Open on another screen — tap the order to take it over"':'')+'>in progress'+(o.claim.by?' · '+esc(o.claim.by):'')+'</span>';
   return '<span class="statustag st-todo">to pack</span>';
 }
 function orderSortRank(o){ if(o.status==='packed')return 4; if(o.status==='partial')return 3; if(o.status==='unpacked')return 1; const now=Date.now(); if(o.claim&&now-(o.claim.at||0)<STALE_MS)return 2; return 0; }
