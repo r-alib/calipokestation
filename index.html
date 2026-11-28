@@ -1108,7 +1108,7 @@ const EXTERNAL_MODES = {
   hub:       'https://calipokehouse-ops-center.streamlit.app/'     // every company system in one place — always the last tile
 };
 
-const BUILD = '2026-11-27d · admin can take over an order left “in progress” · Live Stream: sales report import';   // bump when you change this file; visible in the header
+const BUILD = '2026-11-27e · Live Stream: one file = one platform, one shift per date';   // bump when you change this file; visible in the header
 const STALE_MS = 90000;      // claim auto-takeover if holder goes silent
 const HEARTBEAT_MS = 20000;
 
@@ -1660,7 +1660,7 @@ async function lsDeductOrder(shiftId, orderKey, order){
   if(!rcInvRoot()){ toast('CPH INVENTORY is not reachable — the stock of this order was NOT taken off the Stockroom','err',6000); return null; }
   const claim=await mref.transaction(cur=>{ if(cur) return; return {at:Date.now(), by:MY_NAME||'', pending:true}; });
   if(!claim.committed) return null;
-  { const games=lsShiftGames(shiftId); if(games.length) return lsDeductFromGames(shiftId, orderKey, order, games, mref); }   // the shift is linked to games → their Sales report
+  { const games=lsOrderGames(shiftId, order.platform); if(games.length) return lsDeductFromGames(shiftId, orderKey, order, games, mref); }   // the shift is linked to games → their Sales report
   const tag=(order.platform?order.platform+' ':'')+(order.trackingId||''); const lines=[], skipped=[]; let units=0;
   const sum=new Map();
   for(const it of (order.items||[])){
@@ -1971,7 +1971,7 @@ function lsBundleText(def){ const c=(def&&def.items)||{}; return Object.keys(c).
 
 /* ---- dates: the report file name ↔ the game name ---- */
 function lsFileDate(fn){ const s=String(fn||''); let m=/(20\d{2})[-_.](\d{1,2})[-_.](\d{1,2})/.exec(s); if(m) return {m:+m[2], d:+m[3], y:+m[1]};
-  m=/(\d{1,2})[\/\-_. ](\d{1,2})[\/\-_. ](\d{4}|\d{2})(?!\d)/.exec(s); if(m) return {m:+m[1], d:+m[2], y:+(m[3].length===2?'20'+m[3]:m[3])};
+  m=/(?:^|[^A-Za-z0-9])(\d{1,2})[\/\-_. ](\d{1,2})[\/\-_. ](\d{4}|\d{2})(?!\d)/.exec(s); if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31) return {m:+m[1], d:+m[2], y:+(m[3].length===2?'20'+m[3]:m[3])};
   m=/(?:^|\D)(\d{2})(\d{2})(20\d{2})(?!\d)/.exec(s); if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31) return {m:+m[1], d:+m[2], y:+m[3]};
   m=/(?:^|\D)(\d{2})(\d{2})(\d{2})(?!\d)/.exec(s); if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31) return {m:+m[1], d:+m[2], y:2000+ +m[3]};
   return null; }
@@ -1980,6 +1980,35 @@ function lsGameDate(name){ const m=LS_GDATE.exec(String(name||'')); if(!m) retur
 function lsGameBase(name){ return norm(String(name||'').replace(LS_GDATE,'').replace(/\bbatch\s*#?\s*\d+\b/i,'').replace(/\s*·\s*/g,' · ').replace(/\s+/g,' ')); }
 function lsGameBatch(name){ const m=/\bbatch\s*#?\s*(\d+)\b/i.exec(String(name||'')); return m?+m[1]:0; }
 function lsOpenGames(){ const out=[]; for(const id in (ROOM_SUBS||{})){ const s=ROOM_SUBS[id]; if(!s||s.kind!=='game'||s.status==='closed'||!s.name) continue; out.push(Object.assign({id},s)); } return out; }
+
+/* ---- one file = one platform. The platform is read from the file name (it can be changed before confirming) ---- */
+const LS_PLATFORMS=['TikTok','Rip N Roll','eBay','Whatnot'];
+function lsKnownPlatforms(){ let saved=[]; try{ saved=JSON.parse(localStorage.getItem('ls_platform_names')||'[]'); }catch(e){}
+  const out=[]; const add=n=>{ n=String(n||'').trim(); if(n&&!out.some(x=>norm(x)===norm(n))) out.push(n); };
+  LS_PLATFORMS.forEach(add); (Array.isArray(saved)?saved:[]).forEach(add); Object.keys(S.platforms||{}).forEach(add);
+  for(const id in SHIFTS){ const pg=SHIFTS[id]&&SHIFTS[id].pgames; for(const k in (pg||{})) add(pg[k]&&pg[k].name); }
+  return out; }
+function lsRememberPlatform(n){ try{ let a=JSON.parse(localStorage.getItem('ls_platform_names')||'[]'); if(!Array.isArray(a)) a=[];
+    if(!LS_PLATFORMS.concat(a).some(x=>norm(x)===norm(n))){ a.push(n); localStorage.setItem('ls_platform_names',JSON.stringify(a.slice(-30))); } }catch(e){} }
+function lsFilePlatform(fn){
+  const s=String(fn||'').replace(/\.[a-z0-9]{2,5}$/i,''); const low=' '+s.toLowerCase().replace(/[_\-.()\[\]]+/g,' ').replace(/\s+/g,' ')+' ';
+  /* a platform already used here whose name is written in the file name wins (longest first) */
+  const known=lsKnownPlatforms().slice().sort((a,b)=>b.length-a.length);
+  for(const k of known){ const kk=' '+k.toLowerCase().replace(/[_\-.]+/g,' ').replace(/\s+/g,' ')+' '; if(low.includes(kk)) return k; }
+  if(/rip\s*n\s*roll|ripnroll|rip\s*(and|&)\s*roll|(^|[^a-z])rnr([^a-z]|$)/i.test(s)) return 'Rip N Roll';
+  if(/tik\s*-?_?\s?tok|(^|[^a-z])tt\s?\d?([^a-z]|$)/i.test(s)) return 'TikTok';
+  if(/e\s?bay/i.test(s)) return 'eBay';
+  if(/what\s?not|(^|[^a-z])wn([^a-z]|$)/i.test(s)) return 'Whatnot';
+  /* “(11-27-2026) Some Platform orders - …” → the words between the date and “orders / sales / report” */
+  const m=/(?:^|[\s)\]_\-])([A-Za-z][A-Za-z0-9 &'’]*?)\s+(?:orders?|sales|report)\b/i.exec(s.replace(/[_]+/g,' '));
+  if(m){ const g=m[1].trim().replace(/\s+/g,' '); if(g&&!/^(live\s*stream|surprise\s*set|to\s*ship)$/i.test(g)&&g.length<=30) return g.replace(/\b[a-z]/g,c=>c.toUpperCase()); }
+  return ''; }
+/* ---- one shift = one date ---- */
+function lsDateName(d){ return d?pad2(d.m)+'/'+pad2(d.d)+'/'+d.y:''; }
+function lsShiftsOn(name){ return name?shiftIds().filter(id=>norm(shiftName(id))===norm(name)).sort((a,b)=>(SHIFTS[a].createdAt||0)-(SHIFTS[b].createdAt||0)):[]; }
+function lsArr(g){ return g?(Array.isArray(g)?g:Object.values(g)).filter(Boolean):[]; }
+/* the games of one platform inside a shift; shifts made before platforms had their own games use the shift's list */
+function lsOrderGames(shiftId, platform){ const sh=SHIFTS[shiftId]||{}; const pg=sh.pgames&&sh.pgames[safeKey(platform||'')]; return pg?lsArr(pg.ids):lsShiftGames(shiftId); }
 
 /* ---- read the file ---- */
 function lsReadReport(buf, fileName){
@@ -2007,7 +2036,7 @@ function lsReadReport(buf, fileName){
     const tr=id(r,ci.tr); if(!tr){ noTrack+=qty; continue; }
     lines.push({orderId:id(r,ci.on), tracking:tr, name:m[1].trim().replace(/\s+/g,' '), variation:ci.va>=0?String(row[ci.va]??'').trim():'', qty});
   }
-  const fn=String(fileName||''); const platform=/tik\s*-?_?tok|(^|[^a-z])tt\d/i.test(fn)?'TikTok':/ebay/i.test(fn)?'eBay':/whatnot|(^|[^a-z])wn([^a-z]|$)/i.test(fn)?'Whatnot':'Live Stream';
+  const fn=String(fileName||''); const platform=lsFilePlatform(fn);
   return {fileName:fn, tab:pick.sn, lines, other, noTrack, cancelled, platform, date:lsFileDate(fn), hasOrderCol:ci.on>=0};
 }
 
@@ -2053,8 +2082,9 @@ function lsStart(buf, fileName, mode){
   const pm=new Map();
   for(const ln of rep.lines){ const k=norm(ln.name)+'||'+norm(ln.variation); let p=pm.get(k); if(!p){ p={name:ln.name, variation:ln.variation, units:0, lines:0}; pm.set(k,p); } p.units+=ln.qty; p.lines++; }
   const prods=[...pm.values()].sort((a,b)=>a.name.localeCompare(b.name));
-  LSR={rep, prods, mode, games:null, showAll:false, shift:mode==='sync'?CUR_SHIFT:null};
-  if(mode==='sync'){ const g=lsShiftGames(CUR_SHIFT); if(g.length) LSR.games=new Set(g); }
+  /* the shift is found by the DATE of the file, never by which shift happens to be open */
+  LSR={rep, prods, mode, games:null, showAll:false, target:undefined, fileDate:rep.date?Object.assign({},rep.date):null, filePlatform:rep.platform};
+  if(!rep.date && mode==='sync' && CUR_SHIFT){ const d=lsFileDate(shiftName(CUR_SHIFT)); if(d) rep.date=d; }     // no date in the file name → the open shift's date is offered
   lsRenderReview(); $('#lsReview').classList.remove('hide');
 }
 function lsNeeds(){ const need={}; for(const p of LSR.prods){ const c=lsComp(lsResolve(p.name,p.variation)); for(const k in c){ const ck=lsCanon(k); need[ck]=(need[ck]||0)+c[k]*p.units; } } return need; }
@@ -2069,7 +2099,13 @@ function lsCandidates(){
 }
 function lsRenderReview(){
   if(!LSR) return; const box=$('#lsReviewBox'); if(!box) return; const rep=LSR.rep; const C=lsCandidates();
-  if(LSR.games===null){ LSR.games=new Set(); const best=C.groups[0]; if(best&&best.covered>0) best.list.forEach(g=>LSR.games.add(g.id)); LSR.autoFull=!!(best&&best.full); }
+  /* where the file goes: the shift named with the file's date (a new one when there is none yet) */
+  const dname=lsDateName(rep.date), tlist=lsShiftsOn(dname);
+  if(LSR.target===undefined || (LSR.target&&tlist.indexOf(LSR.target)<0) || (LSR.target===null&&tlist.length)) LSR.target = tlist.length ? (tlist.indexOf(CUR_SHIFT)>=0?CUR_SHIFT:tlist[0]) : null;
+  const tsh=LSR.target?SHIFTS[LSR.target]:null, tpg=tsh&&tsh.pgames&&rep.platform?tsh.pgames[safeKey(rep.platform)]:null;
+  if(LSR.games===null){ LSR.games=new Set();
+    if(tpg) lsArr(tpg.ids).forEach(id=>LSR.games.add(id));                                   // this platform is already in the shift → its games
+    else { const best=C.groups[0]; if(best&&best.covered>0) best.list.forEach(g=>LSR.games.add(g.id)); LSR.autoFull=!!(best&&best.full); } }
   for(const id of [...LSR.games]) if(!C.all.some(g=>g.id===id)) LSR.games.delete(id);          // a game closed meanwhile
   const sel=C.all.filter(g=>LSR.games.has(g.id));
   const have={}; for(const g of sel){ const m=lsCanonMap(g.items); for(const k in m) have[k]=(have[k]||0)+m[k]; }
@@ -2090,17 +2126,37 @@ function lsRenderReview(){
   const others=C.all.filter(g=>!C.dated.some(x=>x.id===g.id)).sort((a,b)=>String(a.name).localeCompare(b.name));
   if(others.length) gh+='<div class="lsgroup"><button class="btn ghost sm" id="lsAllGames">'+(LSR.showAll?'▾ Hide':'▸ Show')+' the other open games ('+others.length+')</button>'+(LSR.showAll||others.some(g=>LSR.games.has(g.id))?others.filter(g=>LSR.showAll||LSR.games.has(g.id)).map(gameRow).join(''):'')+'</div>';
   const oth=[...rep.other.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
-  const dateTxt=rep.date?pad2(rep.date.m)+'/'+pad2(rep.date.d)+'/'+rep.date.y:'—';
   const noGames=!sel.length;
-  box.innerHTML='<div class="pickhead">📄 '+(LSR.mode==='sync'?'Update “'+esc(shiftName(LSR.shift))+'” from the sales report':'Sales report — check before it becomes a shift')+'</div>'+
-    '<div class="lsmeta"><span>File <b>'+esc(rep.fileName||'—')+'</b></span><span>Tab <b>'+esc(rep.tab)+'</b></span><span>Date <b>'+dateTxt+'</b></span><span>Platform <b>'+esc(rep.platform)+'</b></span><span><b>'+fmtN(tracks.size)+'</b> parcels (tracking numbers)</span><span><b>'+fmtN(orders.size)+'</b> orders</span><span><b>'+fmtN(LSR.prods.reduce((a,p)=>a+p.units,0)-skipU)+'</b> units</span></div>'+
+  const plist=lsKnownPlatforms(); if(rep.platform&&!plist.some(x=>norm(x)===norm(rep.platform))) plist.push(rep.platform);
+  const dIso=rep.date?rep.date.y+'-'+pad2(rep.date.m)+'-'+pad2(rep.date.d):'';
+  const ready=!!(rep.date&&rep.platform);
+  const inShift=LSR.target&&LSR.target===CUR_SHIFT&&S.platforms[rep.platform]?S.platforms[rep.platform].orders.length:null;
+  let where;
+  if(!rep.date) where='<div class="lsnote err"><b>The file name has no date.</b> Pick the date of the shift above.</div>';
+  else if(!rep.platform) where='<div class="lsnote err"><b>The platform could not be read from the file name.</b> Pick it above.</div>';
+  else if(!LSR.target) where='<div class="lsnote ok">No shift for <b>'+esc(dname)+'</b> yet — a new shift <b>'+esc(dname)+'</b> is created with <b>'+esc(rep.platform)+'</b> in it.</div>';
+  else where='<div class="lsnote ok">Goes into the existing shift <b>'+esc(dname)+'</b>'+
+      (tlist.length>1?' <select id="lsTarget" class="tinput" style="max-width:300px;padding:4px 8px;font-size:12.5px">'+tlist.map(id=>'<option value="'+esc(id)+'"'+(id===LSR.target?' selected':'')+'>created '+esc(new Date(SHIFTS[id].createdAt||0).toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}))+' · '+fmtN(SHIFTS[id].orders||0)+' orders at start'+(SHIFTS[id].fileName?' · '+esc(String(SHIFTS[id].fileName).slice(0,40)):'')+'</option>').join('')+'</select> <span class="lswarn">'+tlist.length+' shifts carry this date — pick the one to keep using</span>':'')+
+      '. '+((tpg||inShift)?'<b>'+esc(rep.platform)+'</b> is already loaded there'+(inShift?' ('+fmtN(inShift)+' parcels)':'')+' — it is compared with this file: new orders are added, orders missing from the file are removed, changed orders are updated.':'<b>'+esc(rep.platform)+'</b> is added to it as a new platform.')+
+      ' Other platforms of the shift are not touched.</div>';
+  box.innerHTML='<div class="pickhead">📄 Sales report — one file, one platform'+(ready?' · '+esc(rep.platform)+' · '+esc(dname):'')+'</div>'+
+    '<div class="lsmeta" style="align-items:center"><span>File <b>'+esc(rep.fileName||'—')+'</b></span><span>Tab <b>'+esc(rep.tab)+'</b></span>'+
+      '<span>Platform <select id="lsPlat" class="tinput" style="width:auto;max-width:220px;padding:4px 8px;font-size:13px"'+(rep.platform?'':' data-miss="1"')+'>'+(rep.platform?'':'<option value="" selected>— pick —</option>')+plist.map(x=>'<option value="'+esc(x)+'"'+(norm(x)===norm(rep.platform)?' selected':'')+'>'+esc(x)+'</option>').join('')+'<option value="__other">Other…</option></select></span>'+
+      '<span>Shift date <input type="date" id="lsDate" class="tinput" style="width:auto;padding:3px 8px;font-size:13px;color-scheme:dark" value="'+dIso+'"></span>'+
+      '<span><b>'+fmtN(tracks.size)+'</b> parcels (tracking numbers)</span><span><b>'+fmtN(orders.size)+'</b> orders</span><span><b>'+fmtN(LSR.prods.reduce((a,p)=>a+p.units,0)-skipU)+'</b> units</span></div>'+
+    where+
     (bad?'<div class="lsnote err"><b>'+bad+' product name(s) are not in the inventory.</b> Press <b>Match…</b> and pick the product or bundle — the choice is remembered and used for every next report.</div>':'<div class="lsnote ok">Every product of the report is recognised.</div>')+
     '<div class="lsscroll"><table class="lstable"><thead><tr><th>In the report (after “s-”)</th><th class="num">Sold</th><th>Our inventory</th><th class="num" title="Units in the selected games / units the report needs">In the games / needed</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div class="eyebrow" style="margin:16px 0 6px">Games the packed units are written to</div>'+
     '<p class="sub" style="font-size:12.5px;margin:0 0 8px">Found by the date of the file and the products inside. Packed units go to the <b>Sales report</b> of these games in CPH INVENTORY (Batch 1 first, then Batch 2), so the leftovers can be returned to the Stockroom from there.</p>'+gh+
     (noGames?'<div class="lsnote warn">No game is ticked — packed units would be taken straight off the <b>Stockroom</b> instead.</div>':short?'<div class="lsnote warn">'+short+' product(s) are short in the ticked games (orange numbers). You can go on: the missing units are written to the first game and it goes below zero for them.</div>':'')+
     (oth.length||rep.noTrack||rep.cancelled?'<details class="lsdet"><summary>Not imported: '+(oth.length?fmtN(oth.reduce((a,x)=>a+x[1],0))+' unit(s) of regular sales (no “s-”)':'')+(rep.noTrack?(oth.length?' · ':'')+fmtN(rep.noTrack)+' unit(s) without a tracking number':'')+(rep.cancelled?' · '+fmtN(rep.cancelled)+' cancelled':'')+'</summary>'+oth.map(x=>'<div class="lsmut">'+fmtN(x[1])+' × '+esc(x[0])+'</div>').join('')+'</details>':'')+
-    '<div class="lsfoot"><button class="btn ghost" id="lsRulesFromReview">🔗 Name rules</button><div class="spacer" style="flex:1"></div><button class="btn ghost" id="lsCancel">Cancel</button><button class="btn primary lg" id="lsConfirm"'+(bad||!tracks.size?' disabled':'')+'>'+(LSR.mode==='sync'?'Update the shift':'Confirm')+' · '+fmtN(tracks.size)+' parcels</button></div>';
+    '<div class="lsfoot"><button class="btn ghost" id="lsRulesFromReview">🔗 Name rules</button><div class="spacer" style="flex:1"></div><button class="btn ghost" id="lsCancel">Cancel</button><button class="btn primary lg" id="lsConfirm"'+(bad||!tracks.size||!ready?' disabled':'')+'>'+(!LSR.target?'Create shift '+esc(dname||''):(tpg||inShift)?'Update '+esc(rep.platform||''):'Add '+esc(rep.platform||'')+' to the shift')+' · '+fmtN(tracks.size)+' parcels</button></div>';
+  { const ps=$('#lsPlat'); if(ps) ps.onchange=()=>{ let v=ps.value;
+      if(v==='__other'){ v=(prompt('Platform name (as it should appear on the tile):', rep.platform||'')||'').trim().replace(/\s+/g,' ').slice(0,40); if(!v){ lsRenderReview(); return; } const ex=lsKnownPlatforms().find(x=>norm(x)===norm(v)); if(ex) v=ex; }
+      if(!v){ return; } rep.platform=v; LSR.games=null; lsRenderReview(); };
+    const di=$('#lsDate'); if(di) di.onchange=()=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(di.value||''); rep.date=m?{y:+m[1], m:+m[2], d:+m[3]}:null; LSR.target=undefined; LSR.games=null; lsRenderReview(); };
+    const ts=$('#lsTarget'); if(ts) ts.onchange=()=>{ LSR.target=ts.value; LSR.games=null; lsRenderReview(); }; }
   $$('#lsReviewBox [data-lsuse]').forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.lsuse.split(':').map(Number); const p=LSR.prods[i], x=(LSR.sug[i]||[])[j]; if(!p||!x) return; LSP={name:p.name, variation:p.variation}; lsSaveRule(x.t==='bundle'?{t:'bundle', b:x.b}:{t:'item', k:x.k, m:1}); });
   $$('#lsReviewBox [data-lsfix]').forEach(b=>b.onclick=()=>{ const p=LSR.prods[+b.dataset.lsfix]; lsOpenPicker(p.name,p.variation); });
   $$('#lsReviewBox [data-lsgame]').forEach(c=>c.onchange=()=>{ if(c.checked) LSR.games.add(c.dataset.lsgame); else LSR.games.delete(c.dataset.lsgame); lsRenderReview(); });
@@ -2122,20 +2178,46 @@ function lsBuildPlatforms(){
   return {[rep.platform]:{name:rep.platform, orders, orderCol:rep.hasOrderCol?'Order ID':''}};
 }
 async function lsConfirm(){
-  if(!LSR) return; const rep=LSR.rep; const platforms=lsBuildPlatforms(); const games=[...LSR.games]; const all=lsOpenGames();
+  if(!LSR) return; const rep=LSR.rep; if(!rep.date||!rep.platform) return;
+  const platforms=lsBuildPlatforms(); const games=[...LSR.games]; const all=lsOpenGames();
   games.sort((a,b)=>{ const A=all.find(g=>g.id===a)||{}, B=all.find(g=>g.id===b)||{}; return lsGameBatch(A.name)-lsGameBatch(B.name)||String(A.name||'').localeCompare(String(B.name||'')); });
   const gameNames=games.map(id=>(all.find(g=>g.id===id)||{}).name||id);
-  const n=platforms[rep.platform].orders.length; const mode=LSR.mode, shift=LSR.shift;
-  LSR=null; $('#lsReview').classList.add('hide');
-  if(mode==='sync'){
-    if(shift!==CUR_SHIFT){ toast('The open shift changed — nothing was updated','warn',4000); return; }
-    try{ await pk.update({['shiftIndex/'+shift+'/games']:games.length?games:null, ['shiftIndex/'+shift+'/gameNames']:games.length?gameNames:null, ['shifts/'+shift+'/meta/games']:games.length?games:null}); }catch(e){ toast('Could not save the games of the shift','err',4000); }
-    await syncShiftOrders({__ls:true, platforms}, rep.fileName); return;
+  const plat=rep.platform, pkey=safeKey(plat), n=platforms[plat].orders.length, name=lsDateName(rep.date);
+  /* the shift of that date, looked up again at the last moment (someone may have created it meanwhile) */
+  const tl=lsShiftsOn(name); let target=(LSR.target&&tl.indexOf(LSR.target)>=0)?LSR.target:(tl[0]||null);
+  LSR=null; $('#lsReview').classList.add('hide'); lsRememberPlatform(plat);
+  const pg={name:plat, ids:games.length?games:null, names:games.length?gameNames:null, file:rep.fileName||'', at:Date.now(), by:MY_NAME||''};
+
+  if(!target){                                                       // no shift for this date yet → create it, named with the date
+    const id=newShiftId(), orders={}, now=Date.now();
+    for(const o of platforms[plat].orders) orders[safeKey(plat+'__'+o.trackingId)]={platform:plat, trackingId:o.trackingId, orderNo:o.orderNo||null, items:o.items, status:'pending', claim:null, addedAt:now};
+    const source={type:'file', name:rep.fileName||''}; const meta={name, createdAt:now, createdBy:MY_NAME, source}; if(games.length) meta.games=games;
+    try{ await pk.update({ ['shifts/'+id+'/meta']:meta, ['shifts/'+id+'/orders']:orders, ['trackIndex/'+id]:trackRowsFor(orders),
+        ['shiftIndex/'+id]:{name, createdAt:now, createdBy:MY_NAME, orders:n, source, fileName:rep.fileName||'', games:games.length?games:null, gameNames:games.length?gameNames:null, pgames:{[pkey]:pg}} }); }
+    catch(e){ toast('Could not create the shift: '+(e&&e.message||e),'err',4200); return; }
+    _pendingShift=null; renderShiftStage(); setShift(id);
+    gstatus('ord','✓ Shift “'+name+'” created · '+plat+' · '+n+' parcels from “'+rep.fileName+'”'+(games.length?' · games: '+gameNames.join(', '):' · no game linked — units leave the Stockroom')+'.','ok');
+    toast('Shift “'+name+'” created · '+plat+' · '+n+' parcels','ok',3200);
+    { const cb=$('#continueBtn'); if(cb) cb.disabled=false; }
+    return;
   }
-  const d=rep.date;
-  _pendingShift={platforms, source:{type:'file', name:rep.fileName||''}, name:d?pad2(d.m)+'/'+pad2(d.d)+'/'+d.y:todayUS(), fromName:rep.fileName||'', orders:n, games, gameNames};
-  gstatus('ord','✓ Read '+n+' parcels from “'+rep.fileName+'” (tab “'+rep.tab+'”)'+(games.length?' · games: '+gameNames.join(', '):' · no game linked — units leave the Stockroom')+'.','ok');
-  renderShiftStage();
+
+  /* the date already has a shift → this platform is added to it or brought in line with the file */
+  if(target!==CUR_SHIFT){ setShift(target);
+    try{ const snap=await pk.child('shifts/'+target+'/orders').once('value'); const want=snap.numChildren(); const t0=Date.now();
+      while(Date.now()-t0<4000){ let have=0; for(const k in S.platforms) have+=S.platforms[k].orders.length; if(have===want) break; await new Promise(r=>setTimeout(r,60)); } }
+    catch(e){ toast('Could not open the shift “'+name+'”: '+(e&&e.message||e),'err',4200); return; }
+    if(target!==CUR_SHIFT){ toast('The open shift changed — nothing was updated','warn',4000); return; } }
+  { const sh=SHIFTS[target]||{}; const up={}; const had=sh.pgames||null; const legacy=lsShiftGames(target), legacyNames=lsArr(sh.gameNames);
+    const pgs=Object.assign({}, had||{});
+    if(!had && legacy.length) for(const p in S.platforms) if(safeKey(p)!==pkey) pgs[safeKey(p)]={name:p, ids:legacy, names:legacyNames};   // platforms loaded before this build keep the shift's games
+    pgs[pkey]=pg;
+    const uni=[], uniN=[]; for(const k in pgs){ const ids=lsArr(pgs[k].ids), nm=lsArr(pgs[k].names); ids.forEach((id,i)=>{ if(uni.indexOf(id)<0){ uni.push(id); uniN.push(nm[i]||id); } }); }
+    up['shiftIndex/'+target+'/pgames']=pgs; up['shiftIndex/'+target+'/games']=uni.length?uni:null; up['shiftIndex/'+target+'/gameNames']=uni.length?uniN:null; up['shifts/'+target+'/meta/games']=uni.length?uni:null;
+    try{ await pk.update(up); sh.pgames=pgs; sh.games=uni.length?uni:null; sh.gameNames=uni.length?uniN:null; }catch(e){ toast('Could not save the games of '+plat,'err',4000); } }
+  gstatus('ord','Shift “'+name+'” · '+plat+' · '+n+' parcels in “'+rep.fileName+'”.','ok');
+  await syncShiftOrders({__ls:true, platforms}, '“'+(rep.fileName||'the file')+'” ('+plat+')');
+  { const cb=$('#continueBtn'); if(cb) cb.disabled=false; }
 }
 
 /* ---- pick the product / bundle for a report name (and remember it) ---- */
@@ -2270,7 +2352,7 @@ async function lsUndeductFromGames(shiftId, orderKey, order, mref){
 }
 /* ---- waiting orders follow the catalog: a bundle whose contents were changed, or a product whose catalog line changed ---- */
 function lsLineFix(o){
-  const games=lsShiftGames(CUR_SHIFT), out=[], seen=new Set(), items=o.items||[];
+  const games=lsOrderGames(CUR_SHIFT, o.platform), out=[], seen=new Set(), items=o.items||[];
   for(const it of items){
     if(it.bd){ if(seen.has(it.bd)) continue; seen.add(it.bd);
       const lines=items.filter(x=>x.bd===it.bd); const n=+lines[0].bq||Math.max(1,...lines.map(l=>Math.round((+l.qty||1)/(+l.per||1))));
@@ -2500,7 +2582,7 @@ async function syncShiftOrders(buf, label){
   lines.push('• remove '+removedPending.length+' order(s) not yet packed');
   lines.push('• move '+removedDone.length+' finished order(s) to the removed-orders log');
   if(skipped.length) lines.push('• skip '+skipped.length+' being packed right now');
-  if(untouchedPlatforms.length) lines.push('• leave '+untouchedPlatforms.join(', ')+' alone — that tab is not in this file');
+  if(untouchedPlatforms.length) lines.push('• leave '+untouchedPlatforms.join(', ')+' alone — '+((buf&&buf.__ls)?'this file is another platform':'that tab is not in this file'));
   lines.push('', 'Everything else keeps its current status. Continue?');
 
   if(!added.length && !changed.length && !removedPending.length && !removedDone.length){
@@ -4446,7 +4528,7 @@ $('#showAllBtn').onclick=()=>{ if(activePick){ toast('Finish or cancel the curre
 function doReadReports(from){ rvFrom=from||'platforms'; show('reportview'); renderReportView(); }
 async function doPullOrders(){
   if(!CUR_SHIFT){ toast('Open a shift first','warn',3000); return; }
-  if(LS_MODE){ toast('Pick the newer sales-report file for “'+shiftName(CUR_SHIFT)+'” — new orders are added, packed ones are kept','info',4200); $('#syncFile').click(); return; }
+  if(LS_MODE){ toast('Pick a sales-report file — one file is one platform. It goes to the shift of the date in the file name: a platform already loaded there is updated, a new one is added','info',5200); $('#syncFile').click(); return; }
   const nm=shiftName(CUR_SHIFT);
   let src=await resolveShiftSource(CUR_SHIFT);
   if(!src){
